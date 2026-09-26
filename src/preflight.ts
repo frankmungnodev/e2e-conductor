@@ -43,10 +43,6 @@ async function isUp(service: ServiceConfig): Promise<boolean> {
   }
 }
 
-/**
- * Check every service. With `start`, launch the ones that are down and wait for them.
- * Returns the services this run started, so they can be stopped at the end.
- */
 const UNFINISHED_GIT_OPERATIONS = ["rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD"]
 
 /**
@@ -62,6 +58,10 @@ function unfinishedGitOperation(cwd: string): string | undefined {
   return found && (found.startsWith("rebase") ? "a rebase" : `a ${found.replace("_HEAD", "").toLowerCase().replace("_", "-")}`)
 }
 
+/**
+ * Check every service. With `start`, launch the ones that are down and wait for them.
+ * Returns the services this run started, so they can be stopped at the end.
+ */
 export async function prepareServices(
   config: LoadedConfig,
   names: Set<string>,

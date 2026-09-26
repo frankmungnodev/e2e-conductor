@@ -114,10 +114,6 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     for (const name of used) {
       const target = config.targets[name]
       if (target && target.driver !== "mobile") serviceNames.add(target.service)
-    }
-
-    for (const name of used) {
-      const target = config.targets[name]
       if (name === SHELL_TARGET) {
         drivers.set(name, new ShellDriver(config.configDir))
       } else if (target.driver === "http") {
@@ -151,7 +147,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
         const label = options.repeat > 1 ? `${scenario.id} (${iteration}/${options.repeat})` : scenario.id
         const dir = join(artifactsRoot, options.repeat > 1 ? `${scenario.id}-${iteration}` : scenario.id)
         mkdirSync(dir, { recursive: true })
-        const failure = await runScenario(config, scenario, { drivers, dir, runId, iteration, label, out })
+        const failure = await runScenario(config, scenario, { drivers, dir, iteration, label, out })
         summary.total++
         if (failure) {
           summary.failed++
@@ -180,7 +176,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
 async function runScenario(
   config: LoadedConfig,
   scenario: Scenario,
-  run: { drivers: Map<string, Driver>; dir: string; runId: string; iteration: number; label: string; out: RunLog },
+  run: { drivers: Map<string, Driver>; dir: string; iteration: number; label: string; out: RunLog },
 ): Promise<{ step: string; error: string } | undefined> {
   const { drivers, dir, out } = run
   const scope: Scope = {

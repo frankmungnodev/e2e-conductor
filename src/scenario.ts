@@ -54,7 +54,7 @@ const DRIVER_FIELDS: Record<string, string[]> = {
 const REQUIRED: Record<string, string> = { http: "url", web: "run", mobile: "flow", shell: "command" }
 const COMMON = new Set(["name", "target", "extract", "assert", "timeout_ms", "retry"])
 
-export function driverOf(config: LoadedConfig, target: string): string {
+function driverOf(config: LoadedConfig, target: string): string {
   if (target === SHELL_TARGET) return SHELL_TARGET
   const found = config.targets[target]
   if (!found) {

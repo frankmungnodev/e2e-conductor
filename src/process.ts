@@ -7,13 +7,13 @@ import type { Logger } from "./config.ts"
 export type CommandResult = { exitCode: number; stdout: string; stderr: string }
 
 /** Run a command, stream each output line to `log`, and collect the output. */
-export function runCommand(
+function runCommand(
   command: string,
   args: string[],
-  options: { cwd?: string; timeoutMs?: number; log?: Logger; shell?: boolean } = {},
+  options: { cwd?: string; timeoutMs?: number; log?: Logger } = {},
 ): Promise<CommandResult> {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { cwd: options.cwd, shell: options.shell ?? false })
+    const child = spawn(command, args, { cwd: options.cwd })
     let stdout = ""
     let stderr = ""
     const forward = (chunk: Buffer, sink: "out" | "err") => {
@@ -73,22 +73,14 @@ export function stopBackground(child: ChildProcess) {
   }
 }
 
-function onPath(binary: string): boolean {
-  return spawnSync("sh", ["-c", `command -v ${binary}`]).status === 0
-}
-
-/** Find a CLI on PATH or in its usual install folders. */
-export function findTool(binary: string, fallbacks: string[]): string | undefined {
-  if (onPath(binary)) return binary
-  return fallbacks.find((path) => existsSync(path))
-}
-
+/** Find adb on PATH or in the usual Android SDK folders. */
 export function adbPath(): string | undefined {
+  if (spawnSync("sh", ["-c", "command -v adb"]).status === 0) return "adb"
   const sdkRoots = [process.env.ANDROID_HOME, process.env.ANDROID_SDK_ROOT, join(homedir(), "Library/Android/sdk")]
-  return findTool(
-    "adb",
-    sdkRoots.filter((root): root is string => Boolean(root)).map((root) => join(root, "platform-tools/adb")),
-  )
+  return sdkRoots
+    .filter((root): root is string => Boolean(root))
+    .map((root) => join(root, "platform-tools/adb"))
+    .find((path) => existsSync(path))
 }
 
 export const sleep = (ms: number) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms))

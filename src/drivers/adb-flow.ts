@@ -1,15 +1,12 @@
 import { spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
-import { parseAllDocuments } from "yaml"
 import type { Logger } from "../config.ts"
+import { parseFlow } from "../flow.ts"
 import { sleep } from "../process.ts"
 
 /**
  * Runs YAML flows with plain adb: `uiautomator dump` to find elements, `input` to act.
- * Supported commands: launchApp, stopApp, clearState, tapOn, inputText, assertVisible,
- * assertNotVisible, extendedWaitUntil, scrollUntilVisible, swipe (from an element), back, hideKeyboard.
- * Selectors take text, id, index, optional, checked, the relative `below` / `above`, and
- * `containsDescendants` (a list of selectors for nodes inside this one's bounds).
+ * The commands and selectors it accepts are defined in schema/v1/flow.schema.json.
  */
 
 type Selector = {
@@ -272,9 +269,8 @@ export class AdbFlowRunner {
   /** Run a flow file. `vars` replace `${NAME}` in it. */
   async runFlow(file: string, vars: Record<string, string>) {
     const source = readFileSync(file, "utf8").replace(/\$\{(\w+)\}/g, (whole, name: string) => vars[name] ?? whole)
-    const documents = parseAllDocuments(source).map((doc) => doc.toJS())
-    const [header, commands] = documents.length > 1 ? documents : [{}, documents[0]]
-    const appId = String(header?.appId ?? vars.APP_ID)
+    const { header, commands } = parseFlow(source)
+    const appId = String((header as { appId?: string } | undefined)?.appId ?? vars.APP_ID)
 
     for (const entry of (commands ?? []) as unknown[]) {
       const [name, arg] = typeof entry === "string" ? [entry, undefined] : Object.entries(entry as object)[0]

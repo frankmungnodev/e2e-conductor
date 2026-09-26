@@ -22,12 +22,12 @@ export class RunLog {
 
   line(text = "") {
     console.log(text)
-    appendFileSync(this.file, `${text.replace(ANSI, "")}\n`)
+    appendFileSync(this.file, `${stripAnsi(text)}\n`)
   }
 
   /** Detail lines go to the file only, unless E2E_VERBOSE=1. */
   detail(text: string) {
     if (process.env.E2E_VERBOSE === "1") console.log(color.dim(`      ${text}`))
-    appendFileSync(this.file, `      ${text.replace(ANSI, "")}\n`)
+    appendFileSync(this.file, `      ${stripAnsi(text)}\n`)
   }
 }
