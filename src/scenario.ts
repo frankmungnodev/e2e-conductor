@@ -97,7 +97,8 @@ function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlows: Set<
     if (!hasRequired) {
       errors.push(`${where}: ${driver} step needs "${REQUIRED[driver]}"${driver === "mobile" ? ' or "launch"' : ""}`)
     }
-    if (driver === "mobile" && step.flow !== undefined) {
+    // A flow name with a placeholder is only known at run time; the mobile driver checks it then.
+    if (driver === "mobile" && step.flow !== undefined && !step.flow.includes("${")) {
       for (const problem of checkStepFlow(config, step, checkedFlows)) errors.push(`${where}: ${problem}`)
     }
   })
