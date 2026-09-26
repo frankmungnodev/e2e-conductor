@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Config schema</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #2d3142;
+      --color-ink:     #f5f5f5;
+      --color-muted:   #bfc0c0;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    .note { margin: -0.75rem 0 1.5rem; color: var(--color-muted); font-size: 0.9rem; max-width: 60rem; }
+    .note code { font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-ink); }
+    svg { width: 100%; min-width: 900px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">ER · e2e.config.ts</p>
+    <h1>Config schema</h1>
+
+    <svg viewBox="0 0 1280 652" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="config-schema-title config-schema-desc">
+      <title id="config-schema-title">e2e.config.ts schema</title>
+      <desc id="config-schema-desc">Data model of the config file with defaults: the E2EConfig root holds maps of services, targets and fixtures; targets are one of HTTP, web or mobile types, HTTP and web targets name a service, and services, fixtures and mobile installs reuse the Command type.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6a95d8"/></marker>
+      </defs>
+      <rect y="0" width="1280" height="652" fill="#2d3142"/>
+<rect x="856" y="80" width="368" height="488" rx="8" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<rect x="948.8" y="84" width="182.4" height="12" rx="2" fill="#2d3142"/>
+<text x="1040.0" y="93" fill="rgba(245,245,245,0.50)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">TARGETCONFIG · ONE OF, BY driver</text>
+<path d="M 440,120 H 360" fill="none" stroke="#bfc0c0" stroke-width="1"/>
+<rect x="371.6" y="100" width="56.8" height="12" rx="2" fill="#2d3142"/>
+<text x="400" y="109" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SERVICES</text>
+<text x="428" y="134" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">1</text>
+<text x="372" y="134" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="start">N</text>
+<path d="M 760,150 H 856" fill="none" stroke="#bfc0c0" stroke-width="1"/>
+<rect x="782.4" y="130" width="51.199999999999996" height="12" rx="2" fill="#2d3142"/>
+<text x="808" y="139" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">TARGETS</text>
+<text x="772" y="164" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="start">1</text>
+<text x="844" y="164" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">N</text>
+<path d="M 440,196 H 308 Q 300,196 300,204 V 300" fill="none" stroke="#bfc0c0" stroke-width="1"/>
+<rect x="371.6" y="176" width="56.8" height="12" rx="2" fill="#2d3142"/>
+<text x="400" y="185" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">FIXTURES</text>
+<text x="428" y="210" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">1</text>
+<text x="308" y="294" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="start">N</text>
+<path d="M 600,220 V 300" fill="none" stroke="#bfc0c0" stroke-width="1"/>
+<rect x="611.6" y="254" width="56.8" height="12" rx="2" fill="#2d3142"/>
+<text x="640" y="263" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">FIXTURES</text>
+<text x="592" y="234" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">1</text>
+<text x="592" y="294" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">N</text>
+<path d="M 200,188 V 300" fill="none" stroke="#bfc0c0" stroke-width="1"/>
+<rect x="216.0" y="238" width="40.0" height="12" rx="2" fill="#2d3142"/>
+<text x="236" y="247" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">START</text>
+<text x="192" y="202" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">1</text>
+<text x="192" y="294" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">0..1</text>
+<path d="M 880,470 H 408 Q 400,470 400,462 V 368 Q 400,360 392,360 H 360" fill="none" stroke="#bfc0c0" stroke-width="1"/>
+<rect x="614.4" y="450" width="51.199999999999996" height="12" rx="2" fill="#2d3142"/>
+<text x="640" y="459" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">INSTALL</text>
+<text x="868" y="484" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">1</text>
+<text x="372" y="352" fill="#bfc0c0" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="start">0..1</text>
+<path d="M 1100,80 V 64 Q 1100,56 1092,56 H 208 Q 200,56 200,64 V 78" fill="none" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+<rect x="592.0" y="36" width="96.0" height="12" rx="2" fill="#2d3142"/>
+<text x="640" y="45" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SERVICE BY NAME</text>
+<rect x="440" y="80" width="320" height="140" rx="6" fill="#2d3142"/>
+<rect x="440" y="80" width="320" height="140" rx="6" fill="rgba(240,138,89,0.10)" stroke="#f08a59" stroke-width="1"/>
+<rect x="448" y="90" width="32" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.45)" stroke-width="0.8"/>
+<text x="464.0" y="99" fill="#f08a59" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ROOT</text>
+<text x="488" y="101" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif">E2EConfig</text>
+<text x="748" y="101" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">defineConfig()</text>
+<line x1="440" y1="112" x2="760" y2="112" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<text x="452" y="128" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">services?</text>
+<text x="560" y="128" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">map&lt;ServiceConfig&gt;</text>
+<text x="748" y="128" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">{}</text>
+<text x="452" y="144" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">targets</text>
+<text x="748" y="144" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">map&lt;TargetConfig&gt;</text>
+<text x="452" y="160" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">fixtures?</text>
+<text x="560" y="160" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">map&lt;Command | FixtureFn&gt;</text>
+<text x="748" y="160" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">{}</text>
+<text x="452" y="176" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">env?</text>
+<text x="560" y="176" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">map&lt;string&gt;</text>
+<text x="748" y="176" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">process env wins</text>
+<text x="452" y="192" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">scenarios</text>
+<text x="748" y="192" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">string · folder</text>
+<text x="452" y="208" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">results</text>
+<text x="748" y="208" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">string · folder</text>
+<rect x="40" y="80" width="320" height="108" rx="6" fill="#2d3142"/>
+<rect x="40" y="80" width="320" height="108" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.55)" stroke-width="1"/>
+<rect x="48" y="90" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+<text x="64.0" y="99" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">TYPE</text>
+<text x="88" y="101" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif">ServiceConfig</text>
+<line x1="40" y1="112" x2="360" y2="112" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<text x="52" y="128" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">url</text>
+<text x="348" y="128" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">string · base URL</text>
+<text x="52" y="144" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">health?</text>
+<text x="144" y="144" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">string · path</text>
+<text x="348" y="144" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">&quot;/&quot;</text>
+<text x="52" y="160" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">start?</text>
+<text x="144" y="160" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">Command</text>
+<text x="348" y="160" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">used on --start</text>
+<text x="52" y="176" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">exclusive?</text>
+<text x="144" y="176" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">boolean</text>
+<text x="348" y="176" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">false</text>
+<rect x="40" y="300" width="320" height="76" rx="6" fill="#2d3142"/>
+<rect x="40" y="300" width="320" height="76" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.55)" stroke-width="1"/>
+<rect x="48" y="310" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+<text x="64.0" y="319" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">TYPE</text>
+<text x="88" y="321" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Command</text>
+<line x1="40" y1="332" x2="360" y2="332" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<text x="52" y="348" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">cmd</text>
+<text x="348" y="348" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">string · shell line</text>
+<text x="52" y="364" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">cwd?</text>
+<text x="144" y="364" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">string</text>
+<text x="348" y="364" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">&quot;.&quot; = config dir</text>
+<rect x="440" y="300" width="320" height="92" rx="6" fill="#2d3142"/>
+<rect x="440" y="300" width="320" height="92" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.55)" stroke-width="1"/>
+<rect x="448" y="310" width="20" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+<text x="458.0" y="319" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">FN</text>
+<text x="476" y="321" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif">FixtureFn</text>
+<text x="748" y="321" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">(ctx) =&gt; Promise&lt;void&gt;</text>
+<line x1="440" y1="332" x2="760" y2="332" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<text x="452" y="348" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">configDir</text>
+<text x="748" y="348" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">string</text>
+<text x="452" y="364" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">env</text>
+<text x="748" y="364" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">map&lt;string&gt;</text>
+<text x="452" y="380" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">log</text>
+<text x="748" y="380" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">(message) =&gt; void</text>
+<rect x="880" y="112" width="320" height="76" rx="6" fill="#2d3142"/>
+<rect x="880" y="112" width="320" height="76" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.55)" stroke-width="1"/>
+<rect x="888" y="122" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+<text x="904.0" y="131" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">TYPE</text>
+<text x="928" y="133" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif">HttpTarget</text>
+<line x1="880" y1="144" x2="1200" y2="144" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<text x="892" y="160" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">driver</text>
+<text x="1188" y="160" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">&quot;http&quot;</text>
+<text x="892" y="176" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">service</text>
+<text x="1188" y="176" fill="#6a95d8" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">→ services key</text>
+<rect x="880" y="212" width="320" height="140" rx="6" fill="#2d3142"/>
+<rect x="880" y="212" width="320" height="140" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.55)" stroke-width="1"/>
+<rect x="888" y="222" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+<text x="904.0" y="231" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">TYPE</text>
+<text x="928" y="233" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif">WebTarget</text>
+<line x1="880" y1="244" x2="1200" y2="244" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<text x="892" y="260" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">driver</text>
+<text x="1188" y="260" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">&quot;web&quot;</text>
+<text x="892" y="276" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">service</text>
+<text x="1188" y="276" fill="#6a95d8" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">→ services key</text>
+<text x="892" y="292" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">modules</text>
+<text x="1188" y="292" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">string · folder</text>
+<text x="892" y="308" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">login?</text>
+<text x="960" y="308" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">string · module</text>
+<text x="1188" y="308" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">none</text>
+<text x="892" y="324" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">headless?</text>
+<text x="960" y="324" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">boolean</text>
+<text x="1188" y="324" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">false · E2E_HEADLESS</text>
+<text x="892" y="340" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">slowMo?</text>
+<text x="960" y="340" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">number · ms</text>
+<text x="1188" y="340" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">0 · E2E_SLOWMO</text>
+<rect x="880" y="376" width="320" height="156" rx="6" fill="#2d3142"/>
+<rect x="880" y="376" width="320" height="156" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.55)" stroke-width="1"/>
+<rect x="888" y="386" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+<text x="904.0" y="395" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">TYPE</text>
+<text x="928" y="397" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif">MobileTarget</text>
+<line x1="880" y1="408" x2="1200" y2="408" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<text x="892" y="424" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">driver</text>
+<text x="1188" y="424" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">&quot;mobile&quot;</text>
+<text x="892" y="440" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">platform</text>
+<text x="1188" y="440" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">&quot;android&quot; only</text>
+<text x="892" y="456" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">appId</text>
+<text x="1188" y="456" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">string</text>
+<text x="892" y="472" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">flows</text>
+<text x="1188" y="472" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">string · folder</text>
+<text x="892" y="488" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">grantPermissions?</text>
+<text x="1008" y="488" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">string[]</text>
+<text x="1188" y="488" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">[]</text>
+<text x="892" y="504" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">reversePorts?</text>
+<text x="1008" y="504" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">number[]</text>
+<text x="1188" y="504" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">[]</text>
+<text x="892" y="520" fill="#bfc0c0" font-size="9" font-weight="400" font-family="'Geist Mono', monospace">install?</text>
+<text x="1008" y="520" fill="#8e98ac" font-size="9" font-family="'Geist Mono', monospace">Command</text>
+<text x="1188" y="520" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="end">used on --install</text>
+<line x1="40" y1="600" x2="1240" y2="600" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+<text x="40" y="624" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+<rect x="140" y="614" width="20" height="14" rx="3" fill="rgba(240,138,89,0.10)" stroke="#f08a59" stroke-width="1"/>
+<text x="168" y="624" fill="#bfc0c0" font-size="9" font-family="'Geist', sans-serif">Root export</text>
+<rect x="265.2" y="614" width="20" height="14" rx="3" fill="#393e53" stroke="rgba(245,245,245,0.55)" stroke-width="1"/>
+<text x="293.2" y="624" fill="#bfc0c0" font-size="9" font-family="'Geist', sans-serif">Type</text>
+<text x="354.0" y="624" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">name</text>
+<text x="384.0" y="624" fill="#bfc0c0" font-size="9" font-family="'Geist', sans-serif">Required</text>
+<text x="465.6" y="624" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace">name?</text>
+<text x="501.6" y="624" fill="#bfc0c0" font-size="9" font-family="'Geist', sans-serif">Optional</text>
+<text x="583.2" y="624" fill="#f5f5f5" font-size="9" font-weight="500" font-family="'Geist Mono', monospace">false</text>
+<text x="619.2" y="624" fill="#bfc0c0" font-size="9" font-family="'Geist', sans-serif">Default value</text>
+<text x="726.8000000000001" y="624" fill="#6a95d8" font-size="9" font-family="'Geist Mono', monospace">→ ref</text>
+<text x="762.8000000000001" y="624" fill="#bfc0c0" font-size="9" font-family="'Geist', sans-serif">Key into another map</text>
+<line x1="906.8000000000001" y1="621" x2="934.8000000000001" y2="621" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+<text x="942.8000000000001" y="624" fill="#bfc0c0" font-size="9" font-family="'Geist', sans-serif">Lookup by name</text>
+    </svg>
+  </div>
+</body>
+</html>
