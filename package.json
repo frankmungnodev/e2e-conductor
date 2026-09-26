@@ -14,7 +14,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "check:boundary": "node scripts/check-boundary.mjs",
-    "check": "pnpm run typecheck && pnpm run check:boundary"
+    "test": "node --import tsx --test \"test/*.test.ts\"",
+    "check": "pnpm run typecheck && pnpm run check:boundary && pnpm test"
   },
   "dependencies": {
     "ajv": "^8.20.0",
