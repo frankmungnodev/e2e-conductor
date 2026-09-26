@@ -18,9 +18,11 @@ import { Header, type TabType } from "./components/Header.tsx"
 import { PreflightView } from "./components/PreflightView.tsx"
 import { RunnerView } from "./components/RunnerView.tsx"
 import { ScenarioBuilder } from "./components/ScenarioBuilder.tsx"
+import { Button } from "./components/Button.tsx"
+import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 
-export function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>("runner")
   const [config, setConfig] = useState<ConfigMeta | null>(null)
   const [scenarios, setScenarios] = useState<ScenarioItem[]>([])
@@ -35,6 +37,8 @@ export function App() {
   const [lastSummary, setLastSummary] = useState<RunSummary | undefined>()
   const [events, setEvents] = useState<RunEvent[]>([])
   const [logs, setLogs] = useState<Array<{ text: string; level: "info" | "detail" }>>([])
+
+  const { error: toastError, success: toastSuccess } = useToast()
 
   // Load initial data
   const loadInitialData = async () => {
@@ -106,8 +110,18 @@ export function App() {
         } else if (event.type === "finish") {
           setIsRunning(false)
           setLastSummary(event.summary)
-          // Refresh scenarios and runs list
           fetchScenarios().then(setScenarios).catch(() => {})
+          if (event.summary.status === "PASSED") {
+            toastSuccess(
+              `All ${event.summary.total} scenarios passed (${event.summary.duration_ms}ms)`,
+              "Run Complete",
+            )
+          } else {
+            toastError(
+              `${event.summary.failed} of ${event.summary.total} scenarios failed`,
+              "Run Failed",
+            )
+          }
         }
       },
       (connected) => {
@@ -134,7 +148,6 @@ export function App() {
     }
   }, [isConnected])
 
-
   const handleStartRun = async (options: {
     scenarios: string[]
     repeat: number
@@ -150,7 +163,7 @@ export function App() {
       const res = await startRun(options)
       setCurrentRunId(res.runId)
     } catch (e) {
-      alert((e as Error).message)
+      toastError((e as Error).message, "Failed to Start Run")
       setIsRunning(false)
     }
   }
@@ -159,7 +172,7 @@ export function App() {
     try {
       await stopRun()
     } catch (e) {
-      alert((e as Error).message)
+      toastError((e as Error).message, "Failed to Stop Run")
     }
   }
 
@@ -188,7 +201,7 @@ export function App() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100">
+    <div className="flex flex-col min-h-screen bg-editor text-fg selection:bg-selection selection:text-white">
       <Header
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -199,25 +212,25 @@ export function App() {
       />
 
       {!isConnected && (
-        <div className="bg-rose-950/80 border-b border-rose-900/60 px-6 py-2 flex items-center justify-between text-xs text-rose-300">
+        <div className="bg-error-bg border-b border-error-border px-4 py-1.5 flex items-center justify-between text-xs text-error">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-error animate-pulse" />
             <span>Cannot reach e2e runner server on port 4173. Waiting for server to respond...</span>
           </div>
-          <button
+          <Button
+            size="xs"
+            variant="danger"
             onClick={() => {
               loadInitialData()
               runPreflightCheck()
             }}
-            className="px-2.5 py-1 rounded bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-700/60 font-medium transition"
           >
             Retry Connection
-          </button>
+          </Button>
         </div>
       )}
 
       <main className="flex-1 overflow-hidden">
-
         {activeTab === "runner" && (
           <RunnerView
             scenarios={scenarios}
@@ -258,4 +271,13 @@ export function App() {
     </div>
   )
 }
+
+export function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
+  )
+}
+
 export default App

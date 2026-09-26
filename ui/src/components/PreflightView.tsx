@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   FolderTree,
   Globe,
-  Loader2,
   Play,
   RefreshCw,
   Server,
@@ -12,6 +11,10 @@ import {
   XCircle,
 } from "lucide-react"
 import { useState } from "react"
+import { Badge } from "./Badge.tsx"
+import { Button } from "./Button.tsx"
+import { Panel, PanelBody, PanelHeader } from "./Panel.tsx"
+import { useToast } from "./Toast.tsx"
 import type { ConfigMeta, PreflightData } from "../types.ts"
 
 type PreflightViewProps = {
@@ -30,14 +33,16 @@ export function PreflightView({
   onStartService,
 }: PreflightViewProps) {
   const [startingServices, setStartingServices] = useState<Record<string, boolean>>({})
+  const { error: toastError, success: toastSuccess } = useToast()
 
   const handleStartService = async (name: string) => {
     setStartingServices((prev) => ({ ...prev, [name]: true }))
     try {
       await onStartService(name)
+      toastSuccess(`Service "${name}" started successfully`, "Service Started")
       setTimeout(onRefresh, 1500)
     } catch (e) {
-      alert((e as Error).message)
+      toastError((e as Error).message, `Failed to start ${name}`)
     } finally {
       setStartingServices((prev) => ({ ...prev, [name]: false }))
     }
@@ -48,104 +53,104 @@ export function PreflightView({
   const anyServiceDown = preflightData?.services.some((s) => !s.up) ?? false
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 max-w-6xl mx-auto space-y-6">
+    <div className="flex-1 overflow-y-auto p-4 max-w-6xl mx-auto space-y-4 bg-editor text-fg select-none">
       {/* Top Banner */}
-      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm">
-        <div>
-          <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-            <Server className="w-4 h-4 text-sky-400" />
-            Environment & Preflight Status
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Real-time health verification for HTTP services, Android emulators, and target dependencies.
-          </p>
-        </div>
+      <Panel variant="sidebar" className="p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-semibold text-fg-bright flex items-center gap-2 uppercase tracking-wide">
+              <Server className="w-3.5 h-3.5 text-primary" />
+              Environment & Preflight Status
+            </h2>
+            <p className="text-[11px] text-fg-muted mt-0.5">
+              Real-time health verification for HTTP services, Android emulators, and target dependencies.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3">
-          {allServicesUp && (
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" /> All Services Ready
-            </span>
-          )}
-          {anyServiceDown && (
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
-              <AlertTriangle className="w-3.5 h-3.5" /> Services Require Attention
-            </span>
-          )}
+          <div className="flex items-center gap-2.5">
+            {allServicesUp && (
+              <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
+                All Services Ready
+              </Badge>
+            )}
+            {anyServiceDown && (
+              <Badge variant="warning" icon={<AlertTriangle className="w-3 h-3 text-warning" />}>
+                Services Require Attention
+              </Badge>
+            )}
 
-          <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-sky-400" : ""}`} />
-            {isLoading ? "Checking..." : "Refresh"}
-          </button>
+            <Button
+              size="xs"
+              variant="secondary"
+              onClick={onRefresh}
+              disabled={isLoading}
+              icon={<RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin text-primary" : ""}`} />}
+            >
+              {isLoading ? "Checking..." : "Refresh"}
+            </Button>
+          </div>
         </div>
-      </div>
+      </Panel>
 
       {/* Services Grid */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-          <Globe className="w-3.5 h-3.5 text-sky-400" />
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+          <Globe className="w-3.5 h-3.5 text-primary" />
           HTTP Services & APIs
         </h3>
 
         {!preflightData?.services.length ? (
-          <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-500">
+          <Panel variant="sidebar" className="p-4 text-xs text-fg-muted">
             No services configured in config.services.
-          </div>
+          </Panel>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {preflightData.services.map((svc) => {
               const isStarting = startingServices[svc.name]
               return (
-                <div
-                  key={svc.name}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between shadow-sm"
-                >
-                  <div>
+                <Panel key={svc.name} variant="sidebar" className="flex flex-col justify-between">
+                  <PanelBody className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-200">{svc.name}</span>
+                        <span className="font-semibold text-xs text-fg-bright">{svc.name}</span>
                         {svc.exclusive && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
+                          <Badge size="xs" variant="warning">
                             exclusive
-                          </span>
+                          </Badge>
                         )}
                       </div>
 
                       {svc.up ? (
-                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> UP ({svc.latencyMs}ms)
-                        </span>
+                        <Badge size="xs" variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
+                          UP ({svc.latencyMs}ms)
+                        </Badge>
                       ) : (
-                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-medium">
-                          <XCircle className="w-3.5 h-3.5" /> DOWN
-                        </span>
+                        <Badge size="xs" variant="danger" icon={<XCircle className="w-3 h-3 text-error" />}>
+                          DOWN
+                        </Badge>
                       )}
                     </div>
 
-                    <div className="mt-3 space-y-1.5 text-xs text-slate-400 font-mono">
+                    <div className="space-y-1 text-[11px] text-fg-muted font-mono">
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-500">URL:</span>
+                        <span className="text-fg-muted">URL:</span>
                         <a
                           href={svc.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-sky-400 hover:underline truncate"
+                          className="text-info hover:underline truncate"
                         >
                           {svc.url}
                         </a>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-500">Health Endpoint:</span>
-                        <span className="text-slate-300">{svc.health}</span>
+                        <span className="text-fg-muted">Health Endpoint:</span>
+                        <span className="text-fg">{svc.health}</span>
                       </div>
                       {svc.startCmd && (
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-500">Start Command:</span>
-                          <span className="text-slate-300 truncate bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                          <span className="text-fg-muted">Start Command:</span>
+                          <span className="text-fg truncate bg-input px-1.5 py-0.5 rounded-xs border border-border">
                             {svc.startCmd}
                           </span>
                         </div>
@@ -153,26 +158,28 @@ export function PreflightView({
                     </div>
 
                     {svc.gitWarning && (
-                      <div className="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
+                      <div className="p-2 rounded-xs bg-warning-bg border border-warning-border text-warning text-[11px] flex items-center gap-2">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                         <span>Warning: {svc.gitWarning} in progress in service repository.</span>
                       </div>
                     )}
-                  </div>
+                  </PanelBody>
 
                   {!svc.up && svc.hasStart && (
-                    <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end">
-                      <button
+                    <div className="px-3 py-2 border-t border-border bg-titlebar/50 flex justify-end">
+                      <Button
+                        size="xs"
+                        variant="primary"
                         onClick={() => handleStartService(svc.name)}
                         disabled={isStarting}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition disabled:opacity-50"
+                        isLoading={isStarting}
+                        icon={<Play className="w-3 h-3" />}
                       >
-                        {isStarting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-                        {isStarting ? "Starting Service..." : "Start Service"}
-                      </button>
+                        Start Service
+                      </Button>
                     </div>
                   )}
-                </div>
+                </Panel>
               )
             })}
           </div>
@@ -180,116 +187,139 @@ export function PreflightView({
       </div>
 
       {/* Android & Devices Status */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-          <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+          <Smartphone className="w-3.5 h-3.5 text-success" />
           Mobile Devices & Android ADB
         </h3>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <Panel variant="sidebar">
+          <PanelHeader
+            title="Android Debug Bridge (ADB)"
+            actions={
+              <span className="text-[11px] text-fg-muted font-mono">
+                {preflightData?.devices.length ?? 0} connected device(s)
+              </span>
+            }
+          />
+          <PanelBody className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-400">Android Debug Bridge (ADB):</span>
+              <span className="text-xs text-fg-muted">Status:</span>
               {preflightData?.adb.available ? (
-                <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Ready ({preflightData.adb.path})
-                </span>
+                <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
+                  Ready ({preflightData.adb.path})
+                </Badge>
               ) : (
-                <span className="flex items-center gap-1 text-xs text-amber-400 font-medium">
-                  <AlertCircle className="w-3.5 h-3.5" /> Not Found on PATH / SDK
-                </span>
+                <Badge variant="warning" icon={<AlertCircle className="w-3 h-3 text-warning" />}>
+                  Not Found on PATH / SDK
+                </Badge>
               )}
             </div>
 
-            <div className="text-xs text-slate-500 font-mono">
-              {preflightData?.devices.length ?? 0} connected device(s)
-            </div>
-          </div>
+            {/* Connected Devices */}
+            {!preflightData?.devices.length ? (
+              <div className="text-xs text-fg-muted italic py-1">
+                No Android devices or emulators connected. Ensure an emulator is running or a device is plugged in with USB debugging enabled.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {preflightData.devices.map((dev) => (
+                  <div key={dev.serial} className="py-2.5 first:pt-0 last:pb-0 flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-xs text-fg-bright">{dev.model || "Android Device"}</span>
+                        <span className="font-mono text-[11px] text-fg-muted bg-input px-1.5 py-0.2 rounded-xs border border-border">
+                          {dev.serial}
+                        </span>
+                      </div>
 
-          {/* Connected Devices */}
-          {!preflightData?.devices.length ? (
-            <div className="text-xs text-slate-500 italic py-2">
-              No Android devices or emulators connected. Ensure an emulator is running or a device is plugged in with USB debugging enabled.
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-800/60">
-              {preflightData.devices.map((dev) => (
-                <div key={dev.serial} className="py-3 first:pt-0 last:pb-0 flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-xs text-slate-200">{dev.model || "Android Device"}</span>
-                      <span className="font-mono text-xs text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                        {dev.serial}
-                      </span>
+                      {/* Installed Packages status for mobile targets */}
+                      <div className="mt-2 space-y-1">
+                        {Object.entries(dev.packages).map(([appId, isInstalled]) => (
+                          <div key={appId} className="flex items-center gap-2 text-[11px] font-mono">
+                            <span className="text-fg-muted">Package {appId}:</span>
+                            {isInstalled ? (
+                              <Badge size="xs" variant="success" icon={<CheckCircle2 className="w-2.5 h-2.5 text-success" />}>
+                                Installed
+                              </Badge>
+                            ) : (
+                              <Badge size="xs" variant="danger" icon={<XCircle className="w-2.5 h-2.5 text-error" />}>
+                                Not Installed (Run with --install)
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Installed Packages status for mobile targets */}
-                    <div className="mt-2 space-y-1">
-                      {Object.entries(dev.packages).map(([appId, isInstalled]) => (
-                        <div key={appId} className="flex items-center gap-2 text-xs font-mono">
-                          <span className="text-slate-500">Package {appId}:</span>
-                          {isInstalled ? (
-                            <span className="text-emerald-400 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Installed
-                            </span>
-                          ) : (
-                            <span className="text-rose-400 flex items-center gap-1">
-                              <XCircle className="w-3 h-3" /> Not Installed (Run with --install)
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                    <Badge size="xs" variant="success">
+                      {dev.state}
+                    </Badge>
                   </div>
-
-                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    {dev.state}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </PanelBody>
+        </Panel>
       </div>
 
       {/* Target Drivers & Architecture Configuration */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-          <FolderTree className="w-3.5 h-3.5 text-purple-400" />
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+          <FolderTree className="w-3.5 h-3.5 text-info" />
           Target Drivers Map
         </h3>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+        <Panel variant="sidebar">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-800/60 text-slate-400 font-semibold border-b border-slate-800">
+            <thead className="bg-titlebar text-fg-muted font-semibold border-b border-border">
               <tr>
-                <th className="p-3 pl-4">Target Name</th>
-                <th className="p-3">Driver</th>
-                <th className="p-3">Associated Service / Details</th>
+                <th className="p-2.5 pl-3">Target Name</th>
+                <th className="p-2.5">Driver</th>
+                <th className="p-2.5">Associated Service / Details</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/40 font-mono text-slate-300">
-              <tr className="hover:bg-slate-800/20">
-                <td className="p-3 pl-4 font-bold text-amber-400">shell</td>
-                <td className="p-3">shell</td>
-                <td className="p-3 text-slate-400">Built-in local shell command runner</td>
+            <tbody className="divide-y divide-border font-mono text-fg">
+              <tr className="hover:bg-hover/40">
+                <td className="p-2.5 pl-3 font-semibold text-[#dcdcaa]">shell</td>
+                <td className="p-2.5">
+                  <Badge size="xs" variant="driver-shell">
+                    shell
+                  </Badge>
+                </td>
+                <td className="p-2.5 text-fg-muted font-sans text-[11px]">
+                  Built-in local shell command runner
+                </td>
               </tr>
-              {Object.entries(config?.targets ?? {}).map(([name, t]) => (
-                <tr key={name} className="hover:bg-slate-800/20">
-                  <td className="p-3 pl-4 font-bold text-sky-400">{name}</td>
-                  <td className="p-3">
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">{t.driver}</span>
-                  </td>
-                  <td className="p-3 text-slate-400">
-                    {t.driver === "http" && `Service: ${t.service}`}
-                    {t.driver === "web" && `Service: ${t.service}, Modules: ${t.modules}`}
-                    {t.driver === "mobile" && `App ID: ${t.appId}, Flows: ${t.flows}`}
-                  </td>
-                </tr>
-              ))}
+              {Object.entries(config?.targets ?? {}).map(([name, t]) => {
+                const badgeVariant =
+                  t.driver === "http"
+                    ? "driver-http"
+                    : t.driver === "web"
+                    ? "driver-web"
+                    : t.driver === "mobile"
+                    ? "driver-mobile"
+                    : "driver-shell"
+
+                return (
+                  <tr key={name} className="hover:bg-hover/40">
+                    <td className="p-2.5 pl-3 font-semibold text-info">{name}</td>
+                    <td className="p-2.5">
+                      <Badge size="xs" variant={badgeVariant}>
+                        {t.driver}
+                      </Badge>
+                    </td>
+                    <td className="p-2.5 text-fg-muted font-sans text-[11px]">
+                      {t.driver === "http" && `Service: ${t.service}`}
+                      {t.driver === "web" && `Service: ${t.service}, Modules: ${t.modules}`}
+                      {t.driver === "mobile" && `App ID: ${t.appId}, Flows: ${t.flows}`}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
-        </div>
+        </Panel>
       </div>
     </div>
   )

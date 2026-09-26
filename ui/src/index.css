@@ -1,18 +1,88 @@
 @import "tailwindcss";
 
+@theme {
+  /* Surfaces & Canvas Hierarchy */
+  --color-editor: #1e1e1e;
+  --color-sidebar: #252526;
+  --color-activity: #181818;
+  --color-titlebar: #1f1f1f;
+  --color-input: #313131;
+  --color-hover: #2a2d2e;
+  --color-active: #37373d;
+  --color-selection: #264f78;
+  --color-highlight: #04395e;
+
+  /* Borders & Focus Outlines */
+  --color-border: #2d2d2d;
+  --color-border-muted: #252526;
+  --color-border-light: #3c3c3c;
+  --color-border-focus: #007acc;
+
+  /* Primary Accent & Brand */
+  --color-primary: #007acc;
+  --color-primary-hover: #1177bb;
+  --color-primary-active: #005999;
+  --color-primary-muted: rgba(0, 122, 204, 0.15);
+
+  /* Typography / Foregrounds */
+  --color-fg: #cccccc;
+  --color-fg-bright: #ffffff;
+  --color-fg-muted: #858585;
+  --color-fg-subtle: #6e7681;
+
+  /* Semantic Status Colors */
+  --color-success: #4ec9b0;
+  --color-success-bg: #142a22;
+  --color-success-border: #1f503e;
+
+  --color-warning: #dcdcaa;
+  --color-warning-alt: #cca700;
+  --color-warning-bg: #302611;
+  --color-warning-border: #59471d;
+
+  --color-error: #f14c4c;
+  --color-error-bg: #321618;
+  --color-error-border: #632226;
+
+  --color-info: #75beff;
+  --color-info-bg: #162a3f;
+  --color-info-border: #244970;
+
+  /* Syntax & Target Accents */
+  --color-token-keyword: #c586c0;
+  --color-token-string: #ce9178;
+  --color-token-fn: #dcdcaa;
+  --color-token-type: #4ec9b0;
+  --color-token-var: #9cdcfe;
+  --color-token-comment: #6a9955;
+  --color-token-number: #b5cea8;
+}
+
 @layer base {
+  body {
+    background-color: var(--color-editor);
+    color: var(--color-fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Slim Scrollbars */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #334155;
-    border-radius: 9999px;
+    background: rgba(121, 121, 121, 0.4);
+    border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #475569;
+    background: rgba(100, 100, 100, 0.7);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }

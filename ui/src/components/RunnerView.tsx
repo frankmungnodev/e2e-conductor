@@ -11,6 +11,10 @@ import {
   XCircle,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import { Badge, type BadgeVariant } from "./Badge.tsx"
+import { Button } from "./Button.tsx"
+import { Checkbox } from "./Checkbox.tsx"
+import { NumberInput } from "./NumberInput.tsx"
 import type { RunEvent, RunSummary, ScenarioItem } from "../types.ts"
 
 type RunnerViewProps = {
@@ -174,7 +178,7 @@ export function RunnerView({
     setExecutionTree([...tree])
   }, [events, scenarios])
 
-  // Autoscroll terminal
+  // Scroll to bottom on new logs
   useEffect(() => {
     if (autoScroll && terminalEndRef.current) {
       terminalEndRef.current.scrollIntoView({ behavior: "smooth" })
@@ -190,7 +194,9 @@ export function RunnerView({
   }
 
   const toggleScenario = (id: string) => {
-    setSelectedScenarios((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
+    setSelectedScenarios((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    )
   }
 
   const handleRun = () => {
@@ -206,231 +212,234 @@ export function RunnerView({
   }
 
   // Summary statistics
-  const totalCount = executionTree.length > 0 ? executionTree.length : (lastSummary ? lastSummary.total : 0)
+  const totalCount =
+    executionTree.length > 0 ? executionTree.length : lastSummary ? lastSummary.total : 0
   const passedCount =
     executionTree.length > 0
       ? executionTree.filter((s) => s.status === "passed").length
-      : (lastSummary ? lastSummary.passed : 0)
+      : lastSummary
+      ? lastSummary.passed
+      : 0
   const failedCount =
     executionTree.length > 0
       ? executionTree.filter((s) => s.status === "failed").length
-      : (lastSummary ? lastSummary.failed : 0)
+      : lastSummary
+      ? lastSummary.failed
+      : 0
   const percentComplete =
-    totalCount > 0 ? Math.round(((passedCount + failedCount) / totalCount) * 100) : (lastSummary ? 100 : 0)
+    totalCount > 0
+      ? Math.round(((passedCount + failedCount) / totalCount) * 100)
+      : lastSummary
+      ? 100
+      : 0
 
   const filteredLogs = logFilter
     ? logs.filter((l) => l.text.toLowerCase().includes(logFilter.toLowerCase()))
     : logs
 
-  const getTargetBadgeStyle = (target: string) => {
-    if (target === "shell") return "bg-amber-500/10 text-amber-300 border-amber-500/30"
-    if (target.includes("api") || target.includes("http")) return "bg-sky-500/10 text-sky-300 border-sky-500/30"
-    if (target.includes("mobile") || target.includes("app")) return "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-    return "bg-purple-500/10 text-purple-300 border-purple-500/30"
+  const getTargetBadgeVariant = (target: string): BadgeVariant => {
+    if (target === "shell") return "driver-shell"
+    if (target.includes("api") || target.includes("http")) return "driver-http"
+    if (target.includes("mobile") || target.includes("app")) return "driver-mobile"
+    return "driver-web"
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-65px)] overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-49px)] overflow-hidden bg-editor select-none">
       {/* Run Configuration Bar */}
-      <div className="bg-slate-900 border-b border-slate-800 p-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-sidebar border-b border-border px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
         {/* Scenario Selection dropdown / count */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Scenarios:</span>
-            <button
+            <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider">
+              Scenarios:
+            </span>
+            <Button
+              size="xs"
+              variant="secondary"
               onClick={toggleAllScenarios}
               disabled={isRunning}
-              className="px-2.5 py-1 text-xs rounded border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
             >
               {selectedScenarios.length === scenarios.length ? "Deselect All" : "Select All"} (
               {selectedScenarios.length}/{scenarios.length})
-            </button>
-            <div className="flex items-center gap-1.5 overflow-x-auto max-w-xs">
+            </Button>
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-sm">
               {scenarios.map((sc) => (
-                <label
+                <div
                   key={sc.id}
-                  className="flex items-center gap-1 text-[11px] bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-slate-300 cursor-pointer"
+                  className="flex items-center text-[11px] bg-input px-2 py-0.5 rounded-xs border border-border text-fg hover:bg-hover transition-colors shrink-0"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
+                    size="sm"
                     checked={selectedScenarios.includes(sc.id)}
                     onChange={() => toggleScenario(sc.id)}
                     disabled={isRunning}
-                    className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
+                    label={<span className="truncate max-w-[90px]">{sc.name}</span>}
                   />
-                  <span className="truncate max-w-[80px]">{sc.name}</span>
-                </label>
+                </div>
               ))}
             </div>
           </div>
 
-          <div className="h-4 w-px bg-slate-800" />
+          <div className="h-4 w-px bg-border" />
 
           {/* Repeat */}
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-slate-400 font-medium">Repeat:</label>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={repeat}
-              onChange={(e) => setRepeat(Math.max(1, parseInt(e.target.value, 10) || 1))}
-              disabled={isRunning}
-              className="w-14 px-2 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 text-center"
-            />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-fg-muted font-medium select-none">Repeat:</span>
+            <div className="w-16">
+              <NumberInput
+                size="xs"
+                min={1}
+                max={100}
+                value={repeat}
+                onChange={(val) => setRepeat(val ?? 1)}
+                disabled={isRunning}
+                className="text-center"
+              />
+            </div>
           </div>
 
-          <div className="h-4 w-px bg-slate-800" />
+          <div className="h-4 w-px bg-border" />
 
           {/* Flags */}
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={startServices}
-                onChange={(e) => setStartServices(e.target.checked)}
-                disabled={isRunning}
-                className="rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-0"
-              />
-              <span>Start Services</span>
-            </label>
+            <Checkbox
+              size="sm"
+              label="Start Services"
+              checked={startServices}
+              onChange={(e) => setStartServices(e.target.checked)}
+              disabled={isRunning}
+            />
 
-            <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={installMobile}
-                onChange={(e) => setInstallMobile(e.target.checked)}
-                disabled={isRunning}
-                className="rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-0"
-              />
-              <span>Install Mobile</span>
-            </label>
+            <Checkbox
+              size="sm"
+              label="Install Mobile"
+              checked={installMobile}
+              onChange={(e) => setInstallMobile(e.target.checked)}
+              disabled={isRunning}
+            />
 
-            <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={headless}
-                onChange={(e) => setHeadless(e.target.checked)}
-                disabled={isRunning}
-                className="rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-0"
-              />
-              <span>Headless</span>
-            </label>
+            <Checkbox
+              size="sm"
+              label="Headless"
+              checked={headless}
+              onChange={(e) => setHeadless(e.target.checked)}
+              disabled={isRunning}
+            />
 
-            <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={verbose}
-                onChange={(e) => setVerbose(e.target.checked)}
-                className="rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-0"
-              />
-              <span>Verbose</span>
-            </label>
+            <Checkbox
+              size="sm"
+              label="Verbose"
+              checked={verbose}
+              onChange={(e) => setVerbose(e.target.checked)}
+            />
           </div>
         </div>
 
         {/* Action Button */}
         <div className="flex items-center gap-2">
           {isRunning ? (
-            <button
+            <Button
+              variant="danger"
+              size="sm"
               onClick={onStopRun}
-              className="flex items-center gap-2 px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition shadow-lg shadow-rose-900/30"
+              icon={<Square className="w-3.5 h-3.5 fill-current" />}
             >
-              <Square className="w-3.5 h-3.5 fill-current" />
               Stop Run
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleRun}
               disabled={selectedScenarios.length === 0}
-              className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold text-xs transition shadow-lg ${
-                selectedScenarios.length === 0
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                  : "bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-sky-500/20 font-bold"
-              }`}
+              icon={<Play className="w-3.5 h-3.5 fill-current" />}
             >
-              <Play className="w-3.5 h-3.5 fill-current" />
               Run {selectedScenarios.length} Scenario{selectedScenarios.length === 1 ? "" : "s"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {/* Progress & Metrics Banner */}
-      <div className="bg-slate-950/60 border-b border-slate-800 px-6 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-6">
+      <div className="bg-titlebar border-b border-border px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-5">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">Status:</span>
+            <span className="text-xs text-fg-muted font-medium">Status:</span>
             {isRunning ? (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> RUNNING
-              </span>
+              <Badge variant="warning" dot pulse icon={<Loader2 className="w-3 h-3 animate-spin" />}>
+                RUNNING
+              </Badge>
             ) : lastSummary?.status === "PASSED" ? (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                <CheckCircle2 className="w-3.5 h-3.5" /> PASSED
-              </span>
+              <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
+                PASSED
+              </Badge>
             ) : lastSummary?.status === "FAILED" ? (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-rose-400">
-                <XCircle className="w-3.5 h-3.5" /> FAILED
-              </span>
+              <Badge variant="danger" icon={<XCircle className="w-3 h-3 text-error" />}>
+                FAILED
+              </Badge>
             ) : (
-              <span className="text-xs font-semibold text-slate-400">IDLE</span>
+              <Badge variant="neutral">IDLE</Badge>
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-medium">
-            <span className="text-emerald-400 font-mono">Passed: {passedCount}</span>
-            <span className="text-rose-400 font-mono">Failed: {failedCount}</span>
-            <span className="text-slate-400 font-mono">Total: {totalCount}</span>
+          <div className="flex items-center gap-3.5 text-xs font-mono">
+            <span className="text-success">Passed: {passedCount}</span>
+            <span className="text-error">Failed: {failedCount}</span>
+            <span className="text-fg-muted">Total: {totalCount}</span>
           </div>
 
           {currentRunId && (
-            <div className="text-xs text-slate-500 font-mono flex items-center gap-1">
+            <div className="text-[11px] text-fg-muted font-mono flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              Run: {currentRunId}
+              <span>Run: {currentRunId}</span>
             </div>
           )}
         </div>
 
         {/* Progress Bar */}
-        <div className="flex items-center gap-3 w-72">
-          <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
+        <div className="flex items-center gap-2.5 w-64">
+          <div className="flex-1 bg-input h-1.5 rounded-full overflow-hidden border border-border">
             <div
-              className={`h-full transition-all duration-300 ${failedCount > 0 ? "bg-rose-500" : "bg-emerald-500"}`}
+              className={`h-full transition-all duration-300 ${
+                failedCount > 0 ? "bg-error" : "bg-primary"
+              }`}
               style={{ width: `${percentComplete}%` }}
             />
           </div>
-          <span className="text-xs font-mono text-slate-400 w-10 text-right">{percentComplete}%</span>
+          <span className="text-xs font-mono text-fg-muted w-9 text-right">
+            {percentComplete}%
+          </span>
         </div>
       </div>
 
       {/* Main Split Panels */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel: Scenario & Step Tree */}
-        <div className="w-1/2 border-r border-slate-800 flex flex-col bg-slate-950/40">
-          <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-              <Layers className="w-3.5 h-3.5 text-sky-400" />
+        <div className="w-1/2 border-r border-border flex flex-col bg-editor">
+          <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-sidebar">
+            <span className="text-xs font-semibold text-fg-bright uppercase tracking-wider flex items-center gap-2">
+              <Layers className="w-3.5 h-3.5 text-primary" />
               Scenarios & Steps
             </span>
-            <span className="text-xs text-slate-500">
+            <span className="text-[11px] text-fg-muted">
               {executionTree.length > 0 ? `${executionTree.length} scenario runs` : "Ready to run"}
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
             {executionTree.length === 0 ? (
               lastSummary?.status === "FAILED" && (lastSummary.failures?.length ?? 0) > 0 ? (
-                <div className="p-2 space-y-3">
-                  <div className="bg-rose-950/40 border border-rose-900/60 rounded-xl p-4 text-xs text-rose-300">
-                    <div className="font-semibold flex items-center gap-2 text-rose-200 text-sm mb-2">
-                      <XCircle className="w-4 h-4 text-rose-400" />
+                <div className="p-2 space-y-2">
+                  <div className="bg-error-bg border border-error-border rounded-xs p-3 text-xs text-error">
+                    <div className="font-semibold flex items-center gap-2 text-error text-xs mb-2">
+                      <XCircle className="w-4 h-4 text-error" />
                       Execution Error
                     </div>
                     {lastSummary.failures.map((f, i) => (
                       <div
                         key={i}
-                        className="mt-2 bg-slate-950/90 p-3 rounded-lg border border-rose-900/40 font-mono text-[11px] text-rose-200 whitespace-pre-wrap"
+                        className="mt-2 bg-editor p-2.5 rounded-xs border border-error-border font-mono text-[11px] text-fg whitespace-pre-wrap"
                       >
                         {f.error}
                       </div>
@@ -438,10 +447,12 @@ export function RunnerView({
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 p-8">
-                  <Play className="w-10 h-10 mb-3 opacity-30 stroke-1" />
-                  <p className="text-sm font-medium text-slate-400">No active execution</p>
-                  <p className="text-xs mt-1 text-slate-600 max-w-sm">
+                <div className="flex flex-col items-center justify-center h-full text-center text-fg-muted p-8">
+                  <Play className="w-8 h-8 mb-2.5 opacity-30 stroke-1" />
+                  <p className="text-xs font-semibold text-fg uppercase tracking-wider">
+                    No active execution
+                  </p>
+                  <p className="text-[11px] mt-1 text-fg-muted max-w-xs leading-normal">
                     Select scenarios and click "Run Scenarios" above to start testing. Live steps and assertion results will appear here.
                   </p>
                 </div>
@@ -450,67 +461,88 @@ export function RunnerView({
               executionTree.map((sc, scIdx) => (
                 <div
                   key={`${sc.id}-${sc.iteration}-${scIdx}`}
-                  className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm"
+                  className="bg-sidebar border border-border rounded-xs overflow-hidden"
                 >
                   {/* Scenario Header */}
-                  <div className="p-3 bg-slate-800/60 border-b border-slate-800/80 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      {sc.status === "running" && <Loader2 className="w-4 h-4 text-sky-400 animate-spin" />}
-                      {sc.status === "passed" && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                      {sc.status === "failed" && <XCircle className="w-4 h-4 text-rose-400" />}
-                      {sc.status === "pending" && <div className="w-2 h-2 rounded-full bg-slate-600 mx-1" />}
-                      <div>
-                        <div className="font-semibold text-xs text-slate-200">{sc.name}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">
-                          {sc.id} {sc.totalIterations > 1 ? `(${sc.iteration}/${sc.totalIterations})` : ""}
+                  <div className="px-3 py-2 bg-titlebar/80 border-b border-border flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {sc.status === "running" && (
+                        <Loader2 className="w-3.5 h-3.5 text-warning animate-spin shrink-0" />
+                      )}
+                      {sc.status === "passed" && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                      )}
+                      {sc.status === "failed" && (
+                        <XCircle className="w-3.5 h-3.5 text-error shrink-0" />
+                      )}
+                      {sc.status === "pending" && (
+                        <div className="w-2 h-2 rounded-full bg-fg-muted shrink-0 mx-0.5" />
+                      )}
+                      <div className="truncate">
+                        <div className="font-semibold text-xs text-fg-bright truncate">
+                          {sc.name}
+                        </div>
+                        <div className="text-[10px] text-fg-muted font-mono truncate">
+                          {sc.id}{" "}
+                          {sc.totalIterations > 1 ? `(${sc.iteration}/${sc.totalIterations})` : ""}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {sc.duration_ms !== undefined && (
-                        <span className="text-[10px] text-slate-400 font-mono">{sc.duration_ms}ms</span>
+                        <span className="text-[10px] text-fg-muted font-mono">
+                          {sc.duration_ms}ms
+                        </span>
                       )}
-                      <span
-                        className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
+                      <Badge
+                        size="xs"
+                        variant={
                           sc.status === "passed"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            ? "success"
                             : sc.status === "failed"
-                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            ? "danger"
                             : sc.status === "running"
-                            ? "bg-sky-500/10 text-sky-400 border border-sky-500/20"
-                            : "bg-slate-800 text-slate-400"
-                        }`}
+                            ? "warning"
+                            : "neutral"
+                        }
                       >
                         {sc.status}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
 
                   {/* Steps List */}
-                  <div className="divide-y divide-slate-800/40">
+                  <div className="divide-y divide-border/60">
                     {sc.steps.map((st, stIdx) => (
-                      <div key={stIdx} className="px-4 py-2 flex items-start justify-between text-xs hover:bg-slate-800/20">
-                        <div className="flex items-start gap-2.5">
-                          <div className="mt-0.5">
-                            {st.status === "running" && <Loader2 className="w-3.5 h-3.5 text-sky-400 animate-spin" />}
-                            {st.status === "passed" && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                            {st.status === "failed" && <XCircle className="w-3.5 h-3.5 text-rose-400" />}
-                            {st.status === "pending" && <div className="w-1.5 h-1.5 rounded-full bg-slate-700 my-1 mx-1" />}
+                      <div
+                        key={stIdx}
+                        className="px-3 py-1.5 flex items-start justify-between text-xs hover:bg-hover/40"
+                      >
+                        <div className="flex items-start gap-2 min-w-0">
+                          <div className="mt-0.5 shrink-0">
+                            {st.status === "running" && (
+                              <Loader2 className="w-3 h-3 text-warning animate-spin" />
+                            )}
+                            {st.status === "passed" && (
+                              <CheckCircle2 className="w-3 h-3 text-success" />
+                            )}
+                            {st.status === "failed" && (
+                              <XCircle className="w-3 h-3 text-error" />
+                            )}
+                            {st.status === "pending" && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-fg-muted my-1 mx-0.5" />
+                            )}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`text-[10px] px-1.5 py-0.2 rounded border font-mono ${getTargetBadgeStyle(
-                                  st.target,
-                                )}`}
-                              >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge size="xs" variant={getTargetBadgeVariant(st.target)}>
                                 {st.target}
-                              </span>
-                              <span className="font-medium text-slate-300">{st.name}</span>
+                              </Badge>
+                              <span className="font-medium text-fg">{st.name}</span>
                             </div>
                             {st.error && (
-                              <div className="mt-1 p-2 bg-rose-950/40 border border-rose-800/50 rounded text-rose-300 text-[11px] font-mono whitespace-pre-wrap">
+                              <div className="mt-1 p-2 bg-error-bg border border-error-border rounded-xs text-error text-[11px] font-mono whitespace-pre-wrap">
                                 {st.error}
                               </div>
                             )}
@@ -518,7 +550,9 @@ export function RunnerView({
                         </div>
 
                         {st.duration_ms !== undefined && (
-                          <span className="text-[10px] text-slate-500 font-mono">{st.duration_ms}ms</span>
+                          <span className="text-[10px] text-fg-muted font-mono shrink-0 ml-2">
+                            {st.duration_ms}ms
+                          </span>
                         )}
                       </div>
                     ))}
@@ -530,65 +564,66 @@ export function RunnerView({
         </div>
 
         {/* Right Panel: Live Terminal Logs */}
-        <div className="w-1/2 flex flex-col bg-slate-950">
-          <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+        <div className="w-1/2 flex flex-col bg-activity">
+          <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-sidebar">
             <div className="flex items-center gap-2">
-              <Terminal className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Live Logs</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">
+              <Terminal className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-semibold text-fg-bright uppercase tracking-wider">
+                Output
+              </span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-xs bg-input text-fg-muted font-mono border border-border">
                 {logs.length} lines
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {/* Filter */}
               <div className="relative">
-                <Search className="w-3 h-3 text-slate-500 absolute left-2 top-2" />
+                <Search className="w-3 h-3 text-fg-muted absolute left-2 top-2" />
                 <input
                   type="text"
                   placeholder="Filter logs..."
                   value={logFilter}
                   onChange={(e) => setLogFilter(e.target.value)}
-                  className="pl-7 pr-2 py-1 text-[11px] rounded bg-slate-900 border border-slate-800 text-slate-200 placeholder-slate-500 w-36 focus:w-48 transition-all"
+                  className="pl-6 pr-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg placeholder-fg-muted w-32 focus:w-44 transition-all focus:border-border-focus focus:outline-none"
                 />
               </div>
 
-              <button
+              <Button
+                size="xs"
+                variant={autoScroll ? "primary" : "secondary"}
                 onClick={() => setAutoScroll(!autoScroll)}
-                className={`px-2 py-1 rounded text-[11px] border font-medium ${
-                  autoScroll
-                    ? "bg-sky-500/20 text-sky-300 border-sky-500/30"
-                    : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-300"
-                }`}
               >
                 Auto-scroll
-              </button>
+              </Button>
 
-              <button
+              <Button
+                size="xs"
+                variant="ghost"
                 onClick={onClearLogs}
                 title="Clear logs"
-                className="p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+                icon={<Trash2 className="w-3 h-3 text-fg-muted" />}
+              />
             </div>
           </div>
 
           {/* Terminal Box */}
-          <div className="flex-1 p-4 font-mono text-[12px] overflow-y-auto leading-relaxed text-slate-300 space-y-1">
+          <div className="flex-1 p-3 font-mono text-[11.5px] overflow-y-auto leading-relaxed text-fg space-y-0.5 bg-activity select-text">
             {filteredLogs.length === 0 ? (
-              <div className="text-slate-600 italic">No output yet. Start a run to stream execution logs.</div>
+              <div className="text-fg-muted/60 italic p-2">
+                No output yet. Start a run to stream execution logs.
+              </div>
             ) : (
               filteredLogs.map((log, index) => {
                 const isPass = log.text.includes("✓") || log.text.includes("PASSED")
                 const isFail = log.text.includes("✗") || log.text.includes("FAILED")
                 const isHeading = log.text.includes("▶") || log.text.startsWith("Preflight")
 
-                let colorClass = "text-slate-300"
-                if (isPass) colorClass = "text-emerald-400 font-semibold"
-                else if (isFail) colorClass = "text-rose-400 font-semibold"
-                else if (isHeading) colorClass = "text-sky-300 font-bold"
-                else if (log.level === "detail") colorClass = "text-slate-500"
+                let colorClass = "text-fg"
+                if (isPass) colorClass = "text-success font-semibold"
+                else if (isFail) colorClass = "text-error font-semibold"
+                else if (isHeading) colorClass = "text-info font-bold"
+                else if (log.level === "detail") colorClass = "text-fg-muted"
 
                 return (
                   <div key={index} className={`whitespace-pre-wrap ${colorClass}`}>

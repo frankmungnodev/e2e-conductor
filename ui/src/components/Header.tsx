@@ -1,4 +1,6 @@
 import { Activity, CheckCircle2, FileCode, Play, Server, ShieldCheck, XCircle } from "lucide-react"
+import type React from "react"
+import { Badge } from "./Badge.tsx"
 
 export type TabType = "runner" | "scenarios" | "preflight" | "artifacts"
 
@@ -19,48 +21,50 @@ export function Header({
   scenariosCount,
   isConnected = true,
 }: HeaderProps) {
-
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
-    { id: "runner", label: "Runner", icon: <Play className="w-4 h-4" /> },
-    { id: "scenarios", label: "Scenarios & Flows", icon: <FileCode className="w-4 h-4" /> },
-    { id: "preflight", label: "Preflight & Services", icon: <Server className="w-4 h-4" /> },
-    { id: "artifacts", label: "Runs & Artifacts", icon: <ShieldCheck className="w-4 h-4" /> },
+    { id: "runner", label: "Runner", icon: <Play className="w-3.5 h-3.5" /> },
+    { id: "scenarios", label: "Scenarios & Flows", icon: <FileCode className="w-3.5 h-3.5" /> },
+    { id: "preflight", label: "Preflight & Services", icon: <Server className="w-3.5 h-3.5" /> },
+    { id: "artifacts", label: "Runs & Artifacts", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
   ]
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-3 flex items-center justify-between">
+    <header className="border-b border-border bg-activity select-none sticky top-0 z-40 px-4 py-2 flex items-center justify-between">
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold shadow-inner">
+        {/* VS Code styled branding */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-sm bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-bold shadow-xs">
             ⚡
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-100 tracking-tight text-base">e2e-orchestrator</span>
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+              <span className="font-semibold text-fg-bright text-xs tracking-tight">
+                e2e-orchestrator
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-xs bg-sidebar text-fg-muted border border-border">
                 v0.2.0
               </span>
             </div>
-            <div className="text-xs text-slate-400">HTTP • Playwright • Android ADB</div>
+            <div className="text-[10px] text-fg-muted">HTTP • Playwright • Android ADB</div>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <nav className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+        <nav className="flex items-center gap-1 bg-editor p-0.5 rounded-sm border border-border">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id
             return (
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xs text-xs font-medium transition-colors cursor-pointer ${
                   isActive
-                    ? "bg-sky-500/20 text-sky-300 border border-sky-500/30 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                    ? "bg-primary text-white shadow-xs"
+                    : "text-fg-muted hover:text-fg hover:bg-hover"
                 }`}
               >
                 {tab.icon}
-                {tab.label}
+                <span>{tab.label}</span>
               </button>
             )
           })}
@@ -68,41 +72,35 @@ export function Header({
       </div>
 
       {/* Right Status */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         {!isConnected ? (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            <span>Backend Offline</span>
-          </div>
+          <Badge variant="danger" dot pulse>
+            Backend Offline
+          </Badge>
         ) : (
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60 text-[11px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span>API Ready</span>
-          </div>
+          <Badge variant="neutral" dot>
+            API Ready
+          </Badge>
         )}
 
         {isRunning ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium animate-pulse">
-            <Activity className="w-3.5 h-3.5 animate-spin" />
-            <span>Running Scenarios...</span>
-          </div>
+          <Badge variant="warning" dot pulse icon={<Activity className="w-3 h-3 animate-spin" />}>
+            Running Scenarios...
+          </Badge>
         ) : lastSummaryStatus === "PASSED" ? (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Last Run: PASSED</span>
-          </div>
+          <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
+            Last Run: PASSED
+          </Badge>
         ) : lastSummaryStatus === "FAILED" ? (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
-            <XCircle className="w-3.5 h-3.5" />
-            <span>Last Run: FAILED</span>
-          </div>
+          <Badge variant="danger" icon={<XCircle className="w-3 h-3 text-error" />}>
+            Last Run: FAILED
+          </Badge>
         ) : (
-          <div className="text-xs text-slate-500">
+          <span className="text-[11px] text-fg-muted">
             {scenariosCount} scenario{scenariosCount === 1 ? "" : "s"} loaded
-          </div>
+          </span>
         )}
       </div>
     </header>
   )
 }
-

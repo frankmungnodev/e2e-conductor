@@ -4,10 +4,15 @@ import {
   Image as ImageIcon,
   Maximize2,
   ShieldCheck,
-  X,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { fetchRunDetails, fetchRuns } from "../api.ts"
+import { Badge } from "./Badge.tsx"
+import { Button } from "./Button.tsx"
+import { CodeBlock } from "./CodeBlock.tsx"
+import { EmptyState } from "./EmptyState.tsx"
+import { Modal } from "./Modal.tsx"
+import { Panel } from "./Panel.tsx"
 import type { RunHistoryItem, RunSummary } from "../types.ts"
 
 export function ArtifactsView() {
@@ -63,22 +68,24 @@ export function ArtifactsView() {
   const selectedRunItem = runs.find((r) => r.runId === selectedRunId)
 
   return (
-    <div className="flex h-[calc(100vh-65px)] overflow-hidden">
+    <div className="flex h-[calc(100vh-49px)] overflow-hidden bg-editor text-fg select-none">
       {/* Left Sidebar: Runs History */}
-      <div className="w-80 border-r border-slate-800 bg-slate-900/60 flex flex-col">
-        <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+      <div className="w-72 border-r border-border bg-sidebar flex flex-col">
+        <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-titlebar">
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-sky-400" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">Run History</span>
+            <Clock className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-fg-bright">
+              Run History
+            </span>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+          <Badge size="xs" variant="neutral">
             {runs.length} runs
-          </span>
+          </Badge>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
           {runs.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-500">
+            <div className="p-4 text-center text-xs text-fg-muted">
               No historical runs found in results/artifacts.
             </div>
           ) : (
@@ -94,18 +101,20 @@ export function ArtifactsView() {
                 <button
                   key={r.runId}
                   onClick={() => setSelectedRunId(r.runId)}
-                  className={`w-full text-left p-3 rounded-xl text-xs transition border flex flex-col gap-1.5 ${
+                  className={`w-full text-left p-2 rounded-xs text-xs transition border cursor-pointer flex flex-col gap-1 ${
                     isSelected
-                      ? "bg-sky-500/10 text-sky-200 border-sky-500/30 shadow-sm"
-                      : "border-transparent text-slate-300 hover:bg-slate-800/50"
+                      ? "bg-editor text-fg-bright border-border-focus shadow-xs"
+                      : "border-transparent text-fg hover:bg-hover"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-semibold truncate max-w-[170px]">{r.runId}</span>
-                    <span className="text-[10px] text-slate-500">{dateStr}</span>
+                    <span className="font-mono text-xs font-semibold truncate max-w-[160px]">
+                      {r.runId}
+                    </span>
+                    <span className="text-[10px] text-fg-muted">{dateStr}</span>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] text-fg-muted">
                     <span>{r.scenarios.length} scenario artifact(s)</span>
                   </div>
                 </button>
@@ -116,28 +125,27 @@ export function ArtifactsView() {
       </div>
 
       {/* Main Panel: Run Details & Artifacts */}
-      <div className="flex-1 flex flex-col bg-slate-950 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-editor overflow-hidden">
         {selectedRunId ? (
           <>
             {/* Header */}
-            <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
+            <div className="px-4 py-2.5 border-b border-border bg-titlebar flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-bold text-slate-100 font-mono">Run: {selectedRunId}</span>
+                  <span className="text-xs font-bold text-fg-bright font-mono">
+                    Run: {selectedRunId}
+                  </span>
                   {latestSummary?.artifacts?.includes(selectedRunId) && (
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        latestSummary.status === "PASSED"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                      }`}
+                    <Badge
+                      size="xs"
+                      variant={latestSummary.status === "PASSED" ? "success" : "danger"}
                     >
                       {latestSummary.status}
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 {selectedRunItem && (
-                  <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-3">
+                  <div className="text-[11px] text-fg-muted mt-0.5 flex items-center gap-2">
                     <span>Recorded: {new Date(selectedRunItem.timestamp).toLocaleString()}</span>
                     <span>•</span>
                     <span>{allImages.length} screenshot(s) captured</span>
@@ -146,73 +154,68 @@ export function ArtifactsView() {
               </div>
 
               {/* Sub-tabs */}
-              <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
-                <button
+              <div className="flex items-center bg-sidebar p-0.5 rounded-xs border border-border">
+                <Button
+                  size="xs"
+                  variant={activeTab === "artifacts" ? "primary" : "ghost"}
                   onClick={() => setActiveTab("artifacts")}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition ${
-                    activeTab === "artifacts"
-                      ? "bg-slate-800 text-sky-400 font-semibold shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
+                  icon={<ImageIcon className="w-3 h-3" />}
                 >
-                  <ImageIcon className="w-3.5 h-3.5" />
                   Screenshots & Media
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="xs"
+                  variant={activeTab === "log" ? "primary" : "ghost"}
                   onClick={() => setActiveTab("log")}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition ${
-                    activeTab === "log"
-                      ? "bg-slate-800 text-sky-400 font-semibold shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
+                  icon={<FileText className="w-3 h-3" />}
                 >
-                  <FileText className="w-3.5 h-3.5" />
                   run.log
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Content view */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4">
               {activeTab === "artifacts" ? (
-                <div className="space-y-6 max-w-6xl mx-auto">
+                <div className="space-y-4 max-w-6xl mx-auto">
                   {allImages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
-                      <ImageIcon className="w-12 h-12 mb-3 opacity-30 stroke-1" />
-                      <p className="text-sm font-medium text-slate-400">No screenshots generated</p>
-                      <p className="text-xs mt-1 text-slate-600 max-w-sm">
-                        Screenshots taken on step failure or via mobile/web screenshot flows are preserved here.
-                      </p>
-                    </div>
+                    <EmptyState
+                      icon={<ImageIcon className="w-6 h-6" />}
+                      title="No screenshots generated"
+                      description="Screenshots taken on step failure or via mobile/web screenshot flows are preserved here."
+                    />
                   ) : (
                     <div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-3">
                         Captured Screenshots ({allImages.length})
                       </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         {allImages.map((img, i) => (
-                          <div
+                          <Panel
                             key={i}
-                            className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group shadow-sm hover:border-slate-700 transition flex flex-col"
+                            variant="sidebar"
+                            className="group hover:border-border-focus transition cursor-pointer flex flex-col"
+                            onClick={() => setPreviewImage(img.url)}
                           >
-                            <div
-                              onClick={() => setPreviewImage(img.url)}
-                              className="relative cursor-pointer aspect-video bg-slate-950 flex items-center justify-center overflow-hidden"
-                            >
+                            <div className="relative aspect-video bg-activity flex items-center justify-center overflow-hidden">
                               <img
                                 src={img.url}
                                 alt={img.name}
-                                className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300"
+                                className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-200"
                               />
-                              <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <Maximize2 className="w-6 h-6 text-white" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Maximize2 className="w-5 h-5 text-white" />
                               </div>
                             </div>
-                            <div className="p-3 text-xs">
-                              <div className="font-semibold text-slate-200 truncate">{img.name}</div>
-                              <div className="text-[10px] text-slate-500 font-mono truncate">{img.scenario}</div>
+                            <div className="p-2 text-xs">
+                              <div className="font-semibold text-fg-bright truncate text-[11px]">
+                                {img.name}
+                              </div>
+                              <div className="text-[10px] text-fg-muted font-mono truncate">
+                                {img.scenario}
+                              </div>
                             </div>
-                          </div>
+                          </Panel>
                         ))}
                       </div>
                     </div>
@@ -220,72 +223,79 @@ export function ArtifactsView() {
 
                   {/* Scenario artifacts files breakdown */}
                   {runDetails && Object.keys(runDetails.scenarios).length > 0 && (
-                    <div className="mt-8 space-y-3">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <div className="mt-6 space-y-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
                         Artifact Folders
                       </h3>
-                      <div className="bg-slate-900 border border-slate-800 rounded-xl divide-y divide-slate-800/60">
-                        {Object.entries(runDetails.scenarios).map(([scenario, files]) => (
-                          <div key={scenario} className="p-3.5 flex items-center justify-between text-xs">
-                            <span className="font-mono font-medium text-slate-200">{scenario}</span>
-                            <div className="flex items-center gap-2">
-                              {files.map((file, fIdx) => (
-                                <a
-                                  key={fIdx}
-                                  href={file.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 text-[11px] font-mono border border-slate-700"
-                                >
-                                  {file.name}
-                                </a>
-                              ))}
+                      <Panel variant="sidebar">
+                        <div className="divide-y divide-border">
+                          {Object.entries(runDetails.scenarios).map(([scenario, files]) => (
+                            <div
+                              key={scenario}
+                              className="p-2.5 flex items-center justify-between text-xs"
+                            >
+                              <span className="font-mono font-medium text-fg">{scenario}</span>
+                              <div className="flex items-center gap-2">
+                                {files.map((file, fIdx) => (
+                                  <a
+                                    key={fIdx}
+                                    href={file.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-2 py-0.5 rounded-xs bg-input hover:bg-hover text-info text-[11px] font-mono border border-border transition"
+                                  >
+                                    {file.name}
+                                  </a>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </Panel>
                     </div>
                   )}
                 </div>
               ) : (
                 /* Run Log Tab */
                 <div className="h-full flex flex-col">
-                  <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-300 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                    {runDetails?.runLog || "No log content recorded for this run."}
-                  </div>
+                  <CodeBlock
+                    code={runDetails?.runLog || "No log content recorded for this run."}
+                    language="log"
+                    maxHeight="calc(100vh - 150px)"
+                    showLineNumbers={true}
+                  />
                 </div>
               )}
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500">
-            <ShieldCheck className="w-12 h-12 mb-3 opacity-30 stroke-1" />
-            <p className="text-sm font-medium text-slate-400">Select a run to view artifacts</p>
+          <div className="flex flex-col items-center justify-center h-full text-fg-muted">
+            <EmptyState
+              icon={<ShieldCheck className="w-8 h-8" />}
+              title="Select a run to view artifacts"
+              description="Choose a run from the history sidebar on the left to inspect captured screenshots and execution logs."
+            />
           </div>
         )}
       </div>
 
       {/* Lightbox Modal for Full Image View */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-10 right-0 p-1.5 rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <Modal
+        isOpen={Boolean(previewImage)}
+        onClose={() => setPreviewImage(null)}
+        title="Screenshot Preview"
+        maxWidth="full"
+      >
+        {previewImage && (
+          <div className="flex items-center justify-center p-2 bg-activity rounded-xs">
             <img
               src={previewImage}
               alt="Screenshot Preview"
-              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain border border-slate-800"
+              className="max-w-full max-h-[75vh] object-contain rounded-xs"
             />
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   )
 }
