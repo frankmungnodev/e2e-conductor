@@ -1,8 +1,8 @@
 import type { ChildProcess } from "node:child_process"
 import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { join, resolve } from "node:path"
-import type { LoadedConfig, MobileTarget, ServiceConfig } from "./config.ts"
+import { join } from "node:path"
+import { type LoadedConfig, type MobileTarget, resolveFromConfig, type ServiceConfig } from "./config.ts"
 import { color, type RunLog } from "./logger.ts"
 import { adbPath, runAdb, runShell, sleep, startBackground, stopBackground } from "./process.ts"
 
@@ -43,7 +43,14 @@ async function isUp(service: ServiceConfig): Promise<boolean> {
   }
 }
 
-const UNFINISHED_GIT_OPERATIONS = ["rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD"]
+// Marker file in the git dir, and the operation it means.
+const UNFINISHED_GIT_OPERATIONS: Record<string, string> = {
+  "rebase-merge": "a rebase",
+  "rebase-apply": "a rebase",
+  MERGE_HEAD: "a merge",
+  CHERRY_PICK_HEAD: "a cherry-pick",
+  REVERT_HEAD: "a revert",
+}
 
 /**
  * A service's repo in the middle of a rebase or merge (e.g. an IDE's automatic pull that hit a
@@ -54,8 +61,8 @@ function unfinishedGitOperation(cwd: string): string | undefined {
   const result = spawnSync("git", ["-C", cwd, "rev-parse", "--absolute-git-dir"], { encoding: "utf8" })
   if (result.status !== 0) return undefined
   const gitDir = result.stdout.trim()
-  const found = UNFINISHED_GIT_OPERATIONS.find((entry) => existsSync(join(gitDir, entry)))
-  return found && (found.startsWith("rebase") ? "a rebase" : `a ${found.replace("_HEAD", "").toLowerCase().replace("_", "-")}`)
+  const found = Object.keys(UNFINISHED_GIT_OPERATIONS).find((marker) => existsSync(join(gitDir, marker)))
+  return found && UNFINISHED_GIT_OPERATIONS[found]
 }
 
 /**
@@ -74,7 +81,7 @@ export async function prepareServices(
   for (const name of names) {
     const service = config.services?.[name]
     if (!service) continue
-    const repo = service.start && resolve(config.configDir, service.start.cwd ?? ".")
+    const repo = service.start && resolveFromConfig(config, service.start.cwd)
     const unfinished = repo && unfinishedGitOperation(repo)
     if (unfinished) {
       problems.push(`service ${name}: ${repo} has ${unfinished} in progress; finish or abort it first`)
@@ -104,7 +111,7 @@ export async function prepareServices(
       continue
     }
 
-    const cwd = resolve(config.configDir, service.start.cwd ?? ".")
+    const cwd = resolveFromConfig(config, service.start.cwd)
     mkdirSync(options.logsDir, { recursive: true })
     const logFile = join(options.logsDir, `${name}.log`)
     out.line(`  … starting ${name}: ${service.start.cmd} ${color.dim(`(log: ${logFile})`)}`)
@@ -203,7 +210,7 @@ export async function prepareMobile(
 
   if (options.install) {
     if (!target.install) throw new Error(`target ${name} has no install command`)
-    const cwd = resolve(config.configDir, target.install.cwd ?? ".")
+    const cwd = resolveFromConfig(config, target.install.cwd)
     out.line(`  … ${name}: ${target.install.cmd}`)
     const result = await runShell(target.install.cmd, { cwd, log: (line) => out.detail(line) })
     if (result.exitCode !== 0) {

@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process"
 import { existsSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { MobileTarget } from "../config.ts"
+import { stringify } from "../context.ts"
 import { restoreKeyboards } from "../preflight.ts"
 import { runAdb } from "../process.ts"
 import { AdbFlowRunner } from "./adb-flow.ts"
@@ -41,9 +42,7 @@ export class MobileDriver implements Driver {
     if (!existsSync(flow)) throw new Error(`flow not found: ${flow}`)
 
     const vars: Record<string, string> = { APP_ID: this.target.appId }
-    for (const [key, value] of Object.entries(step.params ?? {})) {
-      vars[key] = typeof value === "string" ? value : JSON.stringify(value)
-    }
+    for (const [key, value] of Object.entries(step.params ?? {})) vars[key] = stringify(value)
     await runner.runFlow(flow, vars)
     return { data: {} }
   }

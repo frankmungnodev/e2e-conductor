@@ -93,8 +93,8 @@ function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlows: Set<
         errors.push(`${where}: "${key}" is not valid for a ${driver} target`)
       }
     }
-    const required = driver === "mobile" && step.launch ? "launch" : REQUIRED[driver]
-    if (step[required as keyof Step] === undefined) {
+    const hasRequired = step[REQUIRED[driver] as keyof Step] !== undefined || (driver === "mobile" && step.launch !== undefined)
+    if (!hasRequired) {
       errors.push(`${where}: ${driver} step needs "${REQUIRED[driver]}"${driver === "mobile" ? ' or "launch"' : ""}`)
     }
     if (driver === "mobile" && step.flow !== undefined) {

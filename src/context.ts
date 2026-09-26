@@ -25,8 +25,7 @@ export function substitute<T>(value: T, scope: Scope): T {
     const whole = value.match(WHOLE_PLACEHOLDER)
     if (whole) return lookup(scope, whole[1] as keyof Scope, whole[2]) as T
     return value.replace(PLACEHOLDER, (_, root: keyof Scope, path: string) => {
-      const found = lookup(scope, root, path)
-      return typeof found === "string" ? found : JSON.stringify(found)
+      return stringify(lookup(scope, root, path))
     }) as T
   }
   if (Array.isArray(value)) {
@@ -51,7 +50,8 @@ export function getPath(source: unknown, path: string): unknown {
   return current
 }
 
-function stringify(value: unknown): string {
+/** Strings as they are; anything else as JSON. */
+export function stringify(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value)
 }
 

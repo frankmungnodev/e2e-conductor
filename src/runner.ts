@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { type LoadedConfig, resolveFromConfig, SHELL_TARGET, serviceOf } from "./config.ts"
 import { getPath, mismatch, type Scope, substitute } from "./context.ts"
 import { HttpDriver } from "./drivers/http.ts"
@@ -71,7 +71,7 @@ async function runFixture(config: LoadedConfig, name: string, out: RunLog) {
     await fixture({ configDir: config.configDir, env: config.env, log })
     return
   }
-  const result = await runShell(fixture.cmd, { cwd: resolve(config.configDir, fixture.cwd ?? "."), log })
+  const result = await runShell(fixture.cmd, { cwd: resolveFromConfig(config, fixture.cwd), log })
   if (result.exitCode !== 0) throw new Error(`fixture ${name} exited ${result.exitCode}`)
 }
 

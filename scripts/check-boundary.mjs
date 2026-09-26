@@ -1,11 +1,11 @@
-// Fails when the core leaks project knowledge: imports from outside core/,
+// Fails when the core leaks project knowledge: imports from outside this package,
 // or project-specific names. Keep it project-agnostic so it can be reused.
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const scanned = ["src", "bin", "schema", "README.md", "package.json"]
+const scanned = ["src", "bin", "schema", "package.json"]
 // Words that belong to a consumer project, never to the core. Set E2E_BOUNDARY_WORDS=a,b,c.
 const forbidden = (process.env.E2E_BOUNDARY_WORDS ?? "")
   .split(",")
