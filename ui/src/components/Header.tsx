@@ -64,18 +64,12 @@ export function Header({
       </div>
 
       {/* Right Status */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         {!isConnected ? (
           <Badge variant="danger" dot pulse size="sm">
             Disconnected
           </Badge>
-        ) : (
-          <Badge variant="neutral" dot size="sm">
-            Ready
-          </Badge>
-        )}
-
-        {isRunning ? (
+        ) : isRunning ? (
           <Badge variant="warning" dot pulse size="sm" icon={<Activity className="w-3 h-3 animate-spin" />}>
             Running
           </Badge>
@@ -88,10 +82,14 @@ export function Header({
             Failed
           </Badge>
         ) : (
-          <span className="text-[11px] text-fg-muted">
-            {scenariosCount} scenario{scenariosCount === 1 ? "" : "s"}
-          </span>
+          <Badge variant="neutral" dot size="sm">
+            Ready
+          </Badge>
         )}
+
+        <span className="text-[11px] text-fg-muted">
+          {scenariosCount} scenario{scenariosCount === 1 ? "" : "s"}
+        </span>
       </div>
     </header>
   )

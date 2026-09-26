@@ -18,6 +18,7 @@ import { deleteModule, fetchModules, saveModule } from "../api.ts"
 import type { ConfigMeta, ModuleFile } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
+import { TabButton, useUrlTab } from "./Tabs.tsx"
 import { useToast } from "./Toast.tsx"
 
 type ModulesViewProps = {
@@ -90,7 +91,11 @@ export function ModulesView({ config, initialSelectedId }: ModulesViewProps) {
 
   // Filter & Search
   const [search, setSearch] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "web" | "fixture" | "helper">("all")
+  const [categoryFilter, setCategoryFilter] = useUrlTab<"all" | "web" | "fixture">(
+    "category",
+    "all",
+    ["all", "web", "fixture"],
+  )
 
   // Modal for new file
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -294,7 +299,7 @@ import { ... } from "./${selectedModule.name}"`
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] bg-bg text-fg overflow-hidden">
+    <div className="flex h-[calc(100vh-49px)] bg-editor text-fg overflow-hidden">
       {/* Sidebar File Explorer */}
       <aside className="w-80 border-r border-border bg-sidebar flex flex-col shrink-0">
         {/* Sidebar Header */}
@@ -322,7 +327,7 @@ import { ... } from "./${selectedModule.name}"`
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-muted hover:text-fg"
+              className="h-7 w-7 p-0 text-fg-muted hover:text-fg"
               onClick={() => loadModulesList()}
               title="Refresh files"
             >
@@ -334,57 +339,45 @@ import { ... } from "./${selectedModule.name}"`
         {/* Search & Filter */}
         <div className="p-3 border-b border-border flex flex-col gap-2">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted pointer-events-none" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-fg-muted pointer-events-none" />
             <input
               type="text"
               placeholder="Filter modules..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-input border border-border rounded text-xs text-fg placeholder:text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="w-full pl-8 pr-3 py-1.5 bg-input border border-border rounded text-xs text-fg placeholder:text-fg-muted focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus"
             />
           </div>
 
-          <div className="flex items-center gap-1 overflow-x-auto text-[11px] pb-1">
-            <button
-              type="button"
+          <div className="flex items-center bg-editor p-0.5 rounded-sm border border-border">
+            <TabButton
+              variant="pills"
+              active={categoryFilter === "all"}
               onClick={() => setCategoryFilter("all")}
-              className={`px-2 py-0.5 rounded-full border transition-colors ${
-                categoryFilter === "all"
-                  ? "bg-primary/20 border-primary text-primary font-medium"
-                  : "border-border text-muted hover:text-fg hover:border-fg/30"
-              }`}
             >
               All ({modules.length})
-            </button>
-            <button
-              type="button"
+            </TabButton>
+            <TabButton
+              variant="pills"
+              active={categoryFilter === "web"}
               onClick={() => setCategoryFilter("web")}
-              className={`px-2 py-0.5 rounded-full border transition-colors ${
-                categoryFilter === "web"
-                  ? "bg-primary/20 border-primary text-primary font-medium"
-                  : "border-border text-muted hover:text-fg hover:border-fg/30"
-              }`}
             >
               Web Steps ({modules.filter((m) => m.category === "web").length})
-            </button>
-            <button
-              type="button"
+            </TabButton>
+            <TabButton
+              variant="pills"
+              active={categoryFilter === "fixture"}
               onClick={() => setCategoryFilter("fixture")}
-              className={`px-2 py-0.5 rounded-full border transition-colors ${
-                categoryFilter === "fixture"
-                  ? "bg-primary/20 border-primary text-primary font-medium"
-                  : "border-border text-muted hover:text-fg hover:border-fg/30"
-              }`}
             >
               Fixtures ({modules.filter((m) => m.category === "fixture").length})
-            </button>
+            </TabButton>
           </div>
         </div>
 
         {/* File List */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {filteredModules.length === 0 ? (
-            <div className="p-4 text-center text-xs text-muted">
+            <div className="p-4 text-center text-xs text-fg-muted">
               {modules.length === 0
                 ? "No code modules found. Click + New to create a web step module or fixture script."
                 : "No files match your search filter."}
@@ -399,18 +392,18 @@ import { ... } from "./${selectedModule.name}"`
                   onClick={() => handleSelectModule(item)}
                   className={`w-full text-left px-2.5 py-2 rounded flex flex-col gap-1 transition-colors border ${
                     isSelected
-                      ? "bg-accent/40 border-primary/40 text-fg-bright shadow-xs"
+                      ? "bg-editor border-primary/60 text-fg-bright shadow-xs"
                       : "border-transparent text-fg hover:bg-hover hover:border-border"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1.5 w-full">
                     <div className="flex items-center gap-1.5 truncate">
                       {item.category === "web" ? (
-                        <Globe className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <Globe className="w-3.5 h-3.5 text-info shrink-0" />
                       ) : item.category === "fixture" ? (
-                        <Database className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <Database className="w-3.5 h-3.5 text-warning shrink-0" />
                       ) : (
-                        <Wrench className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                        <Wrench className="w-3.5 h-3.5 text-token-keyword shrink-0" />
                       )}
                       <span className="text-xs font-mono font-medium truncate">{item.name}</span>
                     </div>
@@ -420,7 +413,7 @@ import { ... } from "./${selectedModule.name}"`
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-muted pl-5">
+                  <div className="flex items-center justify-between text-[10px] text-fg-muted pl-5">
                     <span>{item.category === "web" ? "Web Step" : item.category === "fixture" ? "Fixture" : "Helper"}</span>
                     <span>{(item.size / 1024).toFixed(1)} KB</span>
                   </div>
@@ -432,14 +425,14 @@ import { ... } from "./${selectedModule.name}"`
       </aside>
 
       {/* Editor & Details Workspace */}
-      <main className="flex-1 flex flex-col bg-bg min-w-0 overflow-hidden">
+      <main className="flex-1 flex flex-col bg-editor min-w-0 overflow-hidden">
         {selectedModule ? (
           <>
             {/* Editor Top Bar */}
             <div className="h-12 border-b border-border bg-activity px-4 flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="flex items-center gap-1.5 text-xs font-mono truncate text-fg-bright">
-                  <span className="text-muted">
+                  <span className="text-fg-muted">
                     {selectedModule.category === "web"
                       ? `${selectedModule.target || "web"} / `
                       : `${selectedModule.category}s / `}
@@ -458,10 +451,10 @@ import { ... } from "./${selectedModule.name}"`
 
               <div className="flex items-center gap-2">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={handleDelete}
-                  className="h-8 px-2.5 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50"
+                  className="h-8 px-2.5 text-xs text-error hover:bg-error-bg hover:border-error-border border border-transparent"
                   title="Delete file"
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
@@ -481,7 +474,7 @@ import { ... } from "./${selectedModule.name}"`
             </div>
 
             {/* Code Editor Body */}
-            <div className="flex-1 flex flex-col min-h-0 bg-[#090d16]">
+            <div className="flex-1 flex flex-col min-h-0 bg-editor">
               <textarea
                 value={editedCode}
                 onChange={(e) => {
@@ -511,17 +504,17 @@ import { ... } from "./${selectedModule.name}"`
             {/* Bottom Reference & Usage Bar */}
             <div className="border-t border-border bg-activity/80 p-3 shrink-0 flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted tracking-wider uppercase flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-fg-muted tracking-wider uppercase flex items-center gap-1.5">
                   <Code2 className="w-3.5 h-3.5 text-primary" />
                   How to use this {selectedModule.category === "web" ? "Step in Scenarios" : "Fixture in Config"}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-2 text-[11px] text-muted hover:text-fg"
+                  className="h-6 px-2 text-[11px] text-fg-muted hover:text-fg"
                   onClick={copyUsageSnippet}
                 >
-                  {copiedSnippet ? <Check className="w-3 h-3 text-emerald-400 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
+                  {copiedSnippet ? <Check className="w-3 h-3 text-success mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
                   {copiedSnippet ? "Copied" : "Copy Snippet"}
                 </Button>
               </div>
@@ -531,12 +524,12 @@ import { ... } from "./${selectedModule.name}"`
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-bg/50">
-            <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-3">
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-editor">
+            <div className="w-12 h-12 rounded-full bg-primary-muted border border-primary/40 flex items-center justify-center text-primary mb-3">
               <FileCode className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-semibold text-fg-bright mb-1">No Module Selected</h3>
-            <p className="text-xs text-muted max-w-sm mb-4">
+            <p className="text-xs text-fg-muted max-w-sm mb-4">
               Select a web step module or fixture script from the sidebar, or create a new one to begin authoring.
             </p>
             <Button
@@ -559,11 +552,11 @@ import { ... } from "./${selectedModule.name}"`
       {/* Modal: Create New Module */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+          <div className="bg-sidebar border border-border rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-100">
             <form onSubmit={handleCreateSubmit}>
               <div className="p-4 border-b border-border">
                 <h3 className="font-semibold text-sm text-fg-bright">Create New Code Module</h3>
-                <p className="text-xs text-muted mt-0.5">
+                <p className="text-xs text-fg-muted mt-0.5">
                   Add a Playwright web step or fixture helper script to your project.
                 </p>
               </div>
@@ -581,15 +574,15 @@ import { ... } from "./${selectedModule.name}"`
                       }}
                       className={`p-2.5 rounded border text-left flex flex-col gap-1 transition-colors ${
                         newCategory === "web"
-                          ? "bg-primary/20 border-primary text-primary"
-                          : "border-border text-muted hover:border-fg/30"
+                          ? "bg-primary-muted border-primary text-primary"
+                          : "border-border text-fg-muted hover:border-border-light"
                       }`}
                     >
                       <div className="flex items-center gap-1.5 text-xs font-semibold">
                         <Globe className="w-3.5 h-3.5" />
                         Web Step Module
                       </div>
-                      <span className="text-[10px] text-muted">Playwright browser automation</span>
+                      <span className="text-[10px] text-fg-muted">Playwright browser automation</span>
                     </button>
 
                     <button
@@ -600,15 +593,15 @@ import { ... } from "./${selectedModule.name}"`
                       }}
                       className={`p-2.5 rounded border text-left flex flex-col gap-1 transition-colors ${
                         newCategory === "fixture"
-                          ? "bg-amber-500/20 border-amber-500 text-amber-400"
-                          : "border-border text-muted hover:border-fg/30"
+                          ? "bg-warning-bg border-warning-border text-warning"
+                          : "border-border text-fg-muted hover:border-border-light"
                       }`}
                     >
                       <div className="flex items-center gap-1.5 text-xs font-semibold">
                         <Database className="w-3.5 h-3.5" />
                         Fixture Script
                       </div>
-                      <span className="text-[10px] text-muted">Setup & database seed scripts</span>
+                      <span className="text-[10px] text-fg-muted">Setup & database seed scripts</span>
                     </button>
                   </div>
                 </div>
@@ -620,7 +613,7 @@ import { ... } from "./${selectedModule.name}"`
                     <select
                       value={newTarget}
                       onChange={(e) => setNewTarget(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-input border border-border rounded text-xs text-fg focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-1.5 bg-input border border-border rounded text-xs text-fg focus:outline-none focus:border-border-focus"
                     >
                       {webTargets.length === 0 && <option value="">No web targets in config</option>}
                       {webTargets.map((name) => (
@@ -643,9 +636,9 @@ import { ... } from "./${selectedModule.name}"`
                     placeholder={newCategory === "web" ? "admin/login.ts or checkout.ts" : "database.ts or seed.ts"}
                     value={newFileName}
                     onChange={(e) => setNewFileName(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-input border border-border rounded text-xs font-mono text-fg focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-1.5 bg-input border border-border rounded text-xs font-mono text-fg focus:outline-none focus:border-border-focus"
                   />
-                  <span className="text-[10px] text-muted mt-1 block">
+                  <span className="text-[10px] text-fg-muted mt-1 block">
                     Subdirectories (e.g. <code>admin/songs/create.ts</code>) are created automatically.
                   </span>
                 </div>

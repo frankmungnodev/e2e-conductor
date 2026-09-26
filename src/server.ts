@@ -346,7 +346,13 @@ export function startServer(
                   raw,
                   isValid: errors.length === 0,
                   errors,
-                  targets: (scenario.steps ?? []).map((s) => s.target),
+                  targets: Array.from(
+                    new Set(
+                      (scenario.steps ?? [])
+                        .map((s) => s.target)
+                        .filter(Boolean),
+                    ),
+                  ),
                 }
               } catch (err) {
                 return {

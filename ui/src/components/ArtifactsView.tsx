@@ -111,10 +111,10 @@ export function ArtifactsView() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-semibold truncate max-w-[160px]">
+                    <span className="font-mono text-xs font-semibold truncate flex-1 min-w-0 pr-2">
                       {r.runId}
                     </span>
-                    <span className="text-[10px] text-fg-muted">{dateStr}</span>
+                    <span className="text-[10px] text-fg-muted shrink-0">{dateStr}</span>
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-fg-muted">
@@ -239,17 +239,21 @@ export function ArtifactsView() {
                             >
                               <span className="font-mono font-medium text-fg">{scenario}</span>
                               <div className="flex items-center gap-2">
-                                {files.map((file, fIdx) => (
-                                  <a
-                                    key={fIdx}
-                                    href={file.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="px-2 py-0.5 rounded-xs bg-input hover:bg-hover text-info text-[11px] font-mono border border-border transition"
-                                  >
-                                    {file.name}
-                                  </a>
-                                ))}
+                                {files.length > 0 ? (
+                                  files.map((file, fIdx) => (
+                                    <a
+                                      key={fIdx}
+                                      href={file.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="px-2 py-0.5 rounded-xs bg-input hover:bg-hover text-info text-[11px] font-mono border border-border transition"
+                                    >
+                                      {file.name}
+                                    </a>
+                                  ))
+                                ) : (
+                                  <span className="text-[11px] text-fg-subtle italic">No artifacts saved</span>
+                                )}
                               </div>
                             </div>
                           ))}

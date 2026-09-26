@@ -206,9 +206,16 @@ export function PreflightView({
             <div className="flex items-center gap-2">
               <span className="text-xs text-fg-muted">Status:</span>
               {preflightData?.adb.available ? (
-                <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
-                  Ready ({preflightData.adb.path})
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
+                    Ready
+                  </Badge>
+                  {preflightData.adb.path && (
+                    <span className="text-[11px] font-mono text-fg-muted truncate max-w-md">
+                      ({preflightData.adb.path})
+                    </span>
+                  )}
+                </div>
               ) : (
                 <Badge variant="warning" icon={<AlertCircle className="w-3 h-3 text-warning" />}>
                   Not Found on System PATH

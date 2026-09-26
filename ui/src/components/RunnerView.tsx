@@ -413,7 +413,7 @@ export function RunnerView({
                   {/* Metadata Row */}
                   <div className="mt-1.5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1 flex-wrap">
-                      {sc.targets.map((tgt) => (
+                      {Array.from(new Set(sc.targets)).map((tgt) => (
                         <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt)}>
                           {tgt.charAt(0).toUpperCase() + tgt.slice(1)}
                         </Badge>
@@ -672,8 +672,8 @@ export function RunnerView({
 
                     <div className="flex items-center gap-2 pt-1 border-t border-border/60">
                       <span className="text-[11px] text-fg-muted font-medium">Platforms:</span>
-                      <div className="flex items-center gap-1.5">
-                        {activePreviewScenario.targets.map((tgt) => (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {Array.from(new Set(activePreviewScenario.targets)).map((tgt) => (
                           <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt)}>
                             {tgt.charAt(0).toUpperCase() + tgt.slice(1)}
                           </Badge>

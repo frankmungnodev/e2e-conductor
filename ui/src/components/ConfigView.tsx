@@ -210,13 +210,13 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
               </Badge>
             </div>
             {Object.keys(config?.services ?? {}).length === 0 ? (
-              <div className="text-xs text-fg-muted bg-panel p-2 rounded-xs border border-border">
+              <div className="text-xs text-fg-muted bg-editor p-2 rounded-xs border border-border">
                 No services configured.
               </div>
             ) : (
               <div className="space-y-1.5">
                 {Object.entries(config?.services ?? {}).map(([name, s]) => (
-                  <div key={name} className="bg-panel p-2 rounded-xs border border-border text-xs">
+                  <div key={name} className="bg-editor p-2 rounded-xs border border-border text-xs">
                     <div className="font-semibold text-fg-bright flex items-center justify-between">
                       <span>{name}</span>
                       <span className="text-[10px] font-mono text-primary truncate max-w-[120px]">
@@ -245,26 +245,38 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
               </Badge>
             </div>
             {Object.keys(config?.targets ?? {}).length === 0 ? (
-              <div className="text-xs text-fg-muted bg-panel p-2 rounded-xs border border-border">
+              <div className="text-xs text-fg-muted bg-editor p-2 rounded-xs border border-border">
                 No targets configured.
               </div>
             ) : (
               <div className="space-y-1.5">
-                {Object.entries(config?.targets ?? {}).map(([name, t]) => (
-                  <div key={name} className="bg-panel p-2 rounded-xs border border-border text-xs">
-                    <div className="font-semibold text-fg-bright flex items-center justify-between">
-                      <span>{name}</span>
-                      <Badge variant="neutral" size="xs">
-                        {String(t.driver ?? "http").toUpperCase()}
-                      </Badge>
-                    </div>
-                    {t.driver === "mobile" && t.appId && (
-                      <div className="text-[10px] text-fg-muted mt-1 font-mono truncate">
-                        App: {t.appId}
+                {Object.entries(config?.targets ?? {}).map(([name, t]) => {
+                  const driverStr = String(t.driver ?? "http")
+                  const driverTitle = driverStr.charAt(0).toUpperCase() + driverStr.slice(1)
+                  const variant =
+                    t.driver === "http"
+                      ? "driver-http"
+                      : t.driver === "web"
+                        ? "driver-web"
+                        : t.driver === "mobile"
+                          ? "driver-mobile"
+                          : "driver-shell"
+                  return (
+                    <div key={name} className="bg-editor p-2 rounded-xs border border-border text-xs">
+                      <div className="font-semibold text-fg-bright flex items-center justify-between">
+                        <span>{name}</span>
+                        <Badge variant={variant} size="xs">
+                          {driverTitle}
+                        </Badge>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {t.driver === "mobile" && t.appId && (
+                        <div className="text-[10px] text-fg-muted mt-1 font-mono truncate">
+                          App: {t.appId}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -279,8 +291,8 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                 {(config?.fixtures ?? []).length}
               </Badge>
             </div>
-            {(config?.fixtures ?? []).length === 0 ? (
-              <div className="text-xs text-fg-muted bg-panel p-2 rounded-xs border border-border">
+            {Object.keys(config?.fixtures ?? []).length === 0 ? (
+              <div className="text-xs text-fg-muted bg-editor p-2 rounded-xs border border-border">
                 No fixtures declared.
               </div>
             ) : (
@@ -300,13 +312,13 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
           {/* Quick Snippet Generator */}
           <div className="pt-2 border-t border-border">
             <div className="text-[10px] font-semibold text-fg-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
-              <Plus className="w-3 h-3 text-secondary" /> Add Snippets to Config
+              <Plus className="w-3 h-3 text-fg-muted" /> Add Snippets to Config
             </div>
             <div className="space-y-1">
               <button
                 type="button"
                 onClick={() => insertSnippet(TEMPLATES.httpService)}
-                className="w-full text-left px-2 py-1.5 text-xs bg-panel hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
+                className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
               >
                 <span>+ Backend Service</span>
                 <Server className="w-3 h-3 text-info" />
@@ -314,7 +326,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
               <button
                 type="button"
                 onClick={() => insertSnippet(TEMPLATES.webTarget)}
-                className="w-full text-left px-2 py-1.5 text-xs bg-panel hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
+                className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
               >
                 <span>+ Web Target (Playwright)</span>
                 <Globe className="w-3 h-3 text-primary" />
@@ -322,7 +334,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
               <button
                 type="button"
                 onClick={() => insertSnippet(TEMPLATES.mobileTarget)}
-                className="w-full text-left px-2 py-1.5 text-xs bg-panel hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
+                className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
               >
                 <span>+ Mobile Target (Android)</span>
                 <Smartphone className="w-3 h-3 text-success" />

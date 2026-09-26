@@ -11,7 +11,6 @@ import {
   FileCode,
   FilePlus2,
   Layers,
-  Pencil,
   Plus,
   Save,
   Search,
@@ -568,7 +567,10 @@ export function ScenarioBuilder({
           {/* Scenarios Section */}
           <div>
             <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-fg-muted flex items-center justify-between">
-              <span>Test Scenarios</span>
+              <span className="flex items-center gap-1.5">
+                <FileCode className="w-3.5 h-3.5 text-primary" />
+                Test Scenarios
+              </span>
               <span className="font-mono text-[10px] text-fg-muted">
                 {filteredScenarios.length}
               </span>
@@ -609,9 +611,12 @@ export function ScenarioBuilder({
 
           {/* Flows Section */}
           {flows.length > 0 && (
-            <div>
+            <div className="border-t border-border pt-2.5">
               <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-fg-muted flex items-center justify-between">
-                <span>Mobile Workflows</span>
+                <span className="flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-success" />
+                  Mobile Workflows
+                </span>
                 <span className="font-mono text-[10px] text-fg-muted">
                   {filteredFlows.length}
                 </span>
@@ -654,33 +659,30 @@ export function ScenarioBuilder({
         {activeItem?.type === "scenario" && draftScenario ? (
           <>
             {/* Scenario Header Bar */}
-            <div className="px-4 py-2 border-b border-border bg-titlebar flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <FileCode className="w-4 h-4 text-primary" />
-                <div>
+            <div className="px-4 py-2 border-b border-border bg-titlebar flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-4">
+                <FileCode className="w-4 h-4 text-primary shrink-0" />
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <div className="relative flex items-center group">
-                      <input
-                        type="text"
-                        value={draftScenario.name}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setDraftScenario({
-                            ...draftScenario,
-                            name: val,
-                            raw: { ...draftScenario.raw, name: val },
-                          })
-                          setJsonText(JSON.stringify({ ...draftScenario.raw, name: val }, null, 2))
-                        }}
-                        className="text-xs font-bold bg-transparent text-fg-bright hover:bg-input pl-1.5 pr-6 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none"
-                      />
-                      <Pencil className="w-2.5 h-2.5 text-fg-muted/60 group-hover:text-fg-muted absolute right-1.5 pointer-events-none transition-colors" />
-                    </div>
-                    <span className="text-[10px] font-mono text-fg-muted bg-sidebar px-1.5 py-0.2 rounded-xs border border-border">
+                    <input
+                      type="text"
+                      value={draftScenario.name}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setDraftScenario({
+                          ...draftScenario,
+                          name: val,
+                          raw: { ...draftScenario.raw, name: val },
+                        })
+                        setJsonText(JSON.stringify({ ...draftScenario.raw, name: val }, null, 2))
+                      }}
+                      className="text-xs font-bold bg-transparent text-fg-bright hover:bg-input px-1.5 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none flex-1 min-w-0 max-w-lg"
+                    />
+                    <span className="text-[10px] font-mono text-fg-muted bg-sidebar px-1.5 py-0.2 rounded-xs border border-border shrink-0">
                       {draftScenario.id}.json
                     </span>
                   </div>
-                  <div className="relative flex items-center group w-96 mt-0.5">
+                  <div className="mt-0.5">
                     <input
                       type="text"
                       placeholder="Add description..."
@@ -694,9 +696,8 @@ export function ScenarioBuilder({
                         })
                         setJsonText(JSON.stringify({ ...draftScenario.raw, description: val }, null, 2))
                       }}
-                      className="text-[11px] text-fg-muted bg-transparent hover:bg-input pl-1.5 pr-6 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none w-full"
+                      className="text-[11px] text-fg-muted bg-transparent hover:bg-input px-1.5 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none w-full max-w-xl"
                     />
-                    <Pencil className="w-2.5 h-2.5 text-fg-muted/60 group-hover:text-fg-muted absolute right-1.5 pointer-events-none transition-colors" />
                   </div>
                 </div>
               </div>
@@ -763,7 +764,7 @@ export function ScenarioBuilder({
               {editorMode === "visual" ? (
                 <div className="max-w-4xl mx-auto space-y-4">
                   {/* Scenario Configuration Panel */}
-                  <div className="bg-panel border border-border rounded-xs overflow-hidden">
+                  <div className="bg-sidebar border border-border rounded-xs overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -1008,8 +1009,8 @@ export function ScenarioBuilder({
                       >
                         {/* Step Card Top Controls */}
                         <div className="flex items-center justify-between pb-2.5 border-b border-border mb-3">
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-5 h-5 rounded-xs bg-input border border-border text-fg-muted flex items-center justify-center text-[10px] font-mono font-bold">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-3">
+                            <span className="w-5 h-5 rounded-xs bg-input border border-border text-fg-muted flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
                               {idx + 1}
                             </span>
                             <input
@@ -1017,7 +1018,7 @@ export function ScenarioBuilder({
                               value={step.name}
                               onChange={(e) => updateStep(idx, { name: e.target.value })}
                               placeholder="Step Name"
-                              className="font-medium text-xs text-fg-bright bg-transparent hover:bg-input px-2 py-0.5 rounded-xs border border-transparent focus:border-border-focus focus:bg-input focus:outline-none w-64"
+                              className="font-medium text-xs text-fg-bright bg-transparent hover:bg-input px-2 py-0.5 rounded-xs border border-transparent focus:border-border-focus focus:bg-input focus:outline-none flex-1 min-w-0"
                             />
                             {/* Target selector */}
                             <Select
@@ -1028,10 +1029,10 @@ export function ScenarioBuilder({
                                 value: t,
                                 label: formatTargetLabel(t),
                               }))}
-                              className="w-44"
+                              className="w-40 shrink-0"
                               triggerClassName="font-medium text-xs text-fg-bright font-sans"
                             />
-                            <Badge size="xs" variant={getTargetBadgeVariant(step.target)}>
+                            <Badge size="xs" variant={getTargetBadgeVariant(step.target)} className="shrink-0">
                               {capitalizeFirst(getTargetDriver(step.target))}
                             </Badge>
                           </div>
@@ -1455,15 +1456,15 @@ export function ScenarioBuilder({
                                 </div>
 
                                 {/* Assert Status / Exit Code */}
-                                <div className="grid grid-cols-2 gap-2">
-                                  {stepDriver === "http" ? (
+                                {stepDriver === "http" ? (
+                                  <div className="grid grid-cols-2 gap-2">
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Expected Response Status:
+                                        Expected Status:
                                       </label>
                                       <NumberInput
                                         size="xs"
-                                        placeholder="e.g. 200 (Success)"
+                                        placeholder="200"
                                         value={step.assert?.status}
                                         onChange={(val) =>
                                           updateStep(idx, {
@@ -1477,14 +1478,35 @@ export function ScenarioBuilder({
                                         className="mt-0.5"
                                       />
                                     </div>
-                                  ) : stepDriver === "shell" ? (
+                                    <div>
+                                      <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
+                                        Response Contains:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        placeholder="Substring match..."
+                                        value={step.assert?.output_contains ?? ""}
+                                        onChange={(e) =>
+                                          updateStep(idx, {
+                                            assert: {
+                                              ...step.assert,
+                                              output_contains: e.target.value || undefined,
+                                            },
+                                          })
+                                        }
+                                        className="w-full mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                ) : stepDriver === "shell" ? (
+                                  <div className="grid grid-cols-2 gap-2">
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
                                         Expected Exit Code:
                                       </label>
                                       <NumberInput
                                         size="xs"
-                                        placeholder="0 (Success)"
+                                        placeholder="0"
                                         value={step.assert?.exit_code}
                                         onChange={(val) =>
                                           updateStep(idx, {
@@ -1498,24 +1520,34 @@ export function ScenarioBuilder({
                                         className="mt-0.5"
                                       />
                                     </div>
-                                  ) : (
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Driver:
+                                        Output Contains:
                                       </label>
-                                      <div className="mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg-muted font-mono">
-                                        {capitalizeFirst(stepDriver)}
-                                      </div>
+                                      <input
+                                        type="text"
+                                        placeholder="Substring match..."
+                                        value={step.assert?.output_contains ?? ""}
+                                        onChange={(e) =>
+                                          updateStep(idx, {
+                                            assert: {
+                                              ...step.assert,
+                                              output_contains: e.target.value || undefined,
+                                            },
+                                          })
+                                        }
+                                        className="w-full mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
                                     </div>
-                                  )}
-
+                                  </div>
+                                ) : (
                                   <div>
                                     <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                      Response Must Contain Text:
+                                      Output Contains:
                                     </label>
                                     <input
                                       type="text"
-                                      placeholder="Sub-text match in response/output"
+                                      placeholder="Substring match in step output..."
                                       value={step.assert?.output_contains ?? ""}
                                       onChange={(e) =>
                                         updateStep(idx, {
@@ -1528,7 +1560,7 @@ export function ScenarioBuilder({
                                       className="w-full mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                                     />
                                   </div>
-                                </div>
+                                )}
 
                                 {/* Structured JSON Match */}
                                 {stepDriver === "http" && (
