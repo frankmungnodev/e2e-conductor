@@ -136,3 +136,14 @@ export type RunEvent =
   | { type: "scenario_end"; scenarioId: string; iteration: number; passed: boolean; duration_ms: number; error?: string }
   | { type: "log"; text: string; level: "info" | "detail" }
   | { type: "finish"; summary: RunSummary }
+
+export type ModuleFile = {
+  id: string
+  category: "web" | "fixture" | "helper"
+  target?: string
+  name: string
+  path: string
+  content: string
+  size: number
+  updatedAt: number
+}

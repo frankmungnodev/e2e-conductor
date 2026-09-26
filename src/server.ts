@@ -2,8 +2,8 @@ import { spawn, spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
-import { basename, extname, join, resolve } from "node:path"
-import { type LoadedConfig, loadConfig, type MobileTarget, resolveFromConfig } from "./config.ts"
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
+import { type LoadedConfig, loadConfig, type MobileTarget, resolveFromConfig, type WebTarget } from "./config.ts"
 import { checkFlow } from "./flow.ts"
 import { initProject } from "./init.ts"
 import { isUp, unfinishedGitOperation } from "./preflight.ts"
@@ -25,6 +25,17 @@ type ActiveRun = {
   options: RunOptions
   startedAt: number
   controller: AbortController
+}
+
+export type ModuleFile = {
+  id: string
+  category: "web" | "fixture" | "helper"
+  target?: string
+  name: string
+  path: string
+  content: string
+  size: number
+  updatedAt: number
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -89,6 +100,71 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
     })
     req.on("error", reject)
   })
+}
+
+function listFilesRecursively(
+  dir: string,
+  baseDir: string = dir,
+): Array<{ relPath: string; fullPath: string; size: number; updatedAt: number }> {
+  if (!existsSync(dir)) return []
+  const entries = readdirSync(dir, { withFileTypes: true })
+  const result: Array<{ relPath: string; fullPath: string; size: number; updatedAt: number }> = []
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist") {
+      continue
+    }
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      result.push(...listFilesRecursively(full, baseDir))
+    } else if (entry.isFile() && /\.(ts|js|mjs|cjs)$/.test(entry.name)) {
+      try {
+        const stat = statSync(full)
+        result.push({
+          relPath: relative(baseDir, full),
+          fullPath: full,
+          size: stat.size,
+          updatedAt: stat.mtimeMs,
+        })
+      } catch {
+        // ignore errors reading file
+      }
+    }
+  }
+  return result
+}
+
+function resolveSafeModulePath(
+  currentConfig: LoadedConfig,
+  category: "web" | "fixture" | "helper",
+  targetName?: string,
+  relName?: string,
+): { rootDir: string; fullPath: string } {
+  if (!relName || relName.includes("..") || isAbsolute(relName)) {
+    throw new Error("Invalid relative path: path traversal is not permitted")
+  }
+  let rootDir: string
+  if (category === "web") {
+    if (!targetName) throw new Error("Target name is required for web module")
+    const target = currentConfig.targets[targetName]
+    if (target?.driver !== "web") {
+      throw new Error(`Target "${targetName}" is not a valid web target`)
+    }
+    rootDir = resolveFromConfig(currentConfig, (target as WebTarget).modules || "./web")
+  } else if (category === "fixture") {
+    rootDir = resolveFromConfig(currentConfig, "./fixtures")
+  } else if (category === "helper") {
+    rootDir = resolveFromConfig(currentConfig, "./helpers")
+  } else {
+    throw new Error(`Unsupported category: ${category}`)
+  }
+
+  const normalizedName = extname(relName) ? relName : `${relName}.ts`
+  const fullPath = resolve(rootDir, normalizedName)
+  const resolvedRoot = resolve(rootDir)
+  if (!fullPath.startsWith(resolvedRoot)) {
+    throw new Error("Path traversal forbidden")
+  }
+  return { rootDir, fullPath }
 }
 
 export function startServer(
@@ -364,6 +440,156 @@ export function startServer(
             writeFileSync(full, body.content)
             const errors = checkFlow(full)
             return sendJson(res, 200, { ok: true, file: body.file, isValid: errors.length === 0, errors })
+          }
+
+          // GET /api/modules
+          if (pathname === "/api/modules" && req.method === "GET") {
+            const modules: ModuleFile[] = []
+
+            // 1. Web targets
+            for (const [targetName, target] of Object.entries(currentConfig.targets)) {
+              if (target.driver === "web") {
+                const webTarget = target as WebTarget
+                const modulesDir = resolveFromConfig(currentConfig, webTarget.modules || "./web")
+                if (existsSync(modulesDir)) {
+                  const files = listFilesRecursively(modulesDir)
+                  for (const f of files) {
+                    let content = ""
+                    try {
+                      content = readFileSync(f.fullPath, "utf8")
+                    } catch {
+                      // ignore
+                    }
+                    modules.push({
+                      id: `web:${targetName}:${f.relPath}`,
+                      category: "web",
+                      target: targetName,
+                      name: f.relPath,
+                      path: f.fullPath,
+                      content,
+                      size: f.size,
+                      updatedAt: f.updatedAt,
+                    })
+                  }
+                }
+              }
+            }
+
+            // 2. Fixtures directory
+            const fixturesDir = resolveFromConfig(currentConfig, "./fixtures")
+            if (existsSync(fixturesDir)) {
+              const files = listFilesRecursively(fixturesDir)
+              for (const f of files) {
+                let content = ""
+                try {
+                  content = readFileSync(f.fullPath, "utf8")
+                } catch {
+                  // ignore
+                }
+                modules.push({
+                  id: `fixture:${f.relPath}`,
+                  category: "fixture",
+                  name: f.relPath,
+                  path: f.fullPath,
+                  content,
+                  size: f.size,
+                  updatedAt: f.updatedAt,
+                })
+              }
+            }
+
+            // 3. Helpers directory (if exists)
+            const helpersDir = resolveFromConfig(currentConfig, "./helpers")
+            if (existsSync(helpersDir)) {
+              const files = listFilesRecursively(helpersDir)
+              for (const f of files) {
+                let content = ""
+                try {
+                  content = readFileSync(f.fullPath, "utf8")
+                } catch {
+                  // ignore
+                }
+                modules.push({
+                  id: `helper:${f.relPath}`,
+                  category: "helper",
+                  name: f.relPath,
+                  path: f.fullPath,
+                  content,
+                  size: f.size,
+                  updatedAt: f.updatedAt,
+                })
+              }
+            }
+
+            return sendJson(res, 200, modules)
+          }
+
+          // POST /api/modules
+          if (pathname === "/api/modules" && req.method === "POST") {
+            const body = (await readBody(req)) as {
+              category?: "web" | "fixture" | "helper"
+              target?: string
+              name?: string
+              content?: string
+            }
+            if (!body?.category || !body.name || typeof body.content !== "string") {
+              return sendJson(res, 400, { ok: false, error: "Missing category, name, or content" })
+            }
+            try {
+              const { fullPath } = resolveSafeModulePath(
+                currentConfig,
+                body.category,
+                body.target,
+                body.name,
+              )
+              mkdirSync(dirname(fullPath), { recursive: true })
+              writeFileSync(fullPath, body.content, "utf8")
+              const stat = statSync(fullPath)
+              const relName = extname(body.name) ? body.name : `${body.name}.ts`
+              const item: ModuleFile = {
+                id: body.category === "web" ? `web:${body.target}:${relName}` : `${body.category}:${relName}`,
+                category: body.category,
+                target: body.target,
+                name: relName,
+                path: fullPath,
+                content: body.content,
+                size: stat.size,
+                updatedAt: stat.mtimeMs,
+              }
+              return sendJson(res, 200, { ok: true, file: item })
+            } catch (err) {
+              return sendJson(res, 400, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // DELETE /api/modules
+          if (pathname === "/api/modules" && req.method === "DELETE") {
+            const body = (await readBody(req)) as {
+              category?: "web" | "fixture" | "helper"
+              target?: string
+              name?: string
+            }
+            const queryName = url.searchParams.get("name") || body?.name
+            const queryCategory = (url.searchParams.get("category") || body?.category) as "web" | "fixture" | "helper" | undefined
+            const queryTarget = url.searchParams.get("target") || body?.target
+            if (!queryCategory || !queryName) {
+              return sendJson(res, 400, { ok: false, error: "Missing category or name" })
+            }
+            try {
+              const { fullPath } = resolveSafeModulePath(
+                currentConfig,
+                queryCategory,
+                queryTarget,
+                queryName,
+              )
+              if (existsSync(fullPath)) {
+                rmSync(fullPath)
+                return sendJson(res, 200, { ok: true, message: `Deleted ${queryName}` })
+              }
+              return sendJson(res, 404, { ok: false, error: `File not found: ${queryName}` })
+            } catch (err) {
+              return sendJson(res, 400, { ok: false, error: (err as Error).message })
+            }
           }
 
           // GET /api/preflight

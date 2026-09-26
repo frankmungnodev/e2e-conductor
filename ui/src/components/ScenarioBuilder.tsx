@@ -44,6 +44,7 @@ type ScenarioBuilderProps = {
     file: string,
     content: string,
   ) => Promise<{ ok: boolean; isValid: boolean; errors: string[] } | undefined>
+  onOpenModule?: (moduleName: string, targetName?: string) => void
 }
 
 export function ScenarioBuilder({
@@ -53,6 +54,7 @@ export function ScenarioBuilder({
   onSaveScenario,
   onDeleteScenario,
   onSaveFlow,
+  onOpenModule,
 }: ScenarioBuilderProps) {
   // Explorer state
   const [activeItem, setActiveItem] = useState<{ type: "scenario" | "flow"; id: string } | null>(
@@ -1372,12 +1374,26 @@ export function ScenarioBuilder({
                                 {stepDriver === "web" && (
                                   <div className="space-y-2">
                                     <div>
-                                      <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Browser Script Function:
-                                      </label>
+                                      <div className="flex items-center justify-between">
+                                        <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
+                                          Step Module (run):
+                                        </label>
+                                        {step.run && onOpenModule && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (step.run) onOpenModule(step.run, step.target)
+                                            }}
+                                            className="text-[10px] text-primary hover:underline flex items-center gap-1 font-sans cursor-pointer"
+                                          >
+                                            <Code2 className="w-3 h-3" />
+                                            Edit Module ↗
+                                          </button>
+                                        )}
+                                      </div>
                                       <input
                                         type="text"
-                                        placeholder="Function name in test module"
+                                        placeholder="e.g. admin/login or checkout"
                                         value={step.run ?? ""}
                                         onChange={(e) => updateStep(idx, { run: e.target.value })}
                                         className="w-full mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"

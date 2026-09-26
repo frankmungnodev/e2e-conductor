@@ -23,6 +23,11 @@ function mockProject(): LoadedConfig {
     }),
   )
 
+  mkdirSync(join(dir, "web", "admin"), { recursive: true })
+  mkdirSync(join(dir, "fixtures"), { recursive: true })
+  writeFileSync(join(dir, "web", "admin", "login.ts"), "export default () => {}")
+  writeFileSync(join(dir, "fixtures", "seed.ts"), "export const seed = () => {}")
+
   writeFileSync(join(dir, "flows", "test.yaml"), "- tap: Button\n")
 
   return {
@@ -35,6 +40,7 @@ function mockProject(): LoadedConfig {
     },
     targets: {
       backend: { driver: "http", service: "backend" },
+      web: { driver: "web", service: "backend", modules: "web" },
       mobile: { driver: "mobile", platform: "android", appId: "com.test", flows: "flows" },
     },
     fixtures: {},
@@ -96,6 +102,50 @@ describe("startServer", () => {
       assert.equal(flows.length, 1)
       assert.equal(flows[0].file, "test.yaml")
       assert.equal(flows[0].target, "mobile")
+
+      // 5b. GET /api/modules
+      const modRes = await fetch(`${url}/api/modules`)
+      assert.equal(modRes.status, 200)
+      const modules = (await modRes.json()) as any[]
+      assert.ok(modules.some((m) => m.name === "admin/login.ts" && m.category === "web"))
+      assert.ok(modules.some((m) => m.name === "seed.ts" && m.category === "fixture"))
+
+      // 5c. POST /api/modules (create new web module)
+      const createModRes = await fetch(`${url}/api/modules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: "web",
+          target: "web",
+          name: "admin/logout.ts",
+          content: "export default defineWebStep(() => {})",
+        }),
+      })
+      assert.equal(createModRes.status, 200)
+      const createModData = (await createModRes.json()) as any
+      assert.equal(createModData.ok, true)
+      assert.equal(createModData.file.name, "admin/logout.ts")
+
+      // 5d. POST /api/modules with path traversal is blocked
+      const badPathRes = await fetch(`${url}/api/modules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: "web",
+          target: "web",
+          name: "../../danger.ts",
+          content: "evil",
+        }),
+      })
+      assert.equal(badPathRes.status, 400)
+
+      // 5e. DELETE /api/modules
+      const delModRes = await fetch(`${url}/api/modules?category=web&target=web&name=admin/logout.ts`, {
+        method: "DELETE",
+      })
+      assert.equal(delModRes.status, 200)
+      const delModData = (await delModRes.json()) as any
+      assert.equal(delModData.ok, true)
 
       // 6. GET /api/preflight
       const preflightRes = await fetch(`${url}/api/preflight`)

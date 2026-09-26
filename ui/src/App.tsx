@@ -17,6 +17,7 @@ import { ArtifactsView } from "./components/ArtifactsView.tsx"
 import { Button } from "./components/Button.tsx"
 import { ConfigView } from "./components/ConfigView.tsx"
 import { Header, type TabType } from "./components/Header.tsx"
+import { ModulesView } from "./components/ModulesView.tsx"
 import { PreflightView } from "./components/PreflightView.tsx"
 import { RunnerView } from "./components/RunnerView.tsx"
 import { ScenarioBuilder } from "./components/ScenarioBuilder.tsx"
@@ -24,7 +25,7 @@ import { useUrlTab } from "./components/Tabs.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 
-const VALID_MAIN_TABS = ["runner", "scenarios", "preflight", "artifacts", "config"] as const
+const VALID_MAIN_TABS = ["runner", "scenarios", "modules", "preflight", "artifacts", "config"] as const
 
 function AppContent() {
   const [activeTab, setActiveTab] = useUrlTab<TabType>("tab", "runner", VALID_MAIN_TABS)
@@ -41,8 +42,16 @@ function AppContent() {
   const [lastSummary, setLastSummary] = useState<RunSummary | undefined>()
   const [events, setEvents] = useState<RunEvent[]>([])
   const [logs, setLogs] = useState<Array<{ text: string; level: "info" | "detail" }>>([])
+  const [selectedModuleId, setSelectedModuleId] = useState<string | undefined>()
 
   const { error: toastError, success: toastSuccess } = useToast()
+
+  const handleOpenModule = (moduleName: string, targetName?: string) => {
+    const rel = moduleName.endsWith(".ts") || moduleName.endsWith(".js") ? moduleName : `${moduleName}.ts`
+    const id = targetName ? `web:${targetName}:${rel}` : `web:${rel}`
+    setSelectedModuleId(id)
+    setActiveTab("modules")
+  }
 
   // Load initial data
   const loadInitialData = async () => {
@@ -257,7 +266,12 @@ function AppContent() {
             onSaveScenario={handleSaveScenario}
             onDeleteScenario={handleDeleteScenario}
             onSaveFlow={handleSaveFlow}
+            onOpenModule={handleOpenModule}
           />
+        )}
+
+        {activeTab === "modules" && (
+          <ModulesView config={config} initialSelectedId={selectedModuleId} />
         )}
 
         {activeTab === "preflight" && (
