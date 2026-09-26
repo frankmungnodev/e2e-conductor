@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>e2e-orchestrator Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #eb6c36;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; min-width: 900px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · e2e-orchestrator</p>
+    <h1>One scenario, four drivers</h1>
+
+    <svg viewBox="0 100 1280 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="e2e-architecture-title e2e-architecture-desc">
+      <title id="e2e-architecture-title">How e2e-orchestrator runs a scenario</title>
+      <desc id="e2e-architecture-desc">The runner loads the project's config and JSON scenarios, runs preflight checks, sends each step to the HTTP, web, mobile or shell driver, and writes a summary, log and failure evidence to the results folder.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+      </defs>
+
+      <rect y="100" width="1280" height="560" fill="#f5f5f5"/>
+
+      <g transform="translate(148,0)">
+        <!-- ZONES -->
+        <rect x="40" y="180" width="200" height="272" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="88" y="184" width="104" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="140" y="193" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">YOUR PROJECT</text>
+
+        <rect x="656" y="124" width="288" height="376" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="740" y="128" width="120" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="800" y="137" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">DRIVERS · src/drivers</text>
+
+        <!-- ARROWS -->
+        <!-- inputs into runner -->
+        <path d="M 220,248 H 262 Q 270,248 270,256 V 292 Q 270,300 278,300 H 320" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 220,392 H 262 Q 270,392 270,384 V 348 Q 270,340 278,340 H 320" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- runner to preflight -->
+        <line x1="420" y1="264" x2="420" y2="210" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="428" y="230" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="456" y="239" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">1 · FIRST</text>
+
+        <!-- runner to results -->
+        <line x1="420" y1="376" x2="420" y2="470" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="428" y="418" width="44" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="450" y="427" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">WRITE</text>
+
+        <!-- runner to drivers (fanned attach points) -->
+        <path d="M 520,288 H 552 Q 560,288 560,280 V 196 Q 560,188 568,188 H 678" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 520,308 H 592 Q 600,308 600,300 V 284 Q 600,276 608,276 H 678" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 520,332 H 592 Q 600,332 600,340 V 356 Q 600,364 608,364 H 678" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 520,352 H 552 Q 560,352 560,360 V 444 Q 560,452 568,452 H 678" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="588" y="168" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="620" y="177" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">EACH STEP</text>
+
+        <!-- drivers to results: failure evidence -->
+        <path d="M 800,500 Q 800,508 792,508 H 522" fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="604" y="488" width="104" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="656" y="497" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">EVIDENCE ON FAIL</text>
+
+        <!-- NODES -->
+        <!-- Config -->
+        <rect x="60" y="212" width="160" height="72" rx="6" fill="#f5f5f5"/>
+        <rect x="60" y="212" width="160" height="72" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+        <rect x="68" y="218" width="36" height="12" rx="2" fill="transparent" stroke="rgba(122,131,153,0.40)" stroke-width="0.8"/>
+        <text x="86" y="227" fill="rgba(122,131,153,0.9)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">INPUT</text>
+        <text x="140" y="254" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Config</text>
+        <text x="140" y="270" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">e2e.config.ts</text>
+
+        <!-- Scenarios -->
+        <rect x="60" y="356" width="160" height="72" rx="6" fill="#f5f5f5"/>
+        <rect x="60" y="356" width="160" height="72" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+        <rect x="68" y="362" width="36" height="12" rx="2" fill="transparent" stroke="rgba(122,131,153,0.40)" stroke-width="0.8"/>
+        <text x="86" y="371" fill="rgba(122,131,153,0.9)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">INPUT</text>
+        <text x="140" y="398" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Scenarios</text>
+        <text x="140" y="414" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">scenarios/*.json</text>
+
+        <!-- Preflight -->
+        <rect x="320" y="136" width="200" height="72" rx="6" fill="#f5f5f5"/>
+        <rect x="320" y="136" width="200" height="72" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="328" y="142" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="346" y="151" fill="rgba(45,49,66,0.8)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CHECK</text>
+        <text x="420" y="178" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Preflight</text>
+        <text x="420" y="194" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">services · adb device</text>
+
+        <!-- Runner (focal) -->
+        <rect x="320" y="264" width="200" height="112" rx="6" fill="#f5f5f5"/>
+        <rect x="320" y="264" width="200" height="112" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+        <rect x="328" y="270" width="32" height="12" rx="2" fill="transparent" stroke="rgba(235,108,54,0.40)" stroke-width="0.8"/>
+        <text x="344" y="279" fill="rgba(235,108,54,0.9)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CORE</text>
+        <text x="420" y="306" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Runner</text>
+        <text x="420" y="322" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">e2e run · src/runner.ts</text>
+        <text x="420" y="346" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">substitute · run · assert</text>
+        <text x="420" y="360" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">extract · retry</text>
+
+        <!-- Results -->
+        <rect x="320" y="472" width="200" height="72" rx="6" fill="#f5f5f5"/>
+        <rect x="320" y="472" width="200" height="72" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="328" y="478" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.40)" stroke-width="0.8"/>
+        <text x="342" y="487" fill="rgba(79,93,117,0.9)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OUT</text>
+        <text x="420" y="514" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Results</text>
+        <text x="420" y="530" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">summary.json · artifacts/</text>
+
+        <!-- Drivers -->
+        <rect x="680" y="156" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="680" y="156" width="240" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="800" y="186" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">HTTP</text>
+        <text x="800" y="202" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">fetch · status + JSON</text>
+
+        <rect x="680" y="244" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="680" y="244" width="240" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="800" y="274" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Web</text>
+        <text x="800" y="290" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Playwright · Chromium</text>
+
+        <rect x="680" y="332" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="680" y="332" width="240" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="800" y="362" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Mobile</text>
+        <text x="800" y="378" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">adb · uiautomator YAML flows</text>
+
+        <rect x="680" y="420" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="680" y="420" width="240" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="800" y="450" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Shell</text>
+        <text x="800" y="466" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">child process · exit code</text>
+      </g>
+
+      <!-- LEGEND -->
+      <line x1="40" y1="612" x2="1240" y2="612" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <text x="40" y="636" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+
+      <rect x="140" y="626" width="20" height="14" rx="3" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+      <text x="168" y="636" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Core runner</text>
+
+      <rect x="300" y="626" width="20" height="14" rx="3" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <text x="328" y="636" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Project input</text>
+
+      <line x1="460" y1="633" x2="488" y2="633" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="496" y="636" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Load / call / write</text>
+
+      <line x1="640" y1="633" x2="668" y2="633" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+      <text x="676" y="636" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Screenshot / trace on failure</text>
+    </svg>
+  </div>
+</body>
+</html>
