@@ -124,7 +124,7 @@ export function ArtifactsView() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-base font-bold text-slate-100 font-mono">Run: {selectedRunId}</span>
-                  {latestSummary?.artifacts.includes(selectedRunId) && (
+                  {latestSummary?.artifacts?.includes(selectedRunId) && (
                     <span
                       className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                         latestSummary.status === "PASSED"

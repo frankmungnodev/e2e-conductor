@@ -106,7 +106,13 @@ describe("startServer", () => {
       const runsRes = await fetch(`${url}/api/runs`)
       assert.equal(runsRes.status, 200)
 
-      // 8. GET / (serves HTML page)
+      // 8. GET /api/run/status
+      const statusRes = await fetch(`${url}/api/run/status`)
+      assert.equal(statusRes.status, 200)
+      const runStatus = (await statusRes.json()) as any
+      assert.equal(runStatus.isRunning, false)
+
+      // 9. GET / (serves HTML page)
       const indexRes = await fetch(`${url}/`)
       assert.equal(indexRes.status, 200)
       const html = await indexRes.text()

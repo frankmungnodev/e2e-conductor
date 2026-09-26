@@ -175,10 +175,17 @@ export function RunnerView({
   }
 
   // Summary statistics
-  const totalCount = executionTree.length
-  const passedCount = executionTree.filter((s) => s.status === "passed").length
-  const failedCount = executionTree.filter((s) => s.status === "failed").length
-  const percentComplete = totalCount > 0 ? Math.round(((passedCount + failedCount) / totalCount) * 100) : 0
+  const totalCount = executionTree.length > 0 ? executionTree.length : (lastSummary ? lastSummary.total : 0)
+  const passedCount =
+    executionTree.length > 0
+      ? executionTree.filter((s) => s.status === "passed").length
+      : (lastSummary ? lastSummary.passed : 0)
+  const failedCount =
+    executionTree.length > 0
+      ? executionTree.filter((s) => s.status === "failed").length
+      : (lastSummary ? lastSummary.failed : 0)
+  const percentComplete =
+    totalCount > 0 ? Math.round(((passedCount + failedCount) / totalCount) * 100) : (lastSummary ? 100 : 0)
 
   const filteredLogs = logFilter
     ? logs.filter((l) => l.text.toLowerCase().includes(logFilter.toLowerCase()))
@@ -382,13 +389,32 @@ export function RunnerView({
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {executionTree.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 p-8">
-                <Play className="w-10 h-10 mb-3 opacity-30 stroke-1" />
-                <p className="text-sm font-medium text-slate-400">No active execution</p>
-                <p className="text-xs mt-1 text-slate-600 max-w-sm">
-                  Select scenarios and click "Run Scenarios" above to start testing. Live steps and assertion results will appear here.
-                </p>
-              </div>
+              lastSummary?.status === "FAILED" && (lastSummary.failures?.length ?? 0) > 0 ? (
+                <div className="p-2 space-y-3">
+                  <div className="bg-rose-950/40 border border-rose-900/60 rounded-xl p-4 text-xs text-rose-300">
+                    <div className="font-semibold flex items-center gap-2 text-rose-200 text-sm mb-2">
+                      <XCircle className="w-4 h-4 text-rose-400" />
+                      Execution Error
+                    </div>
+                    {lastSummary.failures.map((f, i) => (
+                      <div
+                        key={i}
+                        className="mt-2 bg-slate-950/90 p-3 rounded-lg border border-rose-900/40 font-mono text-[11px] text-rose-200 whitespace-pre-wrap"
+                      >
+                        {f.error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 p-8">
+                  <Play className="w-10 h-10 mb-3 opacity-30 stroke-1" />
+                  <p className="text-sm font-medium text-slate-400">No active execution</p>
+                  <p className="text-xs mt-1 text-slate-600 max-w-sm">
+                    Select scenarios and click "Run Scenarios" above to start testing. Live steps and assertion results will appear here.
+                  </p>
+                </div>
+              )
             ) : (
               executionTree.map((sc, scIdx) => (
                 <div

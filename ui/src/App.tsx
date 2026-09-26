@@ -138,9 +138,10 @@ export function App() {
   }
 
   const handleSaveScenario = async (id: string, content: any) => {
-    await saveScenario(id, content)
+    const res = await saveScenario(id, content)
     const list = await fetchScenarios()
     setScenarios(list)
+    return res
   }
 
   const handleDeleteScenario = async (id: string) => {
@@ -150,9 +151,10 @@ export function App() {
   }
 
   const handleSaveFlow = async (target: string, file: string, content: string) => {
-    await saveFlow(target, file, content)
+    const res = await saveFlow(target, file, content)
     const list = await fetchFlows()
     setFlows(list)
+    return res
   }
 
   const handleStartService = async (name: string) => {

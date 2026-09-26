@@ -43,7 +43,8 @@ export function PreflightView({
     }
   }
 
-  const allServicesUp = preflightData?.services.every((s) => s.up) ?? false
+  const hasServices = (preflightData?.services.length ?? 0) > 0
+  const allServicesUp = hasServices && (preflightData?.services.every((s) => s.up) ?? false)
   const anyServiceDown = preflightData?.services.some((s) => !s.up) ?? false
 
   return (

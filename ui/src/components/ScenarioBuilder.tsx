@@ -20,9 +20,9 @@ type ScenarioBuilderProps = {
   scenarios: ScenarioItem[]
   flows: FlowItem[]
   config?: ConfigMeta
-  onSaveScenario: (id: string, content: any) => Promise<void>
+  onSaveScenario: (id: string, content: any) => Promise<{ ok: boolean; isValid: boolean; errors: string[] } | undefined>
   onDeleteScenario: (id: string) => Promise<void>
-  onSaveFlow: (target: string, file: string, content: string) => Promise<void>
+  onSaveFlow: (target: string, file: string, content: string) => Promise<{ ok: boolean; isValid: boolean; errors: string[] } | undefined>
 }
 
 export function ScenarioBuilder({
@@ -53,6 +53,15 @@ export function ScenarioBuilder({
   // Target options from config
   const availableTargets = Object.keys(config?.targets ?? {}).concat(["shell"])
 
+  const getTargetDriver = (target: string): "http" | "web" | "mobile" | "shell" => {
+    if (target === "shell") return "shell"
+    const targetObj = config?.targets?.[target]
+    if (targetObj) return targetObj.driver
+    if (target.includes("web") || target.includes("browser")) return "web"
+    if (target.includes("mobile") || target.includes("app")) return "mobile"
+    return "http"
+  }
+
   // Default selection
   useEffect(() => {
     if (!activeItem && scenarios.length > 0) {
@@ -82,33 +91,39 @@ export function ScenarioBuilder({
   const createNewScenario = () => {
     const newId = `scenario-${Date.now().toString(36)}`
     const defaultTarget = availableTargets[0] ?? "shell"
+    const driver = getTargetDriver(defaultTarget)
+    const initialStep: ScenarioStep = {
+      name: "Sample Step",
+      target: defaultTarget,
+    }
+    if (driver === "shell") {
+      initialStep.command = "echo 'running e2e step'"
+      initialStep.assert = { exit_code: 0 }
+    } else if (driver === "http") {
+      initialStep.method = "GET"
+      initialStep.url = "/"
+      initialStep.assert = { status: 200 }
+    } else if (driver === "mobile") {
+      initialStep.flow = flows[0]?.file ?? "login.yaml"
+      initialStep.launch = "fresh"
+    } else if (driver === "web") {
+      initialStep.run = "login"
+      initialStep.params = {}
+    }
+
     const newScenario: ScenarioItem = {
       id: newId,
       file: `${newId}.json`,
       name: "New Scenario",
       description: "Description of the scenario",
-      steps: [
-        {
-          name: "Sample Step",
-          target: defaultTarget,
-          url: "/",
-          assert: { status: 200 },
-        },
-      ],
+      steps: [initialStep],
       setup: [],
       vars: {},
       raw: {
         $schema: "../../schema/v1/scenario.schema.json",
         name: "New Scenario",
         description: "Description of the scenario",
-        steps: [
-          {
-            name: "Sample Step",
-            target: defaultTarget,
-            url: "/",
-            assert: { status: 200 },
-          },
-        ],
+        steps: [initialStep],
       },
       isValid: true,
       errors: [],
@@ -144,7 +159,40 @@ export function ScenarioBuilder({
   const updateStep = (index: number, updates: Partial<ScenarioStep>) => {
     if (!draftScenario) return
     const newSteps = [...draftScenario.steps]
-    newSteps[index] = { ...newSteps[index], ...updates }
+    const currentStep = newSteps[index]
+
+    if (updates.target && updates.target !== currentStep.target) {
+      const oldDriver = getTargetDriver(currentStep.target)
+      const newDriver = getTargetDriver(updates.target)
+      if (oldDriver !== newDriver) {
+        const cleanStep: ScenarioStep = {
+          name: currentStep.name,
+          target: updates.target,
+        }
+        if (currentStep.assert?.output_contains) {
+          cleanStep.assert = { output_contains: currentStep.assert.output_contains }
+        }
+        if (newDriver === "shell") {
+          cleanStep.command = currentStep.command ?? "echo 'running e2e step'"
+          cleanStep.assert = { ...cleanStep.assert, exit_code: 0 }
+        } else if (newDriver === "http") {
+          cleanStep.method = currentStep.method ?? "GET"
+          cleanStep.url = currentStep.url ?? "/"
+          cleanStep.assert = { ...cleanStep.assert, status: 200 }
+        } else if (newDriver === "mobile") {
+          cleanStep.flow = flows[0]?.file ?? "login.yaml"
+          cleanStep.launch = "fresh"
+        } else if (newDriver === "web") {
+          cleanStep.run = "login"
+        }
+        newSteps[index] = cleanStep
+      } else {
+        newSteps[index] = { ...currentStep, ...updates }
+      }
+    } else {
+      newSteps[index] = { ...currentStep, ...updates }
+    }
+
     const updated = {
       ...draftScenario,
       steps: newSteps,
@@ -159,9 +207,16 @@ export function ScenarioBuilder({
 
   const addStep = (targetType: "http" | "web" | "mobile" | "shell") => {
     if (!draftScenario) return
-    const defaultTarget =
-      Object.entries(config?.targets ?? {}).find(([_, t]) => t.driver === targetType)?.[0] ??
-      (targetType === "shell" ? "shell" : availableTargets[0])
+    const matchingTarget =
+      targetType === "shell"
+        ? "shell"
+        : Object.entries(config?.targets ?? {}).find(([_, t]) => t.driver === targetType)?.[0]
+
+    if (!matchingTarget && targetType !== "shell") {
+      alert(`No target configured with driver "${targetType}" in config.targets.`)
+      return
+    }
+    const defaultTarget = matchingTarget ?? "shell"
 
     const newStep: ScenarioStep = {
       name: `Step ${draftScenario.steps.length + 1}`,
@@ -180,6 +235,7 @@ export function ScenarioBuilder({
       newStep.launch = "fresh"
     } else if (targetType === "shell") {
       newStep.command = "echo 'running e2e step'"
+      newStep.assert = { exit_code: 0 }
     }
 
     const newSteps = [...draftScenario.steps, newStep]
@@ -270,7 +326,12 @@ export function ScenarioBuilder({
       if (editorMode === "json") {
         content = JSON.parse(jsonText)
       }
-      await onSaveScenario(draftScenario.id, content)
+      const res = await onSaveScenario(draftScenario.id, content)
+      if (res) {
+        setDraftScenario((prev) =>
+          prev ? { ...prev, isValid: res.isValid, errors: res.errors } : null,
+        )
+      }
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 2500)
     } catch (e) {
@@ -297,7 +358,12 @@ export function ScenarioBuilder({
     if (!draftFlow) return
     setIsSaving(true)
     try {
-      await onSaveFlow(draftFlow.target, draftFlow.file, flowText)
+      const res = await onSaveFlow(draftFlow.target, draftFlow.file, flowText)
+      if (res) {
+        setDraftFlow((prev) =>
+          prev ? { ...prev, isValid: res.isValid, errors: res.errors } : null,
+        )
+      }
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 2500)
     } catch (e) {
@@ -645,203 +711,246 @@ export function ScenarioBuilder({
                         </div>
 
                         {/* Step Details Body */}
-                        <div className="grid grid-cols-2 gap-4 text-xs">
-                          {/* Left Column: Driver Actions */}
-                          <div className="space-y-3">
-                            <div className="font-semibold text-slate-400 text-[11px] uppercase tracking-wider">
-                              Action Details
-                            </div>
-
-                            {/* HTTP Form */}
-                            {(step.target.includes("api") || step.target.includes("http") || step.url !== undefined) && (
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <select
-                                    value={step.method ?? "GET"}
-                                    onChange={(e) => updateStep(idx, { method: e.target.value })}
-                                    className="px-2 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-sky-400 font-bold"
-                                  >
-                                    <option value="GET">GET</option>
-                                    <option value="POST">POST</option>
-                                    <option value="PUT">PUT</option>
-                                    <option value="PATCH">PATCH</option>
-                                    <option value="DELETE">DELETE</option>
-                                  </select>
-                                  <input
-                                    type="text"
-                                    placeholder="Endpoint URL e.g. /v1/users"
-                                    value={step.url ?? ""}
-                                    onChange={(e) => updateStep(idx, { url: e.target.value })}
-                                    className="flex-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
-                                  />
+                        {(() => {
+                          const stepDriver = getTargetDriver(step.target)
+                          return (
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              {/* Left Column: Driver Actions */}
+                              <div className="space-y-3">
+                                <div className="font-semibold text-slate-400 text-[11px] uppercase tracking-wider">
+                                  Action Details ({stepDriver.toUpperCase()})
                                 </div>
-                                {["POST", "PUT", "PATCH"].includes(step.method ?? "") && (
-                                  <div>
-                                    <label className="text-[10px] text-slate-400 font-medium">Request Body (JSON):</label>
-                                    <textarea
-                                      rows={2}
-                                      value={step.body ? JSON.stringify(step.body, null, 2) : ""}
-                                      onChange={(e) => {
-                                        try {
-                                          updateStep(idx, { body: JSON.parse(e.target.value) })
-                                        } catch {
-                                          // Keep raw string or handle invalid
+
+                                {/* HTTP Form */}
+                                {stepDriver === "http" && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <select
+                                        value={step.method ?? "GET"}
+                                        onChange={(e) => updateStep(idx, { method: e.target.value })}
+                                        className="px-2 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-sky-400 font-bold"
+                                      >
+                                        <option value="GET">GET</option>
+                                        <option value="POST">POST</option>
+                                        <option value="PUT">PUT</option>
+                                        <option value="PATCH">PATCH</option>
+                                        <option value="DELETE">DELETE</option>
+                                      </select>
+                                      <input
+                                        type="text"
+                                        placeholder="Endpoint URL e.g. /v1/users"
+                                        value={step.url ?? ""}
+                                        onChange={(e) => updateStep(idx, { url: e.target.value })}
+                                        className="flex-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                      />
+                                    </div>
+                                    {["POST", "PUT", "PATCH"].includes(step.method ?? "") && (
+                                      <div>
+                                        <label className="text-[10px] text-slate-400 font-medium">Request Body (JSON):</label>
+                                        <textarea
+                                          rows={2}
+                                          value={step.body ? JSON.stringify(step.body, null, 2) : ""}
+                                          onChange={(e) => {
+                                            try {
+                                              updateStep(idx, { body: JSON.parse(e.target.value) })
+                                            } catch {
+                                              // Keep raw string or handle invalid
+                                            }
+                                          }}
+                                          placeholder='{"name": "Alice"}'
+                                          className="w-full mt-1 p-2 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Shell Form */}
+                                {stepDriver === "shell" && (
+                                  <div className="space-y-2">
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 font-medium">Command Line:</label>
+                                      <input
+                                        type="text"
+                                        placeholder="sh command line e.g. echo 'hello'"
+                                        value={step.command ?? ""}
+                                        onChange={(e) => updateStep(idx, { command: e.target.value })}
+                                        className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 font-medium">Working Directory (optional):</label>
+                                      <input
+                                        type="text"
+                                        placeholder="Relative to config dir e.g. ./scripts"
+                                        value={step.cwd ?? ""}
+                                        onChange={(e) => updateStep(idx, { cwd: e.target.value || undefined })}
+                                        className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Mobile Form */}
+                                {stepDriver === "mobile" && (
+                                  <div className="space-y-2">
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 font-medium">Flow YAML:</label>
+                                      <input
+                                        type="text"
+                                        placeholder="Flow file name e.g. login.yaml"
+                                        value={step.flow ?? ""}
+                                        onChange={(e) => updateStep(idx, { flow: e.target.value })}
+                                        className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 font-medium">App Launch Mode:</label>
+                                      <select
+                                        value={step.launch ?? "none"}
+                                        onChange={(e) =>
+                                          updateStep(idx, {
+                                            launch: e.target.value === "none" ? undefined : (e.target.value as any),
+                                          })
                                         }
-                                      }}
-                                      placeholder='{"name": "Alice"}'
-                                      className="w-full mt-1 p-2 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
-                                    />
+                                        className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-300"
+                                      >
+                                        <option value="none">Don't launch</option>
+                                        <option value="fresh">Fresh (clear app data & launch)</option>
+                                        <option value="restart">Restart (force-stop & launch)</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Web Form */}
+                                {stepDriver === "web" && (
+                                  <div className="space-y-2">
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 font-medium">Module Function:</label>
+                                      <input
+                                        type="text"
+                                        placeholder="Exported function in web target modules"
+                                        value={step.run ?? ""}
+                                        onChange={(e) => updateStep(idx, { run: e.target.value })}
+                                        className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                      />
+                                    </div>
                                   </div>
                                 )}
                               </div>
-                            )}
 
-                            {/* Shell Form */}
-                            {step.target === "shell" && (
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="text-[10px] text-slate-400 font-medium">Command Line:</label>
-                                  <input
-                                    type="text"
-                                    placeholder="sh command line e.g. echo 'hello'"
-                                    value={step.command ?? ""}
-                                    onChange={(e) => updateStep(idx, { command: e.target.value })}
-                                    className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
-                                  />
+                              {/* Right Column: Assertions & Extractions */}
+                              <div className="space-y-3">
+                                <div className="font-semibold text-slate-400 text-[11px] uppercase tracking-wider">
+                                  Assertions & Context
                                 </div>
-                              </div>
-                            )}
 
-                            {/* Mobile Form */}
-                            {(step.flow !== undefined || step.launch !== undefined) && (
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="text-[10px] text-slate-400 font-medium">Flow YAML:</label>
-                                  <input
-                                    type="text"
-                                    placeholder="Flow file name e.g. login.yaml"
-                                    value={step.flow ?? ""}
-                                    onChange={(e) => updateStep(idx, { flow: e.target.value })}
-                                    className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
-                                  />
+                                {/* Assert Status / Exit Code */}
+                                <div className="grid grid-cols-2 gap-2">
+                                  {stepDriver === "http" ? (
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 font-medium">Expect HTTP Status:</label>
+                                      <input
+                                        type="number"
+                                        placeholder="e.g. 200"
+                                        value={step.assert?.status ?? ""}
+                                        onChange={(e) =>
+                                          updateStep(idx, {
+                                            assert: {
+                                              ...step.assert,
+                                              status: e.target.value !== "" ? parseInt(e.target.value, 10) : undefined,
+                                            },
+                                          })
+                                        }
+                                        className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                      />
+                                    </div>
+                                  ) : stepDriver === "shell" ? (
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 font-medium">Expect Exit Code:</label>
+                                      <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={step.assert?.exit_code ?? ""}
+                                        onChange={(e) =>
+                                          updateStep(idx, {
+                                            assert: {
+                                              ...step.assert,
+                                              exit_code: e.target.value !== "" ? parseInt(e.target.value, 10) : undefined,
+                                            },
+                                          })
+                                        }
+                                        className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 font-medium">Driver:</label>
+                                      <div className="mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-800 text-slate-400 font-mono">
+                                        {stepDriver}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div>
+                                    <label className="text-[10px] text-slate-400 font-medium">Output Contains:</label>
+                                    <input
+                                      type="text"
+                                      placeholder="Sub-text match"
+                                      value={step.assert?.output_contains ?? ""}
+                                      onChange={(e) =>
+                                        updateStep(idx, {
+                                          assert: {
+                                            ...step.assert,
+                                            output_contains: e.target.value || undefined,
+                                          },
+                                        })
+                                      }
+                                      className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
+                                    />
+                                  </div>
                                 </div>
-                                <div>
-                                  <label className="text-[10px] text-slate-400 font-medium">App Launch Mode:</label>
-                                  <select
-                                    value={step.launch ?? "none"}
-                                    onChange={(e) =>
-                                      updateStep(idx, {
-                                        launch: e.target.value === "none" ? undefined : (e.target.value as any),
-                                      })
-                                    }
-                                    className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-300"
-                                  >
-                                    <option value="none">Don't launch</option>
-                                    <option value="fresh">Fresh (clear app data & launch)</option>
-                                    <option value="restart">Restart (force-stop & launch)</option>
-                                  </select>
+
+                                {/* Retries & Timeout */}
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[10px] text-slate-400 font-medium">Retry Times:</label>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={10}
+                                      value={step.retry?.times ?? 0}
+                                      onChange={(e) =>
+                                        updateStep(idx, {
+                                          retry: {
+                                            times: parseInt(e.target.value, 10) || 0,
+                                            delay_ms: step.retry?.delay_ms ?? 1000,
+                                          },
+                                        })
+                                      }
+                                      className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-slate-400 font-medium">Timeout (ms):</label>
+                                    <input
+                                      type="number"
+                                      placeholder="e.g. 5000"
+                                      value={step.timeout_ms ?? ""}
+                                      onChange={(e) =>
+                                        updateStep(idx, {
+                                          timeout_ms: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                                        })
+                                      }
+                                      className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200"
+                                    />
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-
-                            {/* Web Form */}
-                            {step.run !== undefined && (
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="text-[10px] text-slate-400 font-medium">Module Function:</label>
-                                  <input
-                                    type="text"
-                                    placeholder="Exported function in web target modules"
-                                    value={step.run}
-                                    onChange={(e) => updateStep(idx, { run: e.target.value })}
-                                    className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Right Column: Assertions & Extractions */}
-                          <div className="space-y-3">
-                            <div className="font-semibold text-slate-400 text-[11px] uppercase tracking-wider">
-                              Assertions & Context
-                            </div>
-
-                            {/* Assert Status / Exit Code */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="text-[10px] text-slate-400 font-medium">Expect HTTP Status:</label>
-                                <input
-                                  type="number"
-                                  placeholder="e.g. 200"
-                                  value={step.assert?.status ?? ""}
-                                  onChange={(e) =>
-                                    updateStep(idx, {
-                                      assert: {
-                                        ...step.assert,
-                                        status: e.target.value ? parseInt(e.target.value, 10) : undefined,
-                                      },
-                                    })
-                                  }
-                                  className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-slate-400 font-medium">Output Contains:</label>
-                                <input
-                                  type="text"
-                                  placeholder="Sub-text match"
-                                  value={step.assert?.output_contains ?? ""}
-                                  onChange={(e) =>
-                                    updateStep(idx, {
-                                      assert: {
-                                        ...step.assert,
-                                        output_contains: e.target.value || undefined,
-                                      },
-                                    })
-                                  }
-                                  className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Retries & Timeout */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="text-[10px] text-slate-400 font-medium">Retry Times:</label>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={10}
-                                  value={step.retry?.times ?? 0}
-                                  onChange={(e) =>
-                                    updateStep(idx, {
-                                      retry: {
-                                        times: parseInt(e.target.value, 10) || 0,
-                                        delay_ms: step.retry?.delay_ms ?? 1000,
-                                      },
-                                    })
-                                  }
-                                  className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-slate-400 font-medium">Timeout (ms):</label>
-                                <input
-                                  type="number"
-                                  placeholder="e.g. 5000"
-                                  value={step.timeout_ms ?? ""}
-                                  onChange={(e) =>
-                                    updateStep(idx, {
-                                      timeout_ms: e.target.value ? parseInt(e.target.value, 10) : undefined,
-                                    })
-                                  }
-                                  className="w-full mt-1 px-2.5 py-1 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200"
-                                />
                               </div>
                             </div>
-                          </div>
-                        </div>
+                          )
+                        })()}
                       </div>
                     ))}
                   </div>

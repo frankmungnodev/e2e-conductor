@@ -36,6 +36,7 @@ const MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".gif": "image/gif",
+  ".webp": "image/webp",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   ".log": "text/plain; charset=utf-8",
@@ -435,12 +436,17 @@ export function startServer(
               } catch (err) {
                 const errorMsg = (err as Error).message
                 broadcast({
+                  type: "log",
+                  text: `Run error: ${errorMsg}`,
+                  level: "info",
+                })
+                broadcast({
                   type: "finish",
                   summary: {
                     status: "FAILED",
-                    total: 0,
+                    total: Math.max(1, (runOptions.scenarios?.length || 1) * (runOptions.repeat || 1)),
                     passed: 0,
-                    failed: 1,
+                    failed: Math.max(1, (runOptions.scenarios?.length || 1) * (runOptions.repeat || 1)),
                     duration_ms: Date.now() - (activeRun?.startedAt ?? Date.now()),
                     failures: [{ scenario: "run", iteration: 1, step: "init", error: errorMsg }],
                     artifacts: "",
@@ -534,7 +540,7 @@ export function startServer(
 
             for (const s of scenariosList) {
               const sDir = join(runDir, s)
-              const files = readdirSync(sDir)
+              const files = readdirSync(sDir).filter((f) => statSync(join(sDir, f)).isFile())
               scenarioArtifacts[s] = files.map((f) => ({
                 name: f,
                 url: `/api/artifacts/${runId}/${s}/${f}`,
