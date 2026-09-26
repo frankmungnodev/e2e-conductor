@@ -1,12 +1,11 @@
 import assert from "node:assert/strict"
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { after, describe, it } from "node:test"
+import { describe, it } from "node:test"
 import { loadConfig, resolveFromConfig } from "../src/config.ts"
+import { tempDir } from "./temp-dir.ts"
 
-const dir = mkdtempSync(join(tmpdir(), "e2e-config-"))
-after(() => rmSync(dir, { recursive: true, force: true }))
+const dir = tempDir("config")
 
 function configFile(name: string, config: unknown): string {
   const file = join(dir, name)

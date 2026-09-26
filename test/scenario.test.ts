@@ -1,20 +1,14 @@
 import assert from "node:assert/strict"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { after, describe, it } from "node:test"
+import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
 import { loadScenarios, targetsUsed } from "../src/scenario.ts"
-
-const dirs: string[] = []
-after(() => {
-  for (const dir of dirs) rmSync(dir, { recursive: true, force: true })
-})
+import { tempDir } from "./temp-dir.ts"
 
 /** A config folder with the given scenario files and flow files. */
 function project(scenarios: Record<string, unknown>, flows: Record<string, string> = {}): LoadedConfig {
-  const dir = mkdtempSync(join(tmpdir(), "e2e-scenario-"))
-  dirs.push(dir)
+  const dir = tempDir("scenario")
   mkdirSync(join(dir, "scenarios"))
   mkdirSync(join(dir, "flows"))
   for (const [name, scenario] of Object.entries(scenarios)) {
