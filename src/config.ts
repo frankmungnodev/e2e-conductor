@@ -39,14 +39,8 @@ export type MobileTarget = {
   driver: "mobile"
   platform: "android"
   appId: string
-  /** Folder of Maestro-style YAML flows, relative to the config file. */
+  /** Folder of YAML flows, relative to the config file. */
   flows: string
-  /**
-   * What runs the flows. "maestro" (default) uses the Maestro CLI. "adb" uses the built-in
-   * runner (uiautomator dump + input), for devices where Maestro's driver hangs; it supports
-   * a subset of Maestro commands.
-   */
-  engine?: "maestro" | "adb"
   /** Runtime permissions granted after a fresh launch wipes app data, so no dialog appears. */
   grantPermissions?: string[]
   /** Device ports forwarded to the host with `adb reverse`. */

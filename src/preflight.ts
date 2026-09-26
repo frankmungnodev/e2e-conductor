@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join, resolve } from "node:path"
 import type { LoadedConfig, MobileTarget, ServiceConfig } from "./config.ts"
 import { color, type RunLog } from "./logger.ts"
-import { adbPath, maestroPath, runShell, sleep, startBackground, stopBackground } from "./process.ts"
+import { adbPath, runShell, sleep, startBackground, stopBackground } from "./process.ts"
 
 export type StartedService = { name: string; process: ChildProcess; pidFile: string }
 
@@ -125,7 +125,7 @@ export async function prepareServices(
   return started
 }
 
-export type MobileSetup = { device: string; adb: string; maestro: string | undefined }
+export type MobileSetup = { device: string; adb: string }
 
 function pickDevice(adb: string, env: Record<string, string>): string {
   const list = spawnSync(adb, ["devices"], { encoding: "utf8" }).stdout ?? ""
@@ -186,19 +186,14 @@ export async function prepareMobile(
 ): Promise<MobileSetup> {
   const adb = adbPath()
   if (!adb) throw new Error("adb not found (install Android platform-tools or set ANDROID_HOME)")
-  const maestro = target.engine === "adb" ? undefined : maestroPath()
-  if (target.engine !== "adb" && !maestro) {
-    throw new Error("maestro not found (curl -Ls https://get.maestro.mobile.dev | bash), or set engine: \"adb\"")
-  }
 
   const device = pickDevice(adb, config.env)
   restoreKeyboards(adb, device) // undo a run that crashed before its cleanup
   const model = spawnSync(adb, ["-s", device, "shell", "getprop", "ro.product.model"], { encoding: "utf8" }).stdout.trim()
   out.line(`  ${color.green("✓")} ${name}: device ${device} ${color.dim(model)}`)
 
-  // A Maestro driver or uiautomator dump left by an interrupted run holds UiAutomation and
-  // makes every later dump hang. Clear them before starting.
-  spawnSync(adb, ["-s", device, "shell", "am", "force-stop", "dev.mobile.maestro"])
+  // A uiautomator dump left by an interrupted run holds UiAutomation and makes every later
+  // dump hang. Clear it before starting.
   spawnSync(adb, ["-s", device, "shell", "pkill", "-f", "uiautomator"])
 
   for (const port of target.reversePorts ?? []) {
@@ -226,5 +221,5 @@ export async function prepareMobile(
   // Last, so a failed check above never leaves the device without a keyboard.
   disableKeyboards(adb, device)
   out.line(`  ${color.green("✓")} ${name}: on-screen keyboards off for the run`)
-  return { device, adb, maestro }
+  return { device, adb }
 }

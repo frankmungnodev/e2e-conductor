@@ -1,7 +1,7 @@
 {
   "name": "e2e-orchestrator",
-  "version": "0.1.0",
-  "description": "Run one JSON scenario across HTTP APIs, web apps (Playwright) and mobile apps (Maestro)",
+  "version": "0.2.0",
+  "description": "Run one JSON scenario across HTTP APIs, web apps (Playwright) and Android apps (adb)",
   "private": true,
   "type": "module",
   "bin": {

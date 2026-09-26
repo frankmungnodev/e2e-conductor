@@ -60,7 +60,7 @@
         "headers": { "type": "object", "additionalProperties": { "type": "string" } },
         "body": { "description": "http: JSON request body" },
         "run": { "type": "string", "description": "web: step module name in the target's modules folder" },
-        "flow": { "type": "string", "description": "mobile: Maestro flow file in the target's flows folder" },
+        "flow": { "type": "string", "description": "mobile: YAML flow file in the target's flows folder" },
         "launch": {
           "type": "string",
           "enum": ["fresh", "restart"],
@@ -68,7 +68,7 @@
         },
         "params": {
           "type": "object",
-          "description": "web: passed to the module; mobile: passed to Maestro as -e NAME=value"
+          "description": "web: passed to the module; mobile: replaces ${NAME} in the flow"
         },
         "command": { "type": "string", "description": "shell: command run with sh -c" },
         "cwd": { "type": "string", "description": "shell: working directory, relative to the config file" }

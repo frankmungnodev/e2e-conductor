@@ -91,8 +91,4 @@ export function adbPath(): string | undefined {
   )
 }
 
-export function maestroPath(): string | undefined {
-  return findTool("maestro", [join(homedir(), ".maestro/bin/maestro")])
-}
-
 export const sleep = (ms: number) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms))

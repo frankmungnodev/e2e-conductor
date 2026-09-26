@@ -132,7 +132,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
         process.env.ANDROID_SERIAL ??= setup.device
         drivers.set(
           name,
-          new MobileDriver(target, resolveFromConfig(config, target.flows), setup.device, setup.adb, setup.maestro),
+          new MobileDriver(target, resolveFromConfig(config, target.flows), setup.device, setup.adb),
         )
       }
     }

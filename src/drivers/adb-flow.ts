@@ -5,11 +5,10 @@ import type { Logger } from "../config.ts"
 import { sleep } from "../process.ts"
 
 /**
- * Runs Maestro-style YAML flows with plain adb: `uiautomator dump` to find elements,
- * `input` to act. For devices where Maestro's on-device driver hangs.
+ * Runs YAML flows with plain adb: `uiautomator dump` to find elements, `input` to act.
  * Supported commands: launchApp, stopApp, clearState, tapOn, inputText, assertVisible,
  * assertNotVisible, extendedWaitUntil, scrollUntilVisible, swipe (from an element), back, hideKeyboard.
- * Selectors take text, id, index, optional, checked, and Maestro's relative `below` / `above` and
+ * Selectors take text, id, index, optional, checked, the relative `below` / `above`, and
  * `containsDescendants` (a list of selectors for nodes inside this one's bounds).
  */
 
@@ -249,7 +248,7 @@ export class AdbFlowRunner {
         return
       }
       case "swipe": {
-        // Maestro's element form: swipe from the element's center toward the screen edge.
+        // Swipe from the element's center toward the screen edge.
         const { from, direction = "RIGHT", duration = 400 } = arg as { from: unknown; direction?: string; duration?: number }
         const node = await this.waitFor(toSelector(from), true, DEFAULT_WAIT_MS)
         if (!node) return
@@ -266,11 +265,11 @@ export class AdbFlowRunner {
         return
       }
       default:
-        throw new Error(`adb engine does not support "${name}"`)
+        throw new Error(`unsupported flow command "${name}"`)
     }
   }
 
-  /** Run a flow file. `vars` replace `${NAME}` in it, like Maestro's `-e NAME=value`. */
+  /** Run a flow file. `vars` replace `${NAME}` in it. */
   async runFlow(file: string, vars: Record<string, string>) {
     const source = readFileSync(file, "utf8").replace(/\$\{(\w+)\}/g, (whole, name: string) => vars[name] ?? whole)
     const documents = parseAllDocuments(source).map((doc) => doc.toJS())
@@ -304,7 +303,7 @@ function decode(text: string): string {
     .replace(/&amp;/g, "&")
 }
 
-/** Maestro matches text as a full regex; fall back to plain equality for invalid patterns. */
+/** Text selectors match as a full regex; fall back to plain equality for invalid patterns. */
 function fullMatch(pattern: string, value: string): boolean {
   try {
     return new RegExp(`^(?:${pattern})$`, "s").test(value)
