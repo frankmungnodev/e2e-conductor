@@ -1,0 +1,29 @@
+{
+  "name": "e2e-orchestrator",
+  "version": "0.1.0",
+  "description": "Run one JSON scenario across HTTP APIs, web apps (Playwright) and mobile apps (Maestro)",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "e2e": "./bin/e2e.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema/scenario.schema.json": "./schema/scenario.schema.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "check:boundary": "node scripts/check-boundary.mjs",
+    "check": "pnpm run typecheck && pnpm run check:boundary"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.15",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2"
+  }
+}

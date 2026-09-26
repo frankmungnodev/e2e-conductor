@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "E2E scenario",
+  "description": "One user journey. Steps run in order and share values through ${ctx.name}.",
+  "type": "object",
+  "required": ["name", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "description": "Human-readable journey name" },
+    "description": { "type": "string" },
+    "setup": {
+      "type": "array",
+      "description": "Fixture names from the config, run before the first step",
+      "items": { "type": "string" }
+    },
+    "vars": {
+      "type": "object",
+      "description": "Initial ${ctx.*} values"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/Step" }
+    }
+  },
+  "definitions": {
+    "Step": {
+      "type": "object",
+      "required": ["name", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "target": {
+          "type": "string",
+          "description": "Target name from the config, or \"shell\""
+        },
+        "extract": {
+          "type": "object",
+          "description": "ctx name -> path in the step result, e.g. { \"userId\": \"data[0].id\" }",
+          "additionalProperties": { "type": "string" }
+        },
+        "assert": { "$ref": "#/definitions/Assert" },
+        "timeout_ms": { "type": "integer", "minimum": 1 },
+        "retry": {
+          "type": "object",
+          "required": ["times"],
+          "additionalProperties": false,
+          "properties": {
+            "times": { "type": "integer", "minimum": 1 },
+            "delay_ms": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+          "description": "http: request method (default GET)"
+        },
+        "url": { "type": "string", "description": "http: path relative to the service URL, or a full URL" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "body": { "description": "http: JSON request body" },
+        "run": { "type": "string", "description": "web: step module name in the target's modules folder" },
+        "flow": { "type": "string", "description": "mobile: Maestro flow file in the target's flows folder" },
+        "launch": {
+          "type": "string",
+          "enum": ["fresh", "restart"],
+          "description": "mobile: launch the app through adb before the flow; fresh wipes app data"
+        },
+        "params": {
+          "type": "object",
+          "description": "web: passed to the module; mobile: passed to Maestro as -e NAME=value"
+        },
+        "command": { "type": "string", "description": "shell: command run with sh -c" },
+        "cwd": { "type": "string", "description": "shell: working directory, relative to the config file" }
+      }
+    },
+    "Assert": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "integer", "description": "http: response status" },
+        "exit_code": { "type": "integer", "description": "shell: exit code" },
+        "output_contains": { "type": "string", "description": "shell: text in stdout or stderr" },
+        "json_match": {
+          "type": "object",
+          "description": "path -> expected value, or an operator: {\"$exists\": true}, {\"$contains\": \"x\"}, {\"$notContains\": \"x\"}, {\"$gt\": 0}, {\"$gte\": 0}"
+        }
+      }
+    }
+  }
+}
