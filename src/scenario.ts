@@ -73,7 +73,7 @@ function checkStepFlow(config: LoadedConfig, step: Step, checked: Set<string>): 
   return checkFlow(file).map((problem) => `flow ${step.flow}: ${problem}`)
 }
 
-function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlows: Set<string>): string[] {
+export function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlows: Set<string> = new Set()): string[] {
   const errors: string[] = []
   for (const fixture of scenario.setup ?? []) {
     if (!config.fixtures?.[fixture]) errors.push(`setup: unknown fixture "${fixture}"`)

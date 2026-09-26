@@ -34,7 +34,7 @@ async function stopLeftover(pidFile: string, service: ServiceConfig): Promise<bo
   return false
 }
 
-async function isUp(service: ServiceConfig): Promise<boolean> {
+export async function isUp(service: ServiceConfig): Promise<boolean> {
   try {
     const response = await fetch(new URL(service.health ?? "/", service.url), { signal: AbortSignal.timeout(3000) })
     return response.status < 500
@@ -57,7 +57,7 @@ const UNFINISHED_GIT_OPERATIONS: Record<string, string> = {
  * conflict) serves half-applied code with conflict markers, which fails steps far from the cause.
  * Returns what is unfinished, or undefined when the repo is clean or not a git repo.
  */
-function unfinishedGitOperation(cwd: string): string | undefined {
+export function unfinishedGitOperation(cwd: string): string | undefined {
   const result = spawnSync("git", ["-C", cwd, "rev-parse", "--absolute-git-dir"], { encoding: "utf8" })
   if (result.status !== 0) return undefined
   const gitDir = result.stdout.trim()

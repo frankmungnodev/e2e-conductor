@@ -12,6 +12,18 @@ import { prepareMobile, prepareServices, type StartedService, stopService } from
 import { runShell, sleep } from "./process.ts"
 import { loadScenarios, type Scenario, type Step, targetsUsed } from "./scenario.ts"
 
+export type RunEvent =
+  | { type: "preflight_start" }
+  | { type: "preflight_done" }
+  | { type: "run_start"; runId: string; totalScenarios: number; repeat: number; scenarios: Array<{ id: string; name: string; stepsCount: number }> }
+  | { type: "scenario_start"; scenarioId: string; scenarioName: string; iteration: number; totalIterations: number }
+  | { type: "step_start"; scenarioId: string; stepName: string; target: string; index: number; totalSteps: number }
+  | { type: "step_pass"; scenarioId: string; stepName: string; target: string; index: number; duration_ms: number }
+  | { type: "step_fail"; scenarioId: string; stepName: string; target: string; index: number; duration_ms: number; error: string }
+  | { type: "scenario_end"; scenarioId: string; iteration: number; passed: boolean; duration_ms: number; error?: string }
+  | { type: "log"; text: string; level: "info" | "detail" }
+  | { type: "finish"; summary: Summary }
+
 export type RunOptions = {
   scenarios: string[]
   repeat: number
@@ -19,6 +31,10 @@ export type RunOptions = {
   install: boolean
   /** Preflight only; leave started services running, except exclusive ones. */
   checkOnly: boolean
+  /** Optional callback for UI / monitoring events */
+  onEvent?: (event: RunEvent) => void
+  /** Optional abort signal to cancel a running execution */
+  signal?: AbortSignal
 }
 
 type Failure = { scenario: string; iteration: number; step: string; error: string }
@@ -80,7 +96,9 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
   const runId = new Date(startedAt).toISOString().replace(/[:.]/g, "-")
   const resultsDir = resolveFromConfig(config, config.results)
   const artifactsRoot = join(resultsDir, "artifacts", runId)
-  const out = new RunLog(join(resultsDir, "run.log"))
+  const out = new RunLog(join(resultsDir, "run.log"), (line, isDetail) => {
+    options.onEvent?.({ type: "log", text: line, level: isDetail ? "detail" : "info" })
+  })
 
   const scenarios = loadScenarios(config, options.scenarios)
   const used = targetsUsed(scenarios)
@@ -109,6 +127,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
   process.once("SIGINT", onInterrupt)
 
   try {
+    options.onEvent?.({ type: "preflight_start" })
     out.line(color.bold("Preflight"))
     const serviceNames = new Set<string>()
     for (const name of used) {
@@ -136,18 +155,37 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     // After the devices: their preflight also undoes device changes left by a crashed run,
     // which must not be skipped because a service check failed.
     services = await prepareServices(config, serviceNames, { start: options.start, logsDir: join(resultsDir, "services") }, out)
+    options.onEvent?.({ type: "preflight_done" })
 
     if (options.checkOnly) {
       out.line(color.green("Ready."))
       return summary
     }
 
+    options.onEvent?.({
+      type: "run_start",
+      runId,
+      totalScenarios: scenarios.length * options.repeat,
+      repeat: options.repeat,
+      scenarios: scenarios.map((s) => ({ id: s.id, name: s.name, stepsCount: s.steps.length })),
+    })
+
     for (let iteration = 1; iteration <= options.repeat; iteration++) {
       for (const scenario of scenarios) {
+        if (options.signal?.aborted) throw new Error("Execution cancelled")
         const label = options.repeat > 1 ? `${scenario.id} (${iteration}/${options.repeat})` : scenario.id
         const dir = join(artifactsRoot, options.repeat > 1 ? `${scenario.id}-${iteration}` : scenario.id)
         mkdirSync(dir, { recursive: true })
-        const failure = await runScenario(config, scenario, { drivers, dir, iteration, label, out })
+        const failure = await runScenario(config, scenario, {
+          drivers,
+          dir,
+          iteration,
+          totalIterations: options.repeat,
+          label,
+          out,
+          onEvent: options.onEvent,
+          signal: options.signal,
+        })
         summary.total++
         if (failure) {
           summary.failed++
@@ -170,26 +208,46 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
   const counts = `${summary.passed}/${summary.total} passed in ${(summary.duration_ms / 1000).toFixed(1)}s`
   out.line(summary.failed === 0 ? color.green(`PASSED ${counts}`) : color.red(`FAILED ${counts}`))
   if (summary.failed > 0) out.line(color.dim(`artifacts: ${artifactsRoot}`))
+  options.onEvent?.({ type: "finish", summary })
   return summary
 }
 
 async function runScenario(
   config: LoadedConfig,
   scenario: Scenario,
-  run: { drivers: Map<string, Driver>; dir: string; iteration: number; label: string; out: RunLog },
+  run: {
+    drivers: Map<string, Driver>
+    dir: string
+    iteration: number
+    totalIterations: number
+    label: string
+    out: RunLog
+    onEvent?: (event: RunEvent) => void
+    signal?: AbortSignal
+  },
 ): Promise<{ step: string; error: string } | undefined> {
-  const { drivers, dir, out } = run
+  const { drivers, dir, out, onEvent, signal } = run
   const scope: Scope = {
     ctx: { ...scenario.vars },
     env: config.env,
     run: { id: Date.now().toString(36), iteration: run.iteration },
   }
+  const scenarioBegan = Date.now()
+  onEvent?.({
+    type: "scenario_start",
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    iteration: run.iteration,
+    totalIterations: run.totalIterations,
+  })
+
   out.line()
   out.line(color.bold(`▶ ${scenario.name}`) + color.dim(`  ${run.label}`))
 
   let failure: { step: string; error: string } | undefined
   try {
     for (const name of scenario.setup ?? []) {
+      if (signal?.aborted) throw new Error("Execution cancelled")
       const began = Date.now()
       try {
         await runFixture(config, name, out)
@@ -201,12 +259,23 @@ async function runScenario(
       out.line(`  ${color.green("✓")} setup ${name} ${color.dim(`${Date.now() - began}ms`)}`)
     }
 
-    for (const raw of scenario.steps) {
+    for (let index = 0; index < scenario.steps.length; index++) {
+      if (signal?.aborted) throw new Error("Execution cancelled")
+      const raw = scenario.steps[index]
       const began = Date.now()
+      onEvent?.({
+        type: "step_start",
+        scenarioId: scenario.id,
+        stepName: raw.name,
+        target: raw.target,
+        index,
+        totalSteps: scenario.steps.length,
+      })
       const attempts = (raw.retry?.times ?? 0) + 1
       let lastError: Error | undefined
 
       for (let attempt = 1; attempt <= attempts; attempt++) {
+        if (signal?.aborted) throw new Error("Execution cancelled")
         try {
           const step = substitute(raw, scope)
           const driver = drivers.get(step.target) as Driver
@@ -225,17 +294,43 @@ async function runScenario(
       }
 
       const tag = color.dim(`[${raw.target}]`)
-      const took = color.dim(`${Date.now() - began}ms`)
+      const stepDuration = Date.now() - began
+      const took = color.dim(`${stepDuration}ms`)
       if (lastError) {
         failure = { step: raw.name, error: stripAnsi(lastError.message).trim() }
         out.line(`  ${color.red("✗")} ${tag} ${raw.name} ${took}`)
         out.line(`      ${color.red(lastError.message.split("\n").join("\n      "))}`)
+        onEvent?.({
+          type: "step_fail",
+          scenarioId: scenario.id,
+          stepName: raw.name,
+          target: raw.target,
+          index,
+          duration_ms: stepDuration,
+          error: failure.error,
+        })
         return failure
       }
       out.line(`  ${color.green("✓")} ${tag} ${raw.name} ${took}`)
+      onEvent?.({
+        type: "step_pass",
+        scenarioId: scenario.id,
+        stepName: raw.name,
+        target: raw.target,
+        index,
+        duration_ms: stepDuration,
+      })
     }
     return undefined
   } finally {
+    onEvent?.({
+      type: "scenario_end",
+      scenarioId: scenario.id,
+      iteration: run.iteration,
+      passed: failure === undefined,
+      duration_ms: Date.now() - scenarioBegan,
+      error: failure?.error,
+    })
     for (const driver of drivers.values()) {
       await driver.endScenario?.(failure !== undefined, dir).catch(() => {})
     }

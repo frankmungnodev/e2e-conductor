@@ -12,9 +12,12 @@
     "./schema/*": "./schema/*"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p ui/tsconfig.json",
     "check:boundary": "node scripts/check-boundary.mjs",
     "test": "node --import tsx --test \"test/*.test.ts\"",
+    "build:ui": "vite build --config ui/vite.config.ts",
+    "dev:ui": "vite --config ui/vite.config.ts",
+    "lint": "biome lint",
     "check": "pnpm run typecheck && pnpm run check:boundary && pnpm test"
   },
   "dependencies": {
@@ -24,7 +27,17 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.2",
-    "typescript": "^7.0.2"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "lucide-react": "^1.48.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
   }
 }

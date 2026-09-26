@@ -1,9 +1,12 @@
+import { existsSync } from "node:fs"
+import { resolve } from "node:path"
 import { parseArgs } from "node:util"
-import { loadConfig } from "./config.ts"
+import { type LoadedConfig, loadConfig } from "./config.ts"
 import { initProject } from "./init.ts"
 import { color } from "./logger.ts"
 import { run } from "./runner.ts"
 import { loadScenarios } from "./scenario.ts"
+import { startServer } from "./server.ts"
 
 const HELP = `Usage: e2e <command> [options]
 
@@ -12,6 +15,7 @@ Commands:
   check   Preflight only: services, devices, installed apps
   list    List scenarios and validate them
   init    Write a starter config and scenario (never overwrites)
+  ui      Start the web GUI dashboard
 
 Options:
   -c, --config <path>     Config file (default: ./e2e.config.ts)
@@ -21,6 +25,9 @@ Options:
       --install           Build and install mobile apps before running
       --headless          Hide the browser (same as E2E_HEADLESS=1)
   -v, --verbose           Print step details (same as E2E_VERBOSE=1)
+      --port <n>          Port for web UI (default: 4173)
+      --host <addr>       Host address for web UI (default: 127.0.0.1)
+      --no-open           Do not automatically open the browser on UI launch
   -h, --help
 `
 
@@ -35,12 +42,16 @@ async function main() {
       install: { type: "boolean", default: false },
       headless: { type: "boolean", default: false },
       verbose: { type: "boolean", short: "v", default: false },
+      port: { type: "string", default: "4173" },
+      host: { type: "string", default: "127.0.0.1" },
+      open: { type: "boolean", default: true },
+      "no-open": { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
   })
 
   const command = positionals[0] ?? "run"
-  if (values.help || !["run", "check", "list", "init"].includes(command)) {
+  if (values.help || !["run", "check", "list", "init", "ui"].includes(command)) {
     console.log(HELP)
     process.exit(values.help ? 0 : 2)
   }
@@ -52,6 +63,36 @@ async function main() {
     for (const file of created) console.log(`${color.green("created")} ${file}`)
     for (const file of skipped) console.log(`${color.yellow("skipped")} ${file} ${color.dim("(exists)")}`)
     if (created.length > 0) console.log(`\nNext: set the service url in ${values.config}, then run: e2e run`)
+    return
+  }
+
+  if (command === "ui") {
+    const port = Number(values.port)
+    if (Number.isNaN(port) || port < 1 || port > 65535) throw new Error("--port must be a valid port number (1-65535)")
+    const configPath = resolve(values.config)
+    let config: LoadedConfig
+    if (!existsSync(configPath)) {
+      console.log(color.yellow(`Note: ${values.config} not found. Running UI in starter mode.`))
+      config = {
+        configDir: process.cwd(),
+        env: {},
+        scenarios: "e2e/scenarios",
+        results: "e2e/results",
+        services: {},
+        targets: {},
+        fixtures: {},
+      }
+    } else {
+      config = await loadConfig(values.config)
+    }
+    const shouldOpen = !values["no-open"] && values.open !== false
+    const { url } = await startServer(config, {
+      port,
+      host: values.host,
+      open: shouldOpen,
+    })
+    console.log(`${color.green("✓")} e2e UI ready at ${color.bold(url)}`)
+    console.log(color.dim("Press Ctrl+C to stop"))
     return
   }
 

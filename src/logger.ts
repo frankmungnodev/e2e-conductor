@@ -13,21 +13,31 @@ export const color = {
   bold: (text: string) => `\x1b[1m${text}\x1b[0m`,
 }
 
+export type LogListener = (line: string, isDetail: boolean) => void
+
 /** Writes to the console and to a plain-text log file. */
 export class RunLog {
-  constructor(private readonly file: string) {
+  private listener?: LogListener
+
+  constructor(private readonly file: string, onLine?: LogListener) {
     mkdirSync(dirname(file), { recursive: true })
     writeFileSync(file, "")
+    this.listener = onLine
   }
 
   line(text = "") {
     console.log(text)
-    appendFileSync(this.file, `${stripAnsi(text)}\n`)
+    const clean = stripAnsi(text)
+    appendFileSync(this.file, `${clean}\n`)
+    this.listener?.(clean, false)
   }
 
   /** Detail lines go to the file only, unless E2E_VERBOSE=1. */
   detail(text: string) {
     if (process.env.E2E_VERBOSE === "1") console.log(color.dim(`      ${text}`))
-    appendFileSync(this.file, `      ${stripAnsi(text)}\n`)
+    const clean = stripAnsi(text)
+    appendFileSync(this.file, `      ${clean}\n`)
+    this.listener?.(clean, true)
   }
 }
+

@@ -13,6 +13,7 @@ export type {
   WebTarget,
 } from "./config.ts"
 export { defineConfig, defineWebStep } from "./config.ts"
+export { runShell } from "./process.ts"
 export type { Summary } from "./runner.ts"
 export type { Scenario, Step } from "./scenario.ts"
-export { runShell } from "./process.ts"
+export { startServer } from "./server.ts"
