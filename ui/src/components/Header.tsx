@@ -23,37 +23,32 @@ export function Header({
   isConnected = true,
 }: HeaderProps) {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
-    { id: "runner", label: "Run Tests", icon: <Play className="w-3.5 h-3.5" /> },
-    { id: "scenarios", label: "Test Scenarios & Steps", icon: <FileCode className="w-3.5 h-3.5" /> },
-    { id: "modules", label: "Code Modules & Fixtures", icon: <Code2 className="w-3.5 h-3.5" /> },
-    { id: "preflight", label: "System Health & Readiness", icon: <Server className="w-3.5 h-3.5" /> },
-    { id: "artifacts", label: "Test History & Reports", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-    { id: "config", label: "Project Configuration", icon: <Sliders className="w-3.5 h-3.5" /> },
+    { id: "runner", label: "Runner", icon: <Play className="w-3.5 h-3.5" /> },
+    { id: "scenarios", label: "Scenarios", icon: <FileCode className="w-3.5 h-3.5" /> },
+    { id: "modules", label: "Modules", icon: <Code2 className="w-3.5 h-3.5" /> },
+    { id: "preflight", label: "Health", icon: <Server className="w-3.5 h-3.5" /> },
+    { id: "artifacts", label: "Reports", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+    { id: "config", label: "Config", icon: <Sliders className="w-3.5 h-3.5" /> },
   ]
 
   return (
-    <header className="border-b border-border bg-activity select-none sticky top-0 z-40 px-4 py-2 flex items-center justify-between">
-      <div className="flex items-center gap-6">
-        {/* VS Code styled branding */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-sm bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-bold shadow-xs">
+    <header className="border-b border-border bg-activity select-none sticky top-0 z-40 px-3 py-1.5 h-11 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        {/* Compact branding */}
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-xs bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-bold shadow-xs text-xs">
             ⚡
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-fg-bright text-xs tracking-tight">
-                e2e-orchestrator
-              </span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-xs bg-sidebar text-fg-muted border border-border">
-                v0.2.0
-              </span>
-            </div>
-            <div className="text-[10px] text-fg-muted">Web Apps • Mobile Devices • Web APIs</div>
-          </div>
+          <span className="font-semibold text-fg-bright text-xs tracking-tight">
+            e2e-orchestrator
+          </span>
+          <span className="text-[10px] font-mono px-1 rounded-xs bg-sidebar text-fg-muted border border-border">
+            v0.2.0
+          </span>
         </div>
 
         {/* Tab Navigation */}
-        <nav className="flex items-center gap-1 bg-editor p-0.5 rounded-sm border border-border">
+        <nav className="flex items-center gap-0.5 bg-editor p-0.5 rounded-sm border border-border">
           {tabs.map((tab) => (
             <TabButton
               key={tab.id}
@@ -69,32 +64,32 @@ export function Header({
       </div>
 
       {/* Right Status */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         {!isConnected ? (
-          <Badge variant="danger" dot pulse>
-            Server Disconnected
+          <Badge variant="danger" dot pulse size="sm">
+            Disconnected
           </Badge>
         ) : (
-          <Badge variant="neutral" dot>
-            Connected & Ready
+          <Badge variant="neutral" dot size="sm">
+            Ready
           </Badge>
         )}
 
         {isRunning ? (
-          <Badge variant="warning" dot pulse icon={<Activity className="w-3 h-3 animate-spin" />}>
-            Running Tests...
+          <Badge variant="warning" dot pulse size="sm" icon={<Activity className="w-3 h-3 animate-spin" />}>
+            Running
           </Badge>
         ) : lastSummaryStatus === "PASSED" ? (
-          <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
-            Last Run: Passed
+          <Badge variant="success" size="sm" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
+            Passed
           </Badge>
         ) : lastSummaryStatus === "FAILED" ? (
-          <Badge variant="danger" icon={<XCircle className="w-3 h-3 text-error" />}>
-            Last Run: Failed
+          <Badge variant="danger" size="sm" icon={<XCircle className="w-3 h-3 text-error" />}>
+            Failed
           </Badge>
         ) : (
           <span className="text-[11px] text-fg-muted">
-            {scenariosCount} test scenario{scenariosCount === 1 ? "" : "s"} loaded
+            {scenariosCount} scenario{scenariosCount === 1 ? "" : "s"}
           </span>
         )}
       </div>
