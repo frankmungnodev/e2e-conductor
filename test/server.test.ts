@@ -203,6 +203,42 @@ describe("startServer", () => {
       assert.equal(saveCodeRes.status, 200)
       const saveCodeData = (await saveCodeRes.json()) as any
       assert.equal(saveCodeData.ok, true)
+
+      // 13. GET /api/wizard/detect
+      const detectRes = await fetch(`${url}/api/wizard/detect`)
+      assert.equal(detectRes.status, 200)
+      const detectData = (await detectRes.json()) as any
+      assert.ok(Array.isArray(detectData.detected))
+
+      // 14. POST /api/wizard/apply
+      const wizardRes = await fetch(`${url}/api/wizard/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          components: [
+            {
+              id: "comp-api",
+              type: "api",
+              name: "server_api",
+              order: 1,
+              url: "http://localhost:4000",
+              startCmd: "node index.js",
+            },
+            {
+              id: "comp-web",
+              type: "web",
+              name: "frontend_app",
+              order: 2,
+              modules: "web",
+            },
+          ],
+          scaffoldFiles: true,
+        }),
+      })
+      assert.equal(wizardRes.status, 200)
+      const wizardData = (await wizardRes.json()) as any
+      assert.equal(wizardData.ok, true)
+      assert.ok(wizardData.created.length > 0)
     } finally {
       await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
     }

@@ -11,6 +11,12 @@ import { adbPath, runAdb, startBackground } from "./process.ts"
 import { type RunEvent, type RunOptions, run, type Summary } from "./runner.ts"
 import { checkSteps, type Scenario } from "./scenario.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
+import {
+  detectWorkspace,
+  generateConfigCode,
+  scaffoldWizardFiles,
+  type WizardComponent,
+} from "./wizard.ts"
 
 const UI_DIST_PATH = resolve(import.meta.dirname, "../ui/dist")
 
@@ -310,6 +316,50 @@ export function startServer(
                 }
               }
               return sendJson(res, 200, { ok: true, created, skipped })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // GET /api/wizard/detect
+          if (pathname === "/api/wizard/detect" && req.method === "GET") {
+            const detected = detectWorkspace(currentConfig.configDir)
+            return sendJson(res, 200, { detected })
+          }
+
+          // POST /api/wizard/apply
+          if (pathname === "/api/wizard/apply" && req.method === "POST") {
+            const body = (await readBody(req)) as {
+              components?: WizardComponent[]
+              code?: string
+              scaffoldFiles?: boolean
+            }
+            const configPath = join(currentConfig.configDir, "e2e.config.ts")
+            const components = body.components ?? []
+            const codeToSave = body.code || generateConfigCode(components)
+            try {
+              writeFileSync(configPath, codeToSave, "utf8")
+              let created: string[] = [configPath]
+              let skipped: string[] = []
+
+              if (body.scaffoldFiles && components.length > 0) {
+                const scaffoldRes = scaffoldWizardFiles(configPath, components)
+                created = [...created, ...scaffoldRes.created]
+                skipped = [...skipped, ...scaffoldRes.skipped]
+              }
+
+              try {
+                currentConfig = await loadConfig(configPath)
+              } catch {
+                // Ignore reload error
+              }
+
+              return sendJson(res, 200, {
+                ok: true,
+                message: "Configuration generated and applied successfully",
+                created,
+                skipped,
+              })
             } catch (err) {
               return sendJson(res, 500, { ok: false, error: (err as Error).message })
             }

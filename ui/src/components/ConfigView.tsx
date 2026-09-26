@@ -18,6 +18,7 @@ import { fetchConfigCode, initProjectConfig, saveConfigCode } from "../api.ts"
 import type { ConfigMeta } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
+import { SetupWizard } from "./SetupWizard.tsx"
 import { useToast } from "./Toast.tsx"
 
 type ConfigViewProps = {
@@ -55,6 +56,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
   const [isInitializing, setIsInitializing] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isWizardOpen, setIsWizardOpen] = useState(false)
 
   const { error: toastError, success: toastSuccess } = useToast()
 
@@ -148,6 +150,15 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => setIsWizardOpen(true)}
+            icon={<Sparkles className="w-3 h-3 text-warning" />}
+          >
+            Setup Wizard
+          </Button>
+
           {!fileExists && (
             <Button
               size="xs"
@@ -310,35 +321,47 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
           </div>
 
           {/* Quick Snippet Generator */}
-          <div className="pt-2 border-t border-border">
-            <div className="text-[10px] font-semibold text-fg-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
-              <Plus className="w-3 h-3 text-fg-muted" /> Add Snippets to Config
-            </div>
-            <div className="space-y-1">
-              <button
-                type="button"
-                onClick={() => insertSnippet(TEMPLATES.httpService)}
-                className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
-              >
-                <span>+ Backend Service</span>
-                <Server className="w-3 h-3 text-info" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertSnippet(TEMPLATES.webTarget)}
-                className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
-              >
-                <span>+ Web Target (Playwright)</span>
-                <Globe className="w-3 h-3 text-primary" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertSnippet(TEMPLATES.mobileTarget)}
-                className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
-              >
-                <span>+ Mobile Target (Android)</span>
-                <Smartphone className="w-3 h-3 text-success" />
-              </button>
+          <div className="pt-2 border-t border-border space-y-2">
+            <Button
+              size="xs"
+              variant="secondary"
+              onClick={() => setIsWizardOpen(true)}
+              className="w-full justify-center"
+              icon={<Sparkles className="w-3 h-3 text-warning" />}
+            >
+              Open Setup Wizard
+            </Button>
+
+            <div>
+              <div className="text-[10px] font-semibold text-fg-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <Plus className="w-3 h-3 text-fg-muted" /> Add Snippets to Config
+              </div>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => insertSnippet(TEMPLATES.httpService)}
+                  className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
+                >
+                  <span>+ Backend Service</span>
+                  <Server className="w-3 h-3 text-info" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertSnippet(TEMPLATES.webTarget)}
+                  className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
+                >
+                  <span>+ Web Target (Playwright)</span>
+                  <Globe className="w-3 h-3 text-primary" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertSnippet(TEMPLATES.mobileTarget)}
+                  className="w-full text-left px-2 py-1.5 text-xs bg-editor hover:bg-input border border-border rounded-xs text-fg transition-colors cursor-pointer flex items-center justify-between"
+                >
+                  <span>+ Mobile Target (Android)</span>
+                  <Smartphone className="w-3 h-3 text-success" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -363,6 +386,15 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
           </div>
         </div>
       </div>
+
+      <SetupWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onApplied={() => {
+          loadCode()
+          onConfigReload()
+        }}
+      />
     </div>
   )
 }

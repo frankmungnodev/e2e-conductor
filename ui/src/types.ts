@@ -147,3 +147,37 @@ export type ModuleFile = {
   size: number
   updatedAt: number
 }
+
+export type WizardComponentType = "api" | "web" | "android"
+
+export type WizardComponent = {
+  id: string
+  type: WizardComponentType
+  name: string
+  order: number
+  // REST API / Backend fields
+  url?: string
+  health?: string
+  startCmd?: string
+  cwd?: string
+  // Web SPA fields
+  service?: string
+  modules?: string
+  slowMo?: number
+  headless?: boolean
+  // Android fields
+  appId?: string
+  installCmd?: string
+  flows?: string
+  reversePorts?: number[]
+  grantPermissions?: string[]
+}
+
+export type DetectedService = {
+  suggestedType: WizardComponentType
+  name: string
+  path: string
+  startCmd?: string
+  port?: number
+  appId?: string
+}

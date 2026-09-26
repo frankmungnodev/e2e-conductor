@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react"
 import { useEffect, useState } from "react"
 import {
   deleteScenario,
@@ -21,6 +22,7 @@ import { ModulesView } from "./components/ModulesView.tsx"
 import { PreflightView } from "./components/PreflightView.tsx"
 import { RunnerView } from "./components/RunnerView.tsx"
 import { ScenarioBuilder } from "./components/ScenarioBuilder.tsx"
+import { SetupWizard } from "./components/SetupWizard.tsx"
 import { useUrlTab } from "./components/Tabs.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
@@ -43,6 +45,7 @@ function AppContent() {
   const [events, setEvents] = useState<RunEvent[]>([])
   const [logs, setLogs] = useState<Array<{ text: string; level: "info" | "detail" }>>([])
   const [selectedModuleId, setSelectedModuleId] = useState<string | undefined>()
+  const [isStarterWizardOpen, setIsStarterWizardOpen] = useState(false)
 
   const { error: toastError, success: toastSuccess } = useToast()
 
@@ -224,6 +227,25 @@ function AppContent() {
         isConnected={isConnected}
       />
 
+      {config && Object.keys(config.targets).length === 0 && (
+        <div className="bg-primary/10 border-b border-primary/30 px-4 py-2 flex items-center justify-between text-xs text-primary-light">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-warning shrink-0" />
+            <span>
+              <strong>Welcome to E2E Orchestrator!</strong> No configuration file was found. Use the Setup Wizard to configure your backend, web, or mobile stack in seconds.
+            </span>
+          </div>
+          <Button
+            size="xs"
+            variant="primary"
+            onClick={() => setIsStarterWizardOpen(true)}
+            icon={<Sparkles className="w-3.5 h-3.5" />}
+          >
+            Launch Setup Wizard
+          </Button>
+        </div>
+      )}
+
       {!isConnected && (
         <div className="bg-error-bg border-b border-error-border px-4 py-1.5 flex items-center justify-between text-xs text-error">
           <div className="flex items-center gap-2">
@@ -289,6 +311,15 @@ function AppContent() {
           <ConfigView config={config} onConfigReload={loadInitialData} />
         )}
       </main>
+
+      <SetupWizard
+        isOpen={isStarterWizardOpen}
+        onClose={() => setIsStarterWizardOpen(false)}
+        onApplied={() => {
+          loadInitialData()
+          runPreflightCheck()
+        }}
+      />
     </div>
   )
 }

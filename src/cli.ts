@@ -2,7 +2,7 @@ import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
-import { initProject } from "./init.ts"
+import { initProject, runInteractiveInit } from "./init.ts"
 import { color } from "./logger.ts"
 import { run } from "./runner.ts"
 import { loadScenarios } from "./scenario.ts"
@@ -25,6 +25,7 @@ Options:
       --install           Build and install mobile apps before running
       --headless          Hide the browser (same as E2E_HEADLESS=1)
   -v, --verbose           Print step details (same as E2E_VERBOSE=1)
+  -i, --interactive       Interactive setup wizard (for init)
       --port <n>          Port for web UI (default: 4173)
       --host <addr>       Host address for web UI (default: 127.0.0.1)
       --no-open           Do not automatically open the browser on UI launch
@@ -42,6 +43,7 @@ async function main() {
       install: { type: "boolean", default: false },
       headless: { type: "boolean", default: false },
       verbose: { type: "boolean", short: "v", default: false },
+      interactive: { type: "boolean", short: "i", default: false },
       port: { type: "string", default: "4173" },
       host: { type: "string", default: "127.0.0.1" },
       open: { type: "boolean", default: true },
@@ -59,10 +61,11 @@ async function main() {
   if (values.verbose) process.env.E2E_VERBOSE = "1"
 
   if (command === "init") {
-    const { created, skipped } = initProject(values.config)
+    const isInteractive = values.interactive
+    const { created, skipped } = isInteractive ? await runInteractiveInit(values.config) : initProject(values.config)
     for (const file of created) console.log(`${color.green("created")} ${file}`)
     for (const file of skipped) console.log(`${color.yellow("skipped")} ${file} ${color.dim("(exists)")}`)
-    if (created.length > 0) console.log(`\nNext: set the service url in ${values.config}, then run: e2e run`)
+    if (created.length > 0) console.log(`\nNext: verify your setup in ${values.config}, then run: e2e check`)
     return
   }
 

@@ -82,3 +82,24 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
 )
 
 TextArea.displayName = "TextArea"
+
+export interface FormFieldProps {
+  label: string
+  hint?: string
+  required?: boolean
+  children: React.ReactNode
+}
+
+export function FormField({ label, hint, required, children }: FormFieldProps) {
+  return (
+    <div className="flex flex-col gap-1 w-full">
+      <div className="flex items-center justify-between">
+        <label className="text-[11px] font-medium text-fg-muted uppercase tracking-wider">
+          {label} {required && <span className="text-error">*</span>}
+        </label>
+        {hint && <span className="text-[10px] text-fg-muted font-sans">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  )
+}
