@@ -11,11 +11,11 @@ import {
   XCircle,
 } from "lucide-react"
 import { useState } from "react"
+import type { ConfigMeta, PreflightData } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
 import { Panel, PanelBody, PanelHeader } from "./Panel.tsx"
 import { useToast } from "./Toast.tsx"
-import type { ConfigMeta, PreflightData } from "../types.ts"
 
 type PreflightViewProps = {
   preflightData: PreflightData | null

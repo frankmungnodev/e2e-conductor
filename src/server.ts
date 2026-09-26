@@ -3,8 +3,9 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { basename, extname, join, resolve } from "node:path"
-import { type LoadedConfig, type MobileTarget, resolveFromConfig } from "./config.ts"
+import { type LoadedConfig, loadConfig, type MobileTarget, resolveFromConfig } from "./config.ts"
 import { checkFlow } from "./flow.ts"
+import { initProject } from "./init.ts"
 import { isUp, unfinishedGitOperation } from "./preflight.ts"
 import { adbPath, runAdb, startBackground } from "./process.ts"
 import { type RunEvent, type RunOptions, run, type Summary } from "./runner.ts"
@@ -97,6 +98,7 @@ export function startServer(
   return new Promise((resolveReady, reject) => {
     const port = options.port ?? 4173
     const host = options.host ?? "127.0.0.1"
+    let currentConfig = config
     const sseClients = new Set<ServerResponse>()
     let activeRun: ActiveRun | null = null
     let lastSummary: Summary | null = null
@@ -165,7 +167,7 @@ export function startServer(
           // GET /api/config
           if (pathname === "/api/config" && req.method === "GET") {
             const servicesMeta = Object.fromEntries(
-              Object.entries(config.services ?? {}).map(([name, s]) => [
+              Object.entries(currentConfig.services ?? {}).map(([name, s]) => [
                 name,
                 {
                   url: s.url,
@@ -178,18 +180,68 @@ export function startServer(
               ]),
             )
             return sendJson(res, 200, {
-              configDir: config.configDir,
+              configDir: currentConfig.configDir,
               services: servicesMeta,
-              targets: config.targets,
-              scenariosPath: config.scenarios,
-              resultsPath: config.results,
-              fixtures: Object.keys(config.fixtures ?? {}),
+              targets: currentConfig.targets,
+              scenariosPath: currentConfig.scenarios,
+              resultsPath: currentConfig.results,
+              fixtures: Object.keys(currentConfig.fixtures ?? {}),
             })
+          }
+
+          // GET /api/config/code
+          if (pathname === "/api/config/code" && req.method === "GET") {
+            const configPath = join(currentConfig.configDir, "e2e.config.ts")
+            const exists = existsSync(configPath)
+            let content = ""
+            if (exists) {
+              content = readFileSync(configPath, "utf8")
+            }
+            return sendJson(res, 200, {
+              exists,
+              path: configPath,
+              content,
+              configDir: currentConfig.configDir,
+            })
+          }
+
+          // POST /api/config/code
+          if (pathname === "/api/config/code" && req.method === "POST") {
+            const body = (await readBody(req)) as { content?: string }
+            if (typeof body?.content !== "string") {
+              return sendJson(res, 400, { ok: false, error: "Missing 'content' string in payload" })
+            }
+            const configPath = join(currentConfig.configDir, "e2e.config.ts")
+            try {
+              writeFileSync(configPath, body.content, "utf8")
+              currentConfig = await loadConfig(configPath)
+              return sendJson(res, 200, { ok: true, message: "Configuration saved and reloaded" })
+            } catch (err) {
+              return sendJson(res, 400, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // POST /api/init
+          if (pathname === "/api/init" && req.method === "POST") {
+            const configPath = join(currentConfig.configDir, "e2e.config.ts")
+            try {
+              const { created, skipped } = initProject(configPath)
+              if (existsSync(configPath)) {
+                try {
+                  currentConfig = await loadConfig(configPath)
+                } catch {
+                  // Ignore reload error if node_modules not yet linked in target dir
+                }
+              }
+              return sendJson(res, 200, { ok: true, created, skipped })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
           }
 
           // GET /api/scenarios
           if (pathname === "/api/scenarios" && req.method === "GET") {
-            const dir = resolveFromConfig(config, config.scenarios)
+            const dir = resolveFromConfig(currentConfig, currentConfig.scenarios)
             if (!existsSync(dir)) {
               return sendJson(res, 200, [])
             }
@@ -205,7 +257,7 @@ export function startServer(
                 if (!validateScenario(raw)) {
                   for (const err of describeErrors(validateScenario.errors)) schemaErrors.push(err)
                 }
-                const stepErrors = checkSteps(config, scenario, checkedFlows)
+                const stepErrors = checkSteps(currentConfig, scenario, checkedFlows)
                 const errors = [...schemaErrors, ...stepErrors]
                 return {
                   id,
@@ -242,7 +294,7 @@ export function startServer(
             if (!body?.id || !body.content) {
               return sendJson(res, 400, { error: "Missing 'id' or 'content' in payload" })
             }
-            const dir = resolveFromConfig(config, config.scenarios)
+            const dir = resolveFromConfig(currentConfig, currentConfig.scenarios)
             mkdirSync(dir, { recursive: true })
             const filePath = join(dir, `${body.id}.json`)
             const scenario = { ...body.content, id: body.id }
@@ -250,7 +302,7 @@ export function startServer(
             if (!validateScenario(body.content)) {
               for (const err of describeErrors(validateScenario.errors)) schemaErrors.push(err)
             }
-            const stepErrors = checkSteps(config, scenario, new Set())
+            const stepErrors = checkSteps(currentConfig, scenario, new Set())
             const errors = [...schemaErrors, ...stepErrors]
             writeFileSync(filePath, `${JSON.stringify(body.content, null, 2)}\n`)
             return sendJson(res, 200, { ok: true, id: body.id, isValid: errors.length === 0, errors })
@@ -259,7 +311,7 @@ export function startServer(
           // DELETE /api/scenarios/:id
           if (pathname.startsWith("/api/scenarios/") && req.method === "DELETE") {
             const id = pathname.replace("/api/scenarios/", "").trim()
-            const dir = resolveFromConfig(config, config.scenarios)
+            const dir = resolveFromConfig(currentConfig, currentConfig.scenarios)
             const filePath = join(dir, `${id}.json`)
             if (existsSync(filePath)) {
               rmSync(filePath)
@@ -271,10 +323,10 @@ export function startServer(
           // GET /api/flows
           if (pathname === "/api/flows" && req.method === "GET") {
             const flows: Array<{ target: string; file: string; path: string; content: string; isValid: boolean; errors: string[] }> = []
-            for (const [targetName, target] of Object.entries(config.targets)) {
+            for (const [targetName, target] of Object.entries(currentConfig.targets)) {
               if (target.driver === "mobile") {
                 const mob = target as MobileTarget
-                const flowsDir = resolveFromConfig(config, mob.flows)
+                const flowsDir = resolveFromConfig(currentConfig, mob.flows)
                 if (existsSync(flowsDir)) {
                   const files = readdirSync(flowsDir).filter((f) => f.endsWith(".yaml") || f.endsWith(".yml")).sort()
                   for (const file of files) {
@@ -302,11 +354,11 @@ export function startServer(
             if (!body?.target || !body.file || typeof body.content !== "string") {
               return sendJson(res, 400, { error: "Missing target, file, or content" })
             }
-            const target = config.targets[body.target] as MobileTarget | undefined
+            const target = currentConfig.targets[body.target] as MobileTarget | undefined
             if (target?.driver !== "mobile") {
               return sendJson(res, 400, { error: `Target ${body.target} is not a mobile target` })
             }
-            const flowsDir = resolveFromConfig(config, target.flows)
+            const flowsDir = resolveFromConfig(currentConfig, target.flows)
             mkdirSync(flowsDir, { recursive: true })
             const full = join(flowsDir, body.file)
             writeFileSync(full, body.content)
@@ -317,11 +369,11 @@ export function startServer(
           // GET /api/preflight
           if (pathname === "/api/preflight" && req.method === "GET") {
             const servicesStatus = await Promise.all(
-              Object.entries(config.services ?? {}).map(async ([name, s]) => {
+              Object.entries(currentConfig.services ?? {}).map(async ([name, s]) => {
                 const began = Date.now()
                 const up = await isUp(s)
                 const latency = Date.now() - began
-                const repo = s.start && resolveFromConfig(config, s.start.cwd)
+                const repo = s.start && resolveFromConfig(currentConfig, s.start.cwd)
                 const gitWarning = repo ? unfinishedGitOperation(repo) : undefined
                 return {
                   name,
@@ -352,7 +404,7 @@ export function startServer(
                 devicesList = found.map(({ serial, state }) => {
                   const model = runAdb(adb, serial, ["shell", "getprop", "ro.product.model"], { allowFailure: true }).trim()
                   const packages: Record<string, boolean> = {}
-                  for (const target of Object.values(config.targets)) {
+                  for (const target of Object.values(currentConfig.targets)) {
                     if (target.driver === "mobile") {
                       const mob = target as MobileTarget
                       const outPkgs = runAdb(adb, serial, ["shell", "pm", "list", "packages", mob.appId], { allowFailure: true })
@@ -379,15 +431,15 @@ export function startServer(
           // POST /api/preflight/start-service
           if (pathname === "/api/preflight/start-service" && req.method === "POST") {
             const body = (await readBody(req)) as { name: string }
-            const service = config.services?.[body.name]
+            const service = currentConfig.services?.[body.name]
             if (!service?.start) {
               return sendJson(res, 400, { error: `Service ${body?.name} has no start command` })
             }
-            const resultsDir = resolveFromConfig(config, config.results)
+            const resultsDir = resolveFromConfig(currentConfig, currentConfig.results)
             const logsDir = join(resultsDir, "services")
             mkdirSync(logsDir, { recursive: true })
             const logFile = join(logsDir, `${body.name}.log`)
-            const cwd = resolveFromConfig(config, service.start.cwd)
+            const cwd = resolveFromConfig(currentConfig, service.start.cwd)
             const child = startBackground(service.start.cmd, cwd, logFile)
             writeFileSync(join(logsDir, `${body.name}.pid`), String(child.pid))
             return sendJson(res, 200, { ok: true, pid: child.pid, logFile })
@@ -431,7 +483,7 @@ export function startServer(
             // Launch run asynchronously
             void (async () => {
               try {
-                const summary = await run(config, runOptions)
+                const summary = await run(currentConfig, runOptions)
                 lastSummary = summary
               } catch (err) {
                 const errorMsg = (err as Error).message
@@ -490,7 +542,7 @@ export function startServer(
 
           // GET /api/runs
           if (pathname === "/api/runs" && req.method === "GET") {
-            const resultsDir = resolveFromConfig(config, config.results)
+            const resultsDir = resolveFromConfig(currentConfig, currentConfig.results)
             const artifactsDir = join(resultsDir, "artifacts")
             const runs: Array<{
               runId: string
@@ -529,7 +581,7 @@ export function startServer(
           // GET /api/runs/:runId
           if (pathname.startsWith("/api/runs/") && req.method === "GET") {
             const runId = pathname.replace("/api/runs/", "").trim()
-            const resultsDir = resolveFromConfig(config, config.results)
+            const resultsDir = resolveFromConfig(currentConfig, currentConfig.results)
             const runDir = join(resultsDir, "artifacts", runId)
             if (!existsSync(runDir)) {
               return sendJson(res, 404, { error: `Run ${runId} not found` })
@@ -564,7 +616,7 @@ export function startServer(
           // GET /api/artifacts/*
           if (pathname.startsWith("/api/artifacts/") && req.method === "GET") {
             const rel = pathname.replace("/api/artifacts/", "")
-            const resultsDir = resolveFromConfig(config, config.results)
+            const resultsDir = resolveFromConfig(currentConfig, currentConfig.results)
             const targetPath = join(resultsDir, "artifacts", rel)
 
             // Security: Prevent directory traversal outside results

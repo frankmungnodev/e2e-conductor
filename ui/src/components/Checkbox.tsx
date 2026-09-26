@@ -1,6 +1,6 @@
+import { Check, Minus } from "lucide-react"
 import type React from "react"
 import { forwardRef, useEffect, useId, useRef, useState } from "react"
-import { Check, Minus } from "lucide-react"
 
 export interface CheckboxProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {

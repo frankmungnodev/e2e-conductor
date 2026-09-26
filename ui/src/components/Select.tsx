@@ -1,6 +1,6 @@
-import type React from "react"
-import { Children, isValidElement, forwardRef, useEffect, useId, useRef, useState } from "react"
 import { Check, ChevronDown } from "lucide-react"
+import type React from "react"
+import { Children, forwardRef, isValidElement, useEffect, useId, useRef, useState } from "react"
 
 export interface SelectOption {
   value: string

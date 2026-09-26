@@ -14,16 +14,17 @@ import {
   subscribeToEvents,
 } from "./api.ts"
 import { ArtifactsView } from "./components/ArtifactsView.tsx"
+import { Button } from "./components/Button.tsx"
+import { ConfigView } from "./components/ConfigView.tsx"
 import { Header, type TabType } from "./components/Header.tsx"
 import { PreflightView } from "./components/PreflightView.tsx"
 import { RunnerView } from "./components/RunnerView.tsx"
 import { ScenarioBuilder } from "./components/ScenarioBuilder.tsx"
 import { useUrlTab } from "./components/Tabs.tsx"
-import { Button } from "./components/Button.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 
-const VALID_MAIN_TABS = ["runner", "scenarios", "preflight", "artifacts"] as const
+const VALID_MAIN_TABS = ["runner", "scenarios", "preflight", "artifacts", "config"] as const
 
 function AppContent() {
   const [activeTab, setActiveTab] = useUrlTab<TabType>("tab", "runner", VALID_MAIN_TABS)
@@ -270,6 +271,9 @@ function AppContent() {
         )}
 
         {activeTab === "artifacts" && <ArtifactsView />}
+        {activeTab === "config" && (
+          <ConfigView config={config} onConfigReload={loadInitialData} />
+        )}
       </main>
     </div>
   )

@@ -159,3 +159,36 @@ export function subscribeToEvents(
   }
 }
 
+export async function fetchConfigCode(): Promise<{
+  exists: boolean
+  path: string
+  content: string
+  configDir: string
+}> {
+  const res = await fetch(`${API_BASE}/api/config/code`)
+  if (!res.ok) throw new Error("Failed to load config code")
+  return res.json()
+}
+
+export async function saveConfigCode(content: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/api/config/code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  })
+  const data = await res.json()
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? "Failed to save configuration")
+  }
+  return data
+}
+
+export async function initProjectConfig(): Promise<{ ok: boolean; created: string[]; skipped: string[] }> {
+  const res = await fetch(`${API_BASE}/api/init`, { method: "POST" })
+  const data = await res.json()
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? "Failed to initialize project")
+  }
+  return data
+}
+

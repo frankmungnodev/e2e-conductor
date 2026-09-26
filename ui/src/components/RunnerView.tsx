@@ -11,11 +11,11 @@ import {
   XCircle,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import type { RunEvent, RunSummary, ScenarioItem } from "../types.ts"
 import { Badge, type BadgeVariant } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
 import { Checkbox } from "./Checkbox.tsx"
 import { NumberInput } from "./NumberInput.tsx"
-import type { RunEvent, RunSummary, ScenarioItem } from "../types.ts"
 
 type RunnerViewProps = {
   scenarios: ScenarioItem[]

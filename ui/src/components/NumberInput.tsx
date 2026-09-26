@@ -1,6 +1,6 @@
+import { ChevronDown, ChevronUp, Minus, Plus } from "lucide-react"
 import type React from "react"
 import { forwardRef, useId, useRef } from "react"
-import { ChevronDown, ChevronUp, Minus, Plus } from "lucide-react"
 
 export interface NumberInputProps
   extends Omit<

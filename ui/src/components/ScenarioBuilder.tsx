@@ -3,18 +3,25 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  ChevronDown,
+  ChevronRight,
   Code2,
   Copy,
+  Database,
   FileCode,
   FilePlus2,
   Layers,
   Pencil,
+  Plus,
   Save,
   Search,
   Smartphone,
   Trash2,
+  Variable,
+  X,
 } from "lucide-react"
 import { useEffect, useState } from "react"
+import type { ConfigMeta, FlowItem, ScenarioItem, ScenarioStep } from "../types.ts"
 import { Badge, type BadgeVariant } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
 import { NumberInput } from "./NumberInput.tsx"
@@ -22,7 +29,6 @@ import { Panel } from "./Panel.tsx"
 import { Select } from "./Select.tsx"
 import { TabButton, useUrlTab } from "./Tabs.tsx"
 import { useToast } from "./Toast.tsx"
-import type { ConfigMeta, FlowItem, ScenarioItem, ScenarioStep } from "../types.ts"
 
 type ScenarioBuilderProps = {
   scenarios: ScenarioItem[]
@@ -70,6 +76,12 @@ export function ScenarioBuilder({
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [bodyDrafts, setBodyDrafts] = useState<Record<number, string>>({})
+  const [jsonMatchDrafts, setJsonMatchDrafts] = useState<Record<number, string>>({})
+  const [paramsDrafts, setParamsDrafts] = useState<Record<number, string>>({})
+  const [customFixtureInput, setCustomFixtureInput] = useState("")
+  const [newVarKey, setNewVarKey] = useState("")
+  const [newVarVal, setNewVarVal] = useState("")
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true)
 
   const { error: toastError, success: toastSuccess } = useToast()
 
@@ -123,6 +135,8 @@ export function ScenarioBuilder({
     setJsonText(JSON.stringify(sc.raw, null, 2))
     setJsonError(null)
     setBodyDrafts({})
+    setJsonMatchDrafts({})
+    setParamsDrafts({})
   }
 
   const selectFlow = (file: string) => {
@@ -211,6 +225,134 @@ export function ScenarioBuilder({
     setJsonText(JSON.stringify(newRaw, null, 2))
   }
 
+  const toggleSetupFixture = (fixtureName: string) => {
+    if (!draftScenario) return
+    const currentSetup = draftScenario.setup ?? []
+    const nextSetup = currentSetup.includes(fixtureName)
+      ? currentSetup.filter((f) => f !== fixtureName)
+      : [...currentSetup, fixtureName]
+
+    const newRaw = { ...draftScenario.raw }
+    if (nextSetup.length > 0) {
+      newRaw.setup = nextSetup
+    } else {
+      delete newRaw.setup
+    }
+
+    setDraftScenario({
+      ...draftScenario,
+      setup: nextSetup,
+      raw: newRaw,
+    })
+    setJsonText(JSON.stringify(newRaw, null, 2))
+  }
+
+  const addCustomFixture = (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed || !draftScenario) return
+    if (!draftScenario.setup?.includes(trimmed)) {
+      toggleSetupFixture(trimmed)
+    }
+    setCustomFixtureInput("")
+  }
+
+  const updateScenarioVar = (key: string, value: string, oldKey?: string) => {
+    if (!draftScenario) return
+    const nextVars = { ...(draftScenario.vars ?? {}) }
+    if (oldKey && oldKey !== key) {
+      delete nextVars[oldKey]
+    }
+    if (key.trim()) {
+      let parsedVal: unknown = value
+      if (value === "true") parsedVal = true
+      else if (value === "false") parsedVal = false
+      else if (!Number.isNaN(Number(value)) && value.trim() !== "") parsedVal = Number(value)
+      nextVars[key.trim()] = parsedVal
+    }
+    const newRaw = { ...draftScenario.raw }
+    if (Object.keys(nextVars).length > 0) {
+      newRaw.vars = nextVars
+    } else {
+      delete newRaw.vars
+    }
+    setDraftScenario({
+      ...draftScenario,
+      vars: nextVars,
+      raw: newRaw,
+    })
+    setJsonText(JSON.stringify(newRaw, null, 2))
+  }
+
+  const deleteScenarioVar = (key: string) => {
+    if (!draftScenario) return
+    const nextVars = { ...(draftScenario.vars ?? {}) }
+    delete nextVars[key]
+    const newRaw = { ...draftScenario.raw }
+    if (Object.keys(nextVars).length > 0) {
+      newRaw.vars = nextVars
+    } else {
+      delete newRaw.vars
+    }
+    setDraftScenario({
+      ...draftScenario,
+      vars: nextVars,
+      raw: newRaw,
+    })
+    setJsonText(JSON.stringify(newRaw, null, 2))
+  }
+
+  const updateStepExtract = (
+    stepIdx: number,
+    varName: string,
+    path: string,
+    oldName?: string,
+  ) => {
+    if (!draftScenario) return
+    const currentExtract = { ...(draftScenario.steps[stepIdx].extract ?? {}) }
+    if (oldName && oldName !== varName) {
+      delete currentExtract[oldName]
+    }
+    if (varName.trim()) {
+      currentExtract[varName.trim()] = path
+    }
+    const nextExtract = Object.keys(currentExtract).length > 0 ? currentExtract : undefined
+    updateStep(stepIdx, { extract: nextExtract })
+  }
+
+  const deleteStepExtract = (stepIdx: number, varName: string) => {
+    if (!draftScenario) return
+    const currentExtract = { ...(draftScenario.steps[stepIdx].extract ?? {}) }
+    delete currentExtract[varName]
+    const nextExtract = Object.keys(currentExtract).length > 0 ? currentExtract : undefined
+    updateStep(stepIdx, { extract: nextExtract })
+  }
+
+  const updateStepHeader = (
+    stepIdx: number,
+    headerKey: string,
+    headerVal: string,
+    oldKey?: string,
+  ) => {
+    if (!draftScenario) return
+    const currentHeaders = { ...(draftScenario.steps[stepIdx].headers ?? {}) }
+    if (oldKey && oldKey !== headerKey) {
+      delete currentHeaders[oldKey]
+    }
+    if (headerKey.trim()) {
+      currentHeaders[headerKey.trim()] = headerVal
+    }
+    const nextHeaders = Object.keys(currentHeaders).length > 0 ? currentHeaders : undefined
+    updateStep(stepIdx, { headers: nextHeaders })
+  }
+
+  const deleteStepHeader = (stepIdx: number, headerKey: string) => {
+    if (!draftScenario) return
+    const currentHeaders = { ...(draftScenario.steps[stepIdx].headers ?? {}) }
+    delete currentHeaders[headerKey]
+    const nextHeaders = Object.keys(currentHeaders).length > 0 ? currentHeaders : undefined
+    updateStep(stepIdx, { headers: nextHeaders })
+  }
+
   const addStep = (driverType: "http" | "web" | "mobile" | "shell") => {
     if (!draftScenario) return
 
@@ -291,6 +433,8 @@ export function ScenarioBuilder({
               name: parsed.name ?? prev.name,
               description: parsed.description ?? prev.description,
               steps: parsed.steps ?? [],
+              setup: parsed.setup ?? [],
+              vars: parsed.vars ?? {},
               raw: parsed,
             }
           : null,
@@ -616,6 +760,200 @@ export function ScenarioBuilder({
             <div className="flex-1 overflow-y-auto p-4 select-text">
               {editorMode === "visual" ? (
                 <div className="max-w-4xl mx-auto space-y-4">
+                  {/* Scenario Configuration Panel */}
+                  <div className="bg-panel border border-border rounded-xs overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                      className="w-full px-3 py-2 bg-sidebar hover:bg-input flex items-center justify-between border-b border-border/70 text-left transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        {isSettingsOpen ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-fg-muted" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 text-fg-muted" />
+                        )}
+                        <span className="text-xs font-semibold text-fg tracking-wide flex items-center gap-1.5">
+                          <Database className="w-3.5 h-3.5 text-primary" />
+                          Scenario Setup & Context
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="neutral" size="xs">
+                          {`${draftScenario.setup?.length ?? 0} Fixture${(draftScenario.setup?.length ?? 0) === 1 ? "" : "s"}`}
+                        </Badge>
+                        <Badge variant="neutral" size="xs">
+                          {`${Object.keys(draftScenario.vars ?? {}).length} Variable${Object.keys(draftScenario.vars ?? {}).length === 1 ? "" : "s"}`}
+                        </Badge>
+                      </div>
+                    </button>
+
+                    {isSettingsOpen && (
+                      <div className="p-3 space-y-3.5 text-xs bg-sidebar/30">
+                        {/* Setup Fixtures Section */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-[10px] text-fg-muted font-semibold uppercase tracking-wider flex items-center gap-1">
+                              <Database className="w-3 h-3 text-primary" /> Setup Fixtures (Run before scenario):
+                            </label>
+                            <span className="text-[10px] text-fg-muted">Toggled fixtures execute in order before Step 1</span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {/* Declared fixtures from config */}
+                            {(config?.fixtures ?? []).map((fix) => {
+                              const isSelected = draftScenario.setup?.includes(fix)
+                              return (
+                                <button
+                                  key={fix}
+                                  type="button"
+                                  onClick={() => toggleSetupFixture(fix)}
+                                  className={`px-2 py-0.5 text-xs font-mono rounded-xs border transition-colors flex items-center gap-1 cursor-pointer ${
+                                    isSelected
+                                      ? "bg-primary/20 text-primary border-primary/50 font-medium"
+                                      : "bg-input text-fg-muted border-border hover:border-fg-muted/40"
+                                  }`}
+                                >
+                                  {isSelected && <Check className="w-3 h-3 text-primary" />}
+                                  {fix}
+                                </button>
+                              )
+                            })}
+
+                            {/* Additional custom fixtures already in setup */}
+                            {(draftScenario.setup ?? [])
+                              .filter((fix) => !(config?.fixtures ?? []).includes(fix))
+                              .map((fix) => (
+                                <span
+                                  key={fix}
+                                  className="px-2 py-0.5 text-xs font-mono rounded-xs border bg-primary/20 text-primary border-primary/50 flex items-center gap-1 font-medium"
+                                >
+                                  <Check className="w-3 h-3 text-primary" />
+                                  {fix}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSetupFixture(fix)}
+                                    className="hover:text-error ml-1 cursor-pointer"
+                                    title="Remove fixture"
+                                  >
+                                    <X className="w-2.5 h-2.5" />
+                                  </button>
+                                </span>
+                              ))}
+
+                            {/* Add Custom Fixture Input */}
+                            <div className="flex items-center gap-1 ml-1">
+                              <input
+                                type="text"
+                                placeholder="Add custom fixture..."
+                                value={customFixtureInput}
+                                onChange={(e) => setCustomFixtureInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault()
+                                    addCustomFixture(customFixtureInput)
+                                  }
+                                }}
+                                className="px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none w-36"
+                              />
+                              <Button
+                                size="xs"
+                                variant="secondary"
+                                onClick={() => addCustomFixture(customFixtureInput)}
+                                disabled={!customFixtureInput.trim()}
+                                icon={<Plus className="w-2.5 h-2.5" />}
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Scenario Variables Section */}
+                        <div className="pt-2.5 border-t border-border/60">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-[10px] text-fg-muted font-semibold uppercase tracking-wider flex items-center gap-1">
+                              <Variable className="w-3 h-3 text-secondary" /> Initial Variables (ctx):
+                            </label>
+                            <span className="text-[10px] text-fg-muted">Accessible in steps as &ldquo;${"{"}ctx.varName{"}"}&rdquo;</span>
+                          </div>
+
+                          {/* Existing Variables list */}
+                          <div className="space-y-1.5">
+                            {Object.entries(draftScenario.vars ?? {}).map(([key, val]) => (
+                              <div key={key} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={key}
+                                  onChange={(e) => updateScenarioVar(e.target.value, String(val), key)}
+                                  placeholder="Variable name"
+                                  className="w-40 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-primary font-mono focus:border-border-focus focus:outline-none"
+                                />
+                                <span className="text-fg-muted font-mono">=</span>
+                                <input
+                                  type="text"
+                                  value={typeof val === "object" ? JSON.stringify(val) : String(val)}
+                                  onChange={(e) => updateScenarioVar(key, e.target.value)}
+                                  placeholder="Value e.g. 100 or 'test'"
+                                  className="flex-1 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                />
+                                <Button
+                                  size="xs"
+                                  variant="ghost"
+                                  onClick={() => deleteScenarioVar(key)}
+                                  title="Delete variable"
+                                  icon={<X className="w-3 h-3 text-error" />}
+                                />
+                              </div>
+                            ))}
+
+                            {/* Add Variable Row */}
+                            <div className="flex items-center gap-2 pt-1">
+                              <input
+                                type="text"
+                                placeholder="New variable name..."
+                                value={newVarKey}
+                                onChange={(e) => setNewVarKey(e.target.value)}
+                                className="w-40 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-primary font-mono focus:border-border-focus focus:outline-none"
+                              />
+                              <span className="text-fg-muted font-mono">=</span>
+                              <input
+                                type="text"
+                                placeholder="Initial value..."
+                                value={newVarVal}
+                                onChange={(e) => setNewVarVal(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && newVarKey.trim()) {
+                                    e.preventDefault()
+                                    updateScenarioVar(newVarKey, newVarVal)
+                                    setNewVarKey("")
+                                    setNewVarVal("")
+                                  }
+                                }}
+                                className="flex-1 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                              />
+                              <Button
+                                size="xs"
+                                variant="secondary"
+                                onClick={() => {
+                                  if (newVarKey.trim()) {
+                                    updateScenarioVar(newVarKey, newVarVal)
+                                    setNewVarKey("")
+                                    setNewVarVal("")
+                                  }
+                                }}
+                                disabled={!newVarKey.trim()}
+                                icon={<Plus className="w-2.5 h-2.5" />}
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Step Cards List */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -820,6 +1158,132 @@ export function ScenarioBuilder({
                                         />
                                       </div>
                                     )}
+
+                                    {/* HTTP Request Headers */}
+                                    <div className="pt-1.5 border-t border-border/50">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
+                                          Request Headers ({Object.keys(step.headers ?? {}).length}):
+                                        </label>
+                                        <Button
+                                          size="xs"
+                                          variant="ghost"
+                                          onClick={() =>
+                                            updateStepHeader(idx, "Content-Type", "application/json")
+                                          }
+                                          icon={<Plus className="w-2.5 h-2.5" />}
+                                        >
+                                          Add Header
+                                        </Button>
+                                      </div>
+                                      {step.headers && Object.keys(step.headers).length > 0 && (
+                                        <div className="space-y-1">
+                                          {Object.entries(step.headers).map(([hKey, hVal]) => (
+                                            <div key={hKey} className="flex items-center gap-1">
+                                              <input
+                                                type="text"
+                                                value={hKey}
+                                                onChange={(e) =>
+                                                  updateStepHeader(
+                                                    idx,
+                                                    e.target.value,
+                                                    hVal,
+                                                    hKey,
+                                                  )
+                                                }
+                                                placeholder="Header (e.g. Authorization)"
+                                                className="w-36 px-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                              />
+                                              <span className="text-fg-muted font-mono">:</span>
+                                              <input
+                                                type="text"
+                                                value={hVal}
+                                                onChange={(e) =>
+                                                  updateStepHeader(idx, hKey, e.target.value)
+                                                }
+                                                placeholder="Value (e.g. Bearer ${ctx.token})"
+                                                className="flex-1 px-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                              />
+                                              <Button
+                                                size="xs"
+                                                variant="ghost"
+                                                onClick={() => deleteStepHeader(idx, hKey)}
+                                                title="Remove header"
+                                                icon={<X className="w-3 h-3 text-error" />}
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Response Value Extraction (extract) */}
+                                    <div className="pt-1.5 border-t border-border/50">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
+                                          Extract to Context ({Object.keys(step.extract ?? {}).length}):
+                                        </label>
+                                        <Button
+                                          size="xs"
+                                          variant="ghost"
+                                          onClick={() =>
+                                            updateStepExtract(idx, "extractedVar", "data[0].id")
+                                          }
+                                          icon={<Plus className="w-2.5 h-2.5" />}
+                                        >
+                                          Add Extraction
+                                        </Button>
+                                      </div>
+                                      {step.extract && Object.keys(step.extract).length > 0 && (
+                                        <div className="space-y-1">
+                                          {Object.entries(step.extract).map(
+                                            ([varName, jsonPath]) => (
+                                              <div
+                                                key={varName}
+                                                className="flex items-center gap-1"
+                                              >
+                                                <span className="text-fg-muted font-mono text-[10px]">
+                                                  {"${ctx."}
+                                                </span>
+                                                <input
+                                                  type="text"
+                                                  value={varName}
+                                                  onChange={(e) =>
+                                                    updateStepExtract(
+                                                      idx,
+                                                      e.target.value,
+                                                      jsonPath,
+                                                      varName,
+                                                    )
+                                                  }
+                                                  placeholder="varName"
+                                                  className="w-28 px-1.5 py-0.5 text-[11px] rounded-xs bg-input border border-border text-primary font-mono focus:border-border-focus focus:outline-none"
+                                                />
+                                                <span className="text-fg-muted font-mono text-[10px]">
+                                                  {"}"} &larr;
+                                                </span>
+                                                <input
+                                                  type="text"
+                                                  value={jsonPath}
+                                                  onChange={(e) =>
+                                                    updateStepExtract(idx, varName, e.target.value)
+                                                  }
+                                                  placeholder="JSON path e.g. data[0].id"
+                                                  className="flex-1 px-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                                />
+                                                <Button
+                                                  size="xs"
+                                                  variant="ghost"
+                                                  onClick={() => deleteStepExtract(idx, varName)}
+                                                  title="Remove extraction"
+                                                  icon={<X className="w-3 h-3 text-error" />}
+                                                />
+                                              </div>
+                                            ),
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 )}
 
@@ -919,6 +1383,51 @@ export function ScenarioBuilder({
                                         className="w-full mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                                       />
                                     </div>
+                                    <div>
+                                      <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
+                                        Module Parameters (params JSON):
+                                      </label>
+                                      <textarea
+                                        rows={2}
+                                        value={
+                                          paramsDrafts[idx] !== undefined
+                                            ? paramsDrafts[idx]
+                                            : step.params !== undefined
+                                            ? JSON.stringify(step.params, null, 2)
+                                            : ""
+                                        }
+                                        onChange={(e) => {
+                                          const val = e.target.value
+                                          setParamsDrafts((prev) => ({ ...prev, [idx]: val }))
+                                          try {
+                                            const parsed = JSON.parse(val)
+                                            updateStep(idx, { params: parsed })
+                                          } catch {
+                                            if (!val.trim()) {
+                                              updateStep(idx, { params: undefined })
+                                            }
+                                          }
+                                        }}
+                                        onBlur={() => {
+                                          const val = paramsDrafts[idx]
+                                          if (val !== undefined) {
+                                            try {
+                                              const parsed = JSON.parse(val)
+                                              updateStep(idx, { params: parsed })
+                                              setParamsDrafts((prev) => {
+                                                const next = { ...prev }
+                                                delete next[idx]
+                                                return next
+                                              })
+                                            } catch {
+                                              // keep draft
+                                            }
+                                          }
+                                        }}
+                                        placeholder='{"role": "admin"}'
+                                        className="w-full mt-0.5 p-2 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -1004,6 +1513,77 @@ export function ScenarioBuilder({
                                     />
                                   </div>
                                 </div>
+
+                                {/* Structured JSON Match */}
+                                {stepDriver === "http" && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
+                                        JSON Match Assertions (json_match):
+                                      </label>
+                                      <span className="text-[10px] text-fg-muted">
+                                        Supports &ldquo;${"{"}ctx.key{"}"}&rdquo;, $exists, $gte, etc.
+                                      </span>
+                                    </div>
+                                    <textarea
+                                      rows={3}
+                                      value={
+                                        jsonMatchDrafts[idx] !== undefined
+                                          ? jsonMatchDrafts[idx]
+                                          : step.assert?.json_match !== undefined
+                                          ? JSON.stringify(step.assert.json_match, null, 2)
+                                          : ""
+                                      }
+                                      onChange={(e) => {
+                                        const val = e.target.value
+                                        setJsonMatchDrafts((prev) => ({ ...prev, [idx]: val }))
+                                        try {
+                                          const parsed = JSON.parse(val)
+                                          updateStep(idx, {
+                                            assert: {
+                                              ...step.assert,
+                                              json_match: parsed,
+                                            },
+                                          })
+                                        } catch {
+                                          if (!val.trim()) {
+                                            const nextAssert = { ...step.assert }
+                                            delete nextAssert.json_match
+                                            updateStep(idx, {
+                                              assert:
+                                                Object.keys(nextAssert).length > 0
+                                                  ? nextAssert
+                                                  : undefined,
+                                            })
+                                          }
+                                        }
+                                      }}
+                                      onBlur={() => {
+                                        const val = jsonMatchDrafts[idx]
+                                        if (val !== undefined) {
+                                          try {
+                                            const parsed = JSON.parse(val)
+                                            updateStep(idx, {
+                                              assert: {
+                                                ...step.assert,
+                                                json_match: parsed,
+                                              },
+                                            })
+                                            setJsonMatchDrafts((prev) => {
+                                              const next = { ...prev }
+                                              delete next[idx]
+                                              return next
+                                            })
+                                          } catch {
+                                            // keep draft
+                                          }
+                                        }
+                                      }}
+                                      placeholder='{"success": true, "data[0].id": {"$exists": true}}'
+                                      className="w-full mt-0.5 p-2 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                )}
 
                                 {/* Retries & Timeout */}
                                 <div className="grid grid-cols-2 gap-2">

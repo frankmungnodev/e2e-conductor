@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
-import { mkdirSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs"
+import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
 import { startServer } from "../src/server.ts"
@@ -8,6 +8,8 @@ import { tempDir } from "./temp-dir.ts"
 
 function mockProject(): LoadedConfig {
   const dir = tempDir("server-test")
+  mkdirSync(join(dir, "node_modules"), { recursive: true })
+  symlinkSync(resolve(import.meta.dirname, ".."), join(dir, "node_modules/e2e-orchestrator"), "dir")
   mkdirSync(join(dir, "scenarios"), { recursive: true })
   mkdirSync(join(dir, "results"), { recursive: true })
   mkdirSync(join(dir, "flows"), { recursive: true })
@@ -121,6 +123,36 @@ describe("startServer", () => {
       // 9. GET /api/nonexistent returns 404
       const unknownRes = await fetch(`${url}/api/nonexistent`)
       assert.equal(unknownRes.status, 404)
+
+      // 10. GET /api/config/code
+      const codeRes = await fetch(`${url}/api/config/code`)
+      assert.equal(codeRes.status, 200)
+      const codeData = (await codeRes.json()) as any
+      assert.equal(codeData.exists, false)
+
+      // 11. POST /api/init
+      const initRes = await fetch(`${url}/api/init`, { method: "POST" })
+      assert.equal(initRes.status, 200)
+      const initData = (await initRes.json()) as any
+      assert.equal(initData.ok, true)
+
+      // Verify code now exists
+      const codeRes2 = await fetch(`${url}/api/config/code`)
+      const codeData2 = (await codeRes2.json()) as any
+      assert.equal(codeData2.exists, true)
+      assert.ok(codeData2.content.includes("defineConfig"))
+
+      // 12. POST /api/config/code
+      const saveCodeRes = await fetch(`${url}/api/config/code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `${codeData2.content}\n// test comment\n`,
+        }),
+      })
+      assert.equal(saveCodeRes.status, 200)
+      const saveCodeData = (await saveCodeRes.json()) as any
+      assert.equal(saveCodeData.ok, true)
     } finally {
       await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
     }

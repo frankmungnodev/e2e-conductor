@@ -7,13 +7,13 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { fetchRunDetails, fetchRuns } from "../api.ts"
+import type { RunHistoryItem, RunSummary } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { CodeBlock } from "./CodeBlock.tsx"
 import { EmptyState } from "./EmptyState.tsx"
 import { Modal } from "./Modal.tsx"
 import { Panel } from "./Panel.tsx"
 import { TabButton, useUrlTab } from "./Tabs.tsx"
-import type { RunHistoryItem, RunSummary } from "../types.ts"
 
 export function ArtifactsView() {
   const [runs, setRuns] = useState<RunHistoryItem[]>([])
