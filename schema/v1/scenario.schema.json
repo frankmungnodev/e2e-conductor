@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:e2e-orchestrator:scenario:v1",
   "title": "E2E scenario",
   "description": "One user journey. Steps run in order and share values through ${ctx.name}.",
   "type": "object",
@@ -7,6 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
+    "version": { "const": 1, "description": "Schema version this file is written for. Omit it to mean version 1" },
     "name": { "type": "string", "description": "Human-readable journey name" },
     "description": { "type": "string" },
     "setup": {

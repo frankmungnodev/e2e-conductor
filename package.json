@@ -9,7 +9,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./schema/scenario.schema.json": "./schema/scenario.schema.json"
+    "./schema/*": "./schema/*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

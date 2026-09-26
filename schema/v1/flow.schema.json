@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:e2e-orchestrator:flow:v1",
+  "title": "E2E mobile flow",
+  "description": "One YAML document of a mobile flow file: an optional header object, then `---`, then the command list. Every document in the file matches this schema.",
+  "type": ["object", "array"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1, "description": "Schema version this file is written for. Omit it to mean version 1" },
+    "appId": { "type": "string", "description": "Android package to launch. Defaults to the target's appId" }
+  },
+  "items": { "$ref": "#/definitions/Command" },
+  "definitions": {
+    "Command": {
+      "description": "A bare command name, or an object with exactly one command",
+      "type": ["string", "object"],
+      "pattern": "^(launchApp|stopApp|clearState|back|hideKeyboard)$",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "launchApp": { "type": "null", "description": "Launch the app through its launcher activity" },
+        "stopApp": { "type": "null", "description": "Force-stop the app" },
+        "clearState": { "type": "null", "description": "Wipe the app's data" },
+        "back": { "type": "null", "description": "Press Back" },
+        "hideKeyboard": { "type": "null", "description": "Press Back if the on-screen keyboard is shown" },
+        "inputText": { "type": ["string", "number"], "description": "Type into the focused text field" },
+        "tapOn": { "$ref": "#/definitions/Selector" },
+        "assertVisible": { "$ref": "#/definitions/Selector" },
+        "assertNotVisible": { "$ref": "#/definitions/Selector" },
+        "extendedWaitUntil": {
+          "type": "object",
+          "additionalProperties": false,
+          "oneOf": [{ "required": ["visible"] }, { "required": ["notVisible"] }],
+          "properties": {
+            "visible": { "$ref": "#/definitions/Selector" },
+            "notVisible": { "$ref": "#/definitions/Selector" },
+            "timeout": { "type": "integer", "minimum": 1, "description": "Milliseconds (default 10000)" }
+          }
+        },
+        "scrollUntilVisible": {
+          "type": "object",
+          "required": ["element"],
+          "additionalProperties": false,
+          "properties": {
+            "element": { "$ref": "#/definitions/Selector" },
+            "direction": { "enum": ["UP", "DOWN"], "description": "Default DOWN" },
+            "timeout": { "type": "integer", "minimum": 1, "description": "Milliseconds (default 20000)" }
+          }
+        },
+        "swipe": {
+          "type": "object",
+          "required": ["from"],
+          "additionalProperties": false,
+          "properties": {
+            "from": { "$ref": "#/definitions/Selector" },
+            "direction": {
+              "enum": ["RIGHT", "LEFT", "UP", "DOWN", "right", "left", "up", "down"],
+              "description": "Swipe from the element's center toward this screen edge (default RIGHT)"
+            },
+            "duration": { "type": "integer", "minimum": 1, "description": "Milliseconds (default 400)" }
+          }
+        }
+      }
+    },
+    "Selector": {
+      "description": "A text regex, or an object. Text matches the element's text or content description",
+      "type": ["string", "object"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "description": "Full-match regex on text or content description" },
+        "id": { "type": "string", "description": "Resource id, with or without the package:id/ prefix" },
+        "index": { "type": "integer", "minimum": 0, "description": "Which match to use (default 0)" },
+        "optional": { "type": "boolean", "description": "tapOn: skip instead of failing when not found" },
+        "checked": { "type": "boolean" },
+        "below": { "$ref": "#/definitions/Selector" },
+        "above": { "$ref": "#/definitions/Selector" },
+        "containsDescendants": { "type": "array", "items": { "$ref": "#/definitions/Selector" } }
+      }
+    }
+  }
+}

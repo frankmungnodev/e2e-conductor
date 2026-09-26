@@ -1,8 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
-import { Ajv } from "ajv"
-import schema from "../schema/scenario.schema.json" with { type: "json" }
-import { type LoadedConfig, resolveFromConfig, SHELL_TARGET } from "./config.ts"
+import { type LoadedConfig, type MobileTarget, resolveFromConfig, SHELL_TARGET } from "./config.ts"
+import { checkFlow } from "./flow.ts"
+import { describeErrors, validateScenario } from "./schema.ts"
 
 export type Assert = {
   status?: number
@@ -54,8 +54,6 @@ const DRIVER_FIELDS: Record<string, string[]> = {
 const REQUIRED: Record<string, string> = { http: "url", web: "run", mobile: "flow", shell: "command" }
 const COMMON = new Set(["name", "target", "extract", "assert", "timeout_ms", "retry"])
 
-const validate = new Ajv({ allErrors: true }).compile(schema)
-
 export function driverOf(config: LoadedConfig, target: string): string {
   if (target === SHELL_TARGET) return SHELL_TARGET
   const found = config.targets[target]
@@ -65,7 +63,17 @@ export function driverOf(config: LoadedConfig, target: string): string {
   return found.driver
 }
 
-function checkSteps(config: LoadedConfig, scenario: Scenario): string[] {
+/** Problems in the flow a mobile step names. `checked` holds flows already reported, so each is reported once. */
+function checkStepFlow(config: LoadedConfig, step: Step, checked: Set<string>): string[] {
+  const target = config.targets[step.target] as MobileTarget
+  const file = join(resolveFromConfig(config, target.flows), step.flow as string)
+  if (checked.has(file)) return []
+  checked.add(file)
+  if (!existsSync(file)) return [`flow not found: ${file}`]
+  return checkFlow(file).map((problem) => `flow ${step.flow}: ${problem}`)
+}
+
+function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlows: Set<string>): string[] {
   const errors: string[] = []
   for (const fixture of scenario.setup ?? []) {
     if (!config.fixtures?.[fixture]) errors.push(`setup: unknown fixture "${fixture}"`)
@@ -89,6 +97,9 @@ function checkSteps(config: LoadedConfig, scenario: Scenario): string[] {
     if (step[required as keyof Step] === undefined) {
       errors.push(`${where}: ${driver} step needs "${REQUIRED[driver]}"${driver === "mobile" ? ' or "launch"' : ""}`)
     }
+    if (driver === "mobile" && step.flow !== undefined) {
+      for (const problem of checkStepFlow(config, step, checkedFlows)) errors.push(`${where}: ${problem}`)
+    }
   })
   return errors
 }
@@ -105,16 +116,15 @@ export function loadScenarios(config: LoadedConfig, filters: string[] = []): Sce
   }
 
   const problems: string[] = []
+  const checkedFlows = new Set<string>()
   const scenarios = files.map((file) => {
     const raw = JSON.parse(readFileSync(join(dir, file), "utf8"))
     const scenario = { ...raw, id: basename(file, ".json") } as Scenario
-    if (!validate(raw)) {
-      for (const error of validate.errors ?? []) {
-        problems.push(`${file}: ${error.instancePath || "/"} ${error.message}`)
-      }
+    if (!validateScenario(raw)) {
+      for (const error of describeErrors(validateScenario.errors)) problems.push(`${file}: ${error}`)
       return scenario
     }
-    for (const error of checkSteps(config, scenario)) problems.push(`${file}: ${error}`)
+    for (const error of checkSteps(config, scenario, checkedFlows)) problems.push(`${file}: ${error}`)
     return scenario
   })
 
