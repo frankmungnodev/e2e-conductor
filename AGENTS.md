@@ -8,6 +8,15 @@
 
 ---
 
+## UI & Component Conventions
+
+- **`Tabs` & `TabButton`**:
+  - Segmented pill tabs (`variant="pills"`) for sub-resource navigation. All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`).
+- **Badges**:
+  - Every badge text MUST be capitalized using Title Case (capitalize the first character of each word, e.g. `Passed`, `Failed`, `Running`, `Idle`, not all-caps) across all screens and components.
+
+---
+
 ## Branching & Commit Workflow
 
 - **Two Standard Branches**: This repository maintains two core branches:

@@ -1,6 +1,7 @@
 import { Activity, CheckCircle2, FileCode, Play, Server, ShieldCheck, XCircle } from "lucide-react"
 import type React from "react"
 import { Badge } from "./Badge.tsx"
+import { TabButton } from "./Tabs.tsx"
 
 export type TabType = "runner" | "scenarios" | "preflight" | "artifacts"
 
@@ -22,10 +23,10 @@ export function Header({
   isConnected = true,
 }: HeaderProps) {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
-    { id: "runner", label: "Runner", icon: <Play className="w-3.5 h-3.5" /> },
-    { id: "scenarios", label: "Scenarios & Flows", icon: <FileCode className="w-3.5 h-3.5" /> },
-    { id: "preflight", label: "Preflight & Services", icon: <Server className="w-3.5 h-3.5" /> },
-    { id: "artifacts", label: "Runs & Artifacts", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+    { id: "runner", label: "Run Tests", icon: <Play className="w-3.5 h-3.5" /> },
+    { id: "scenarios", label: "Test Scenarios & Steps", icon: <FileCode className="w-3.5 h-3.5" /> },
+    { id: "preflight", label: "System Health & Readiness", icon: <Server className="w-3.5 h-3.5" /> },
+    { id: "artifacts", label: "Test History & Reports", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
   ]
 
   return (
@@ -45,29 +46,23 @@ export function Header({
                 v0.2.0
               </span>
             </div>
-            <div className="text-[10px] text-fg-muted">HTTP • Playwright • Android ADB</div>
+            <div className="text-[10px] text-fg-muted">Web Apps • Mobile Devices • Web APIs</div>
           </div>
         </div>
 
         {/* Tab Navigation */}
         <nav className="flex items-center gap-1 bg-editor p-0.5 rounded-sm border border-border">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xs text-xs font-medium transition-colors cursor-pointer ${
-                  isActive
-                    ? "bg-primary text-white shadow-xs"
-                    : "text-fg-muted hover:text-fg hover:bg-hover"
-                }`}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
-            )
-          })}
+          {tabs.map((tab) => (
+            <TabButton
+              key={tab.id}
+              variant="pills"
+              active={activeTab === tab.id}
+              onClick={() => onTabChange(tab.id)}
+              icon={tab.icon}
+            >
+              {tab.label}
+            </TabButton>
+          ))}
         </nav>
       </div>
 
@@ -75,29 +70,29 @@ export function Header({
       <div className="flex items-center gap-2.5">
         {!isConnected ? (
           <Badge variant="danger" dot pulse>
-            Backend Offline
+            Server Disconnected
           </Badge>
         ) : (
           <Badge variant="neutral" dot>
-            API Ready
+            Connected & Ready
           </Badge>
         )}
 
         {isRunning ? (
           <Badge variant="warning" dot pulse icon={<Activity className="w-3 h-3 animate-spin" />}>
-            Running Scenarios...
+            Running Tests...
           </Badge>
         ) : lastSummaryStatus === "PASSED" ? (
           <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
-            Last Run: PASSED
+            Last Run: Passed
           </Badge>
         ) : lastSummaryStatus === "FAILED" ? (
           <Badge variant="danger" icon={<XCircle className="w-3 h-3 text-error" />}>
-            Last Run: FAILED
+            Last Run: Failed
           </Badge>
         ) : (
           <span className="text-[11px] text-fg-muted">
-            {scenariosCount} scenario{scenariosCount === 1 ? "" : "s"} loaded
+            {scenariosCount} test scenario{scenariosCount === 1 ? "" : "s"} loaded
           </span>
         )}
       </div>

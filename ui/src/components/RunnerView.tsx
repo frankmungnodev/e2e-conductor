@@ -305,7 +305,7 @@ export function RunnerView({
           <div className="flex items-center gap-3">
             <Checkbox
               size="sm"
-              label="Start Services"
+              label="Auto-Start Background Servers"
               checked={startServices}
               onChange={(e) => setStartServices(e.target.checked)}
               disabled={isRunning}
@@ -313,7 +313,7 @@ export function RunnerView({
 
             <Checkbox
               size="sm"
-              label="Install Mobile"
+              label="Install Mobile App on Device"
               checked={installMobile}
               onChange={(e) => setInstallMobile(e.target.checked)}
               disabled={isRunning}
@@ -321,7 +321,7 @@ export function RunnerView({
 
             <Checkbox
               size="sm"
-              label="Headless"
+              label="Silent Browser (Hide Window)"
               checked={headless}
               onChange={(e) => setHeadless(e.target.checked)}
               disabled={isRunning}
@@ -329,7 +329,7 @@ export function RunnerView({
 
             <Checkbox
               size="sm"
-              label="Verbose"
+              label="Detailed Logs"
               checked={verbose}
               onChange={(e) => setVerbose(e.target.checked)}
             />
@@ -355,7 +355,7 @@ export function RunnerView({
               disabled={selectedScenarios.length === 0}
               icon={<Play className="w-3.5 h-3.5 fill-current" />}
             >
-              Run {selectedScenarios.length} Scenario{selectedScenarios.length === 1 ? "" : "s"}
+              Start {selectedScenarios.length} Test Scenario{selectedScenarios.length === 1 ? "" : "s"}
             </Button>
           )}
         </div>
@@ -368,18 +368,18 @@ export function RunnerView({
             <span className="text-xs text-fg-muted font-medium">Status:</span>
             {isRunning ? (
               <Badge variant="warning" dot pulse icon={<Loader2 className="w-3 h-3 animate-spin" />}>
-                RUNNING
+                Running
               </Badge>
             ) : lastSummary?.status === "PASSED" ? (
               <Badge variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
-                PASSED
+                Passed
               </Badge>
             ) : lastSummary?.status === "FAILED" ? (
               <Badge variant="danger" icon={<XCircle className="w-3 h-3 text-error" />}>
-                FAILED
+                Failed
               </Badge>
             ) : (
-              <Badge variant="neutral">IDLE</Badge>
+              <Badge variant="neutral">Ready</Badge>
             )}
           </div>
 
@@ -420,7 +420,7 @@ export function RunnerView({
           <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-sidebar">
             <span className="text-xs font-semibold text-fg-bright uppercase tracking-wider flex items-center gap-2">
               <Layers className="w-3.5 h-3.5 text-primary" />
-              Scenarios & Steps
+              Test Scenarios & Steps
             </span>
             <span className="text-[11px] text-fg-muted">
               {executionTree.length > 0 ? `${executionTree.length} scenario runs` : "Ready to run"}
@@ -434,7 +434,7 @@ export function RunnerView({
                   <div className="bg-error-bg border border-error-border rounded-xs p-3 text-xs text-error">
                     <div className="font-semibold flex items-center gap-2 text-error text-xs mb-2">
                       <XCircle className="w-4 h-4 text-error" />
-                      Execution Error
+                      Test Execution Error
                     </div>
                     {lastSummary.failures.map((f, i) => (
                       <div
@@ -450,10 +450,10 @@ export function RunnerView({
                 <div className="flex flex-col items-center justify-center h-full text-center text-fg-muted p-8">
                   <Play className="w-8 h-8 mb-2.5 opacity-30 stroke-1" />
                   <p className="text-xs font-semibold text-fg uppercase tracking-wider">
-                    No active execution
+                    No Tests Running
                   </p>
                   <p className="text-[11px] mt-1 text-fg-muted max-w-xs leading-normal">
-                    Select scenarios and click "Run Scenarios" above to start testing. Live steps and assertion results will appear here.
+                    No tests running right now. Choose scenarios on the left and click "Start Test Scenarios" above to begin. Live steps and verification results will appear here.
                   </p>
                 </div>
               )
@@ -507,7 +507,7 @@ export function RunnerView({
                             : "neutral"
                         }
                       >
-                        {sc.status}
+                        {sc.status.charAt(0).toUpperCase() + sc.status.slice(1)}
                       </Badge>
                     </div>
                   </div>
@@ -537,7 +537,7 @@ export function RunnerView({
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge size="xs" variant={getTargetBadgeVariant(st.target)}>
-                                {st.target}
+                                {st.target.charAt(0).toUpperCase() + st.target.slice(1)}
                               </Badge>
                               <span className="font-medium text-fg">{st.name}</span>
                             </div>
@@ -569,7 +569,7 @@ export function RunnerView({
             <div className="flex items-center gap-2">
               <Terminal className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs font-semibold text-fg-bright uppercase tracking-wider">
-                Output
+                Live Output Log
               </span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-xs bg-input text-fg-muted font-mono border border-border">
                 {logs.length} lines
@@ -582,7 +582,7 @@ export function RunnerView({
                 <Search className="w-3 h-3 text-fg-muted absolute left-2 top-2" />
                 <input
                   type="text"
-                  placeholder="Filter logs..."
+                  placeholder="Search logs..."
                   value={logFilter}
                   onChange={(e) => setLogFilter(e.target.value)}
                   className="pl-6 pr-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg placeholder-fg-muted w-32 focus:w-44 transition-all focus:border-border-focus focus:outline-none"
@@ -594,14 +594,14 @@ export function RunnerView({
                 variant={autoScroll ? "primary" : "secondary"}
                 onClick={() => setAutoScroll(!autoScroll)}
               >
-                Auto-scroll
+                Auto-Scroll Log
               </Button>
 
               <Button
                 size="xs"
                 variant="ghost"
                 onClick={onClearLogs}
-                title="Clear logs"
+                title="Clear Console"
                 icon={<Trash2 className="w-3 h-3 text-fg-muted" />}
               />
             </div>

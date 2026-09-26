@@ -18,12 +18,15 @@ import { Header, type TabType } from "./components/Header.tsx"
 import { PreflightView } from "./components/PreflightView.tsx"
 import { RunnerView } from "./components/RunnerView.tsx"
 import { ScenarioBuilder } from "./components/ScenarioBuilder.tsx"
+import { useUrlTab } from "./components/Tabs.tsx"
 import { Button } from "./components/Button.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 
+const VALID_MAIN_TABS = ["runner", "scenarios", "preflight", "artifacts"] as const
+
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<TabType>("runner")
+  const [activeTab, setActiveTab] = useUrlTab<TabType>("tab", "runner", VALID_MAIN_TABS)
   const [config, setConfig] = useState<ConfigMeta | null>(null)
   const [scenarios, setScenarios] = useState<ScenarioItem[]>([])
   const [flows, setFlows] = useState<FlowItem[]>([])

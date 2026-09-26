@@ -8,6 +8,7 @@ import {
   FileCode,
   FilePlus2,
   Layers,
+  Pencil,
   Save,
   Search,
   Smartphone,
@@ -19,6 +20,7 @@ import { Button } from "./Button.tsx"
 import { NumberInput } from "./NumberInput.tsx"
 import { Panel } from "./Panel.tsx"
 import { Select } from "./Select.tsx"
+import { TabButton, useUrlTab } from "./Tabs.tsx"
 import { useToast } from "./Toast.tsx"
 import type { ConfigMeta, FlowItem, ScenarioItem, ScenarioStep } from "../types.ts"
 
@@ -51,7 +53,10 @@ export function ScenarioBuilder({
     null,
   )
   const [searchQuery, setSearchQuery] = useState("")
-  const [editorMode, setEditorMode] = useState<"visual" | "json">("visual")
+  const [editorMode, setEditorMode] = useUrlTab<"visual" | "json">("view", "visual", [
+    "visual",
+    "json",
+  ])
 
   // Scenario editing draft
   const [draftScenario, setDraftScenario] = useState<ScenarioItem | null>(null)
@@ -73,6 +78,18 @@ export function ScenarioBuilder({
   const availableTargets = Array.from(
     new Set([...configuredTargets, "shell", "api", "web", "mobile"]),
   )
+
+  const capitalizeFirst = (str: string) =>
+    str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : ""
+
+  const formatTargetLabel = (target: string) => {
+    if (target.toLowerCase() === "api") return "Platform: API"
+    const capitalized = target
+      .split(/[-_]/)
+      .map((word) => (word.toLowerCase() === "api" ? "API" : capitalizeFirst(word)))
+      .join(" ")
+    return `Platform: ${capitalized}`
+  }
 
   const getTargetDriver = (target: string): "http" | "web" | "mobile" | "shell" => {
     if (target === "shell") return "shell"
@@ -126,7 +143,7 @@ export function ScenarioBuilder({
       description: "Description of test scenario",
       steps: [
         {
-          name: "Health check step",
+          name: "Health Check Step",
           target: defaultTarget,
           method: "GET",
           url: "/health",
@@ -142,7 +159,7 @@ export function ScenarioBuilder({
         description: "Description of test scenario",
         steps: [
           {
-            name: "Health check step",
+            name: "Health Check Step",
             target: defaultTarget,
             method: "GET",
             url: "/health",
@@ -395,7 +412,7 @@ export function ScenarioBuilder({
               title="New Mobile Flow"
               icon={<Smartphone className="w-3 h-3 text-success" />}
             >
-              Flow
+              New Flow
             </Button>
           </div>
         </div>
@@ -405,7 +422,7 @@ export function ScenarioBuilder({
           {/* Scenarios Section */}
           <div>
             <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-fg-muted flex items-center justify-between">
-              <span>Scenarios</span>
+              <span>Test Scenarios</span>
               <span className="font-mono text-[10px] text-fg-muted">
                 {filteredScenarios.length}
               </span>
@@ -448,7 +465,7 @@ export function ScenarioBuilder({
           {flows.length > 0 && (
             <div>
               <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-fg-muted flex items-center justify-between">
-                <span>Mobile Flows</span>
+                <span>Mobile Workflows</span>
                 <span className="font-mono text-[10px] text-fg-muted">
                   {filteredFlows.length}
                 </span>
@@ -468,8 +485,8 @@ export function ScenarioBuilder({
                     >
                       <div className="truncate pr-2">
                         <div className="truncate font-medium text-[11.5px]">{fl.file}</div>
-                        <div className="text-[10px] text-fg-muted font-mono truncate">
-                          target: {fl.target}
+                        <div className="text-[10px] text-fg-muted font-sans truncate">
+                          {formatTargetLabel(fl.target)}
                         </div>
                       </div>
                       <div>
@@ -496,39 +513,45 @@ export function ScenarioBuilder({
                 <FileCode className="w-4 h-4 text-primary" />
                 <div>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={draftScenario.name}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setDraftScenario({
-                          ...draftScenario,
-                          name: val,
-                          raw: { ...draftScenario.raw, name: val },
-                        })
-                        setJsonText(JSON.stringify({ ...draftScenario.raw, name: val }, null, 2))
-                      }}
-                      className="text-xs font-bold bg-transparent text-fg-bright hover:bg-input px-1.5 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none"
-                    />
+                    <div className="relative flex items-center group">
+                      <input
+                        type="text"
+                        value={draftScenario.name}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setDraftScenario({
+                            ...draftScenario,
+                            name: val,
+                            raw: { ...draftScenario.raw, name: val },
+                          })
+                          setJsonText(JSON.stringify({ ...draftScenario.raw, name: val }, null, 2))
+                        }}
+                        className="text-xs font-bold bg-transparent text-fg-bright hover:bg-input pl-1.5 pr-6 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none"
+                      />
+                      <Pencil className="w-2.5 h-2.5 text-fg-muted/60 group-hover:text-fg-muted absolute right-1.5 pointer-events-none transition-colors" />
+                    </div>
                     <span className="text-[10px] font-mono text-fg-muted bg-sidebar px-1.5 py-0.2 rounded-xs border border-border">
                       {draftScenario.id}.json
                     </span>
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Add description..."
-                    value={draftScenario.description ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setDraftScenario({
-                        ...draftScenario,
-                        description: val,
-                        raw: { ...draftScenario.raw, description: val },
-                      })
-                      setJsonText(JSON.stringify({ ...draftScenario.raw, description: val }, null, 2))
-                    }}
-                    className="text-[11px] text-fg-muted bg-transparent hover:bg-input px-1.5 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none w-96 mt-0.5"
-                  />
+                  <div className="relative flex items-center group w-96 mt-0.5">
+                    <input
+                      type="text"
+                      placeholder="Add description..."
+                      value={draftScenario.description ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setDraftScenario({
+                          ...draftScenario,
+                          description: val,
+                          raw: { ...draftScenario.raw, description: val },
+                        })
+                        setJsonText(JSON.stringify({ ...draftScenario.raw, description: val }, null, 2))
+                      }}
+                      className="text-[11px] text-fg-muted bg-transparent hover:bg-input pl-1.5 pr-6 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none w-full"
+                    />
+                    <Pencil className="w-2.5 h-2.5 text-fg-muted/60 group-hover:text-fg-muted absolute right-1.5 pointer-events-none transition-colors" />
+                  </div>
                 </div>
               </div>
 
@@ -536,22 +559,22 @@ export function ScenarioBuilder({
               <div className="flex items-center gap-2">
                 {/* View Switcher */}
                 <div className="flex items-center bg-sidebar p-0.5 rounded-xs border border-border">
-                  <Button
-                    size="xs"
-                    variant={editorMode === "visual" ? "primary" : "ghost"}
+                  <TabButton
+                    variant="pills"
+                    active={editorMode === "visual"}
                     onClick={handleSwitchToVisual}
                     icon={<Layers className="w-3 h-3" />}
                   >
-                    Visual Builder
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant={editorMode === "json" ? "primary" : "ghost"}
+                    Visual Editor
+                  </TabButton>
+                  <TabButton
+                    variant="pills"
+                    active={editorMode === "json"}
                     onClick={() => setEditorMode("json")}
                     icon={<Code2 className="w-3 h-3" />}
                   >
-                    JSON Code
-                  </Button>
+                    Raw Code (JSON)
+                  </TabButton>
                 </div>
 
                 <Button
@@ -597,7 +620,7 @@ export function ScenarioBuilder({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
-                        Execution Steps ({draftScenario.steps.length})
+                        Test Steps ({draftScenario.steps.length})
                       </h3>
                       {/* Add step quick buttons */}
                       <div className="flex items-center gap-1.5">
@@ -608,7 +631,7 @@ export function ScenarioBuilder({
                           onClick={() => addStep("http")}
                           className="text-[#9cdcfe]"
                         >
-                          + HTTP
+                          + Web API
                         </Button>
                         <Button
                           size="xs"
@@ -616,7 +639,7 @@ export function ScenarioBuilder({
                           onClick={() => addStep("web")}
                           className="text-[#4ec9b0]"
                         >
-                          + Web
+                          + Web Browser
                         </Button>
                         <Button
                           size="xs"
@@ -624,7 +647,7 @@ export function ScenarioBuilder({
                           onClick={() => addStep("mobile")}
                           className="text-[#89d185]"
                         >
-                          + Mobile
+                          + Mobile App
                         </Button>
                         <Button
                           size="xs"
@@ -632,7 +655,7 @@ export function ScenarioBuilder({
                           onClick={() => addStep("shell")}
                           className="text-[#dcdcaa]"
                         >
-                          + Shell
+                          + Command Line
                         </Button>
                       </div>
                     </div>
@@ -659,17 +682,17 @@ export function ScenarioBuilder({
                             {/* Target selector */}
                             <Select
                               size="xs"
-                              mono
                               value={step.target}
                               onChange={(val) => updateStep(idx, { target: val })}
                               options={availableTargets.map((t) => ({
                                 value: t,
-                                label: `target: ${t}`,
+                                label: formatTargetLabel(t),
                               }))}
-                              className="w-40"
+                              className="w-44"
+                              triggerClassName="font-medium text-xs text-fg-bright font-sans"
                             />
                             <Badge size="xs" variant={getTargetBadgeVariant(step.target)}>
-                              {getTargetDriver(step.target)}
+                              {capitalizeFirst(getTargetDriver(step.target))}
                             </Badge>
                           </div>
 
@@ -715,7 +738,10 @@ export function ScenarioBuilder({
                               {/* Left Column: Driver Actions */}
                               <div className="space-y-2.5">
                                 <div className="font-semibold text-fg-muted text-[10px] uppercase tracking-wider">
-                                  Action Details ({stepDriver.toUpperCase()})
+                                  {stepDriver === "http" && "Web API Request (HTTP)"}
+                                  {stepDriver === "web" && "Web Browser Automation"}
+                                  {stepDriver === "mobile" && "Mobile App Action"}
+                                  {stepDriver === "shell" && "Command Line Action (Shell)"}
                                 </div>
 
                                 {/* HTTP Form */}
@@ -739,7 +765,7 @@ export function ScenarioBuilder({
                                       />
                                       <input
                                         type="text"
-                                        placeholder="Endpoint URL e.g. /v1/users"
+                                        placeholder="URL Address / Path e.g. /v1/users"
                                         value={step.url ?? ""}
                                         onChange={(e) => updateStep(idx, { url: e.target.value })}
                                         className="flex-1 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
@@ -748,7 +774,7 @@ export function ScenarioBuilder({
                                     {["POST", "PUT", "PATCH"].includes(step.method ?? "") && (
                                       <div>
                                         <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                          Request Body (JSON):
+                                          Data to Send (JSON Format):
                                         </label>
                                         <textarea
                                           rows={2}
@@ -802,11 +828,11 @@ export function ScenarioBuilder({
                                   <div className="space-y-2">
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Command Line:
+                                        Terminal Command:
                                       </label>
                                       <input
                                         type="text"
-                                        placeholder="sh command line e.g. echo 'hello'"
+                                        placeholder="Terminal command e.g. echo 'hello'"
                                         value={step.command ?? ""}
                                         onChange={(e) =>
                                           updateStep(idx, { command: e.target.value })
@@ -816,11 +842,11 @@ export function ScenarioBuilder({
                                     </div>
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Working Directory (optional):
+                                        Run in Folder (Optional):
                                       </label>
                                       <input
                                         type="text"
-                                        placeholder="Relative to config dir e.g. ./scripts"
+                                        placeholder="Relative to project folder e.g. ./scripts"
                                         value={step.cwd ?? ""}
                                         onChange={(e) =>
                                           updateStep(idx, { cwd: e.target.value || undefined })
@@ -836,11 +862,11 @@ export function ScenarioBuilder({
                                   <div className="space-y-2">
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Flow YAML:
+                                        Mobile Step File:
                                       </label>
                                       <input
                                         type="text"
-                                        placeholder="Flow file name e.g. login.yaml"
+                                        placeholder="Step file name e.g. login.yaml"
                                         value={step.flow ?? ""}
                                         onChange={(e) => updateStep(idx, { flow: e.target.value })}
                                         className="w-full mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
@@ -848,7 +874,7 @@ export function ScenarioBuilder({
                                     </div>
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        App Launch Mode:
+                                        App Start Mode:
                                       </label>
                                       <Select
                                         size="xs"
@@ -862,14 +888,14 @@ export function ScenarioBuilder({
                                           })
                                         }
                                         options={[
-                                          { value: "none", label: "Don't launch" },
+                                          { value: "none", label: "Keep App As-Is (Don't Restart)" },
                                           {
                                             value: "fresh",
-                                            label: "Fresh (clear app data & launch)",
+                                            label: "Reset App (Clear Storage & Open)",
                                           },
                                           {
                                             value: "restart",
-                                            label: "Restart (force-stop & launch)",
+                                            label: "Restart App (Close & Reopen)",
                                           },
                                         ]}
                                         className="mt-0.5"
@@ -883,11 +909,11 @@ export function ScenarioBuilder({
                                   <div className="space-y-2">
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Module Function:
+                                        Browser Script Function:
                                       </label>
                                       <input
                                         type="text"
-                                        placeholder="Exported function in web target modules"
+                                        placeholder="Function name in test module"
                                         value={step.run ?? ""}
                                         onChange={(e) => updateStep(idx, { run: e.target.value })}
                                         className="w-full mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
@@ -900,7 +926,7 @@ export function ScenarioBuilder({
                               {/* Right Column: Assertions & Extractions */}
                               <div className="space-y-2.5">
                                 <div className="font-semibold text-fg-muted text-[10px] uppercase tracking-wider">
-                                  Assertions & Context
+                                  Verification & Checks
                                 </div>
 
                                 {/* Assert Status / Exit Code */}
@@ -908,11 +934,11 @@ export function ScenarioBuilder({
                                   {stepDriver === "http" ? (
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Expect HTTP Status:
+                                        Expected Response Status:
                                       </label>
                                       <NumberInput
                                         size="xs"
-                                        placeholder="e.g. 200"
+                                        placeholder="e.g. 200 (Success)"
                                         value={step.assert?.status}
                                         onChange={(val) =>
                                           updateStep(idx, {
@@ -929,11 +955,11 @@ export function ScenarioBuilder({
                                   ) : stepDriver === "shell" ? (
                                     <div>
                                       <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        Expect Exit Code:
+                                        Expected Exit Code:
                                       </label>
                                       <NumberInput
                                         size="xs"
-                                        placeholder="0"
+                                        placeholder="0 (Success)"
                                         value={step.assert?.exit_code}
                                         onChange={(val) =>
                                           updateStep(idx, {
@@ -953,18 +979,18 @@ export function ScenarioBuilder({
                                         Driver:
                                       </label>
                                       <div className="mt-0.5 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg-muted font-mono">
-                                        {stepDriver}
+                                        {capitalizeFirst(stepDriver)}
                                       </div>
                                     </div>
                                   )}
 
                                   <div>
                                     <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                      Output Contains:
+                                      Response Must Contain Text:
                                     </label>
                                     <input
                                       type="text"
-                                      placeholder="Sub-text match"
+                                      placeholder="Sub-text match in response/output"
                                       value={step.assert?.output_contains ?? ""}
                                       onChange={(e) =>
                                         updateStep(idx, {
@@ -983,7 +1009,7 @@ export function ScenarioBuilder({
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
                                     <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                      Retry Times:
+                                      Retry Attempts if Failed:
                                     </label>
                                     <NumberInput
                                       size="xs"
@@ -1003,7 +1029,7 @@ export function ScenarioBuilder({
                                   </div>
                                   <div>
                                     <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                      Timeout:
+                                      Maximum Wait Time (ms):
                                     </label>
                                     <NumberInput
                                       size="xs"
@@ -1070,8 +1096,8 @@ export function ScenarioBuilder({
                 <Smartphone className="w-4 h-4 text-success" />
                 <div>
                   <div className="font-bold text-fg-bright text-xs">{draftFlow.file}</div>
-                  <div className="text-[10px] text-fg-muted font-mono">
-                    Mobile Target: {draftFlow.target}
+                  <div className="text-[10px] text-fg-muted font-sans">
+                    {formatTargetLabel(draftFlow.target)}
                   </div>
                 </div>
               </div>

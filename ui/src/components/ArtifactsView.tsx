@@ -8,11 +8,11 @@ import {
 import { useEffect, useState } from "react"
 import { fetchRunDetails, fetchRuns } from "../api.ts"
 import { Badge } from "./Badge.tsx"
-import { Button } from "./Button.tsx"
 import { CodeBlock } from "./CodeBlock.tsx"
 import { EmptyState } from "./EmptyState.tsx"
 import { Modal } from "./Modal.tsx"
 import { Panel } from "./Panel.tsx"
+import { TabButton, useUrlTab } from "./Tabs.tsx"
 import type { RunHistoryItem, RunSummary } from "../types.ts"
 
 export function ArtifactsView() {
@@ -25,7 +25,10 @@ export function ArtifactsView() {
   } | null>(null)
   const [latestSummary, setLatestSummary] = useState<RunSummary | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<"artifacts" | "log">("artifacts")
+  const [activeTab, setActiveTab] = useUrlTab<"artifacts" | "log">("subtab", "artifacts", [
+    "artifacts",
+    "log",
+  ])
 
   const loadRuns = async () => {
     try {
@@ -75,18 +78,18 @@ export function ArtifactsView() {
           <div className="flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-semibold uppercase tracking-wider text-fg-bright">
-              Run History
+              Past Test Runs
             </span>
           </div>
           <Badge size="xs" variant="neutral">
-            {runs.length} runs
+            {runs.length} Runs
           </Badge>
         </div>
 
         <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
           {runs.length === 0 ? (
             <div className="p-4 text-center text-xs text-fg-muted">
-              No historical runs found in results/artifacts.
+              No past test results found.
             </div>
           ) : (
             runs.map((r) => {
@@ -115,7 +118,7 @@ export function ArtifactsView() {
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-fg-muted">
-                    <span>{r.scenarios.length} scenario artifact(s)</span>
+                    <span>{r.scenarios.length} Scenario Results Recorded</span>
                   </div>
                 </button>
               )
@@ -133,44 +136,44 @@ export function ArtifactsView() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-fg-bright font-mono">
-                    Run: {selectedRunId}
+                    Test Run: {selectedRunId}
                   </span>
                   {latestSummary?.artifacts?.includes(selectedRunId) && (
                     <Badge
                       size="xs"
                       variant={latestSummary.status === "PASSED" ? "success" : "danger"}
                     >
-                      {latestSummary.status}
+                      {latestSummary.status === "PASSED" ? "Passed" : "Failed"}
                     </Badge>
                   )}
                 </div>
                 {selectedRunItem && (
                   <div className="text-[11px] text-fg-muted mt-0.5 flex items-center gap-2">
-                    <span>Recorded: {new Date(selectedRunItem.timestamp).toLocaleString()}</span>
+                    <span>Date Tested: {new Date(selectedRunItem.timestamp).toLocaleString()}</span>
                     <span>•</span>
-                    <span>{allImages.length} screenshot(s) captured</span>
+                    <span>{allImages.length} Screenshots Saved</span>
                   </div>
                 )}
               </div>
 
               {/* Sub-tabs */}
               <div className="flex items-center bg-sidebar p-0.5 rounded-xs border border-border">
-                <Button
-                  size="xs"
-                  variant={activeTab === "artifacts" ? "primary" : "ghost"}
+                <TabButton
+                  variant="pills"
+                  active={activeTab === "artifacts"}
                   onClick={() => setActiveTab("artifacts")}
                   icon={<ImageIcon className="w-3 h-3" />}
                 >
-                  Screenshots & Media
-                </Button>
-                <Button
-                  size="xs"
-                  variant={activeTab === "log" ? "primary" : "ghost"}
+                  Screenshots & Screen Captures
+                </TabButton>
+                <TabButton
+                  variant="pills"
+                  active={activeTab === "log"}
                   onClick={() => setActiveTab("log")}
                   icon={<FileText className="w-3 h-3" />}
                 >
-                  run.log
-                </Button>
+                  Detailed Log (run.log)
+                </TabButton>
               </div>
             </div>
 
@@ -181,13 +184,13 @@ export function ArtifactsView() {
                   {allImages.length === 0 ? (
                     <EmptyState
                       icon={<ImageIcon className="w-6 h-6" />}
-                      title="No screenshots generated"
-                      description="Screenshots taken on step failure or via mobile/web screenshot flows are preserved here."
+                      title="No Screenshots Taken Yet"
+                      description="When a test takes a picture or encounters an issue, screen snapshots will be saved here automatically."
                     />
                   ) : (
                     <div>
                       <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-3">
-                        Captured Screenshots ({allImages.length})
+                        Saved Step Screenshots ({allImages.length})
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         {allImages.map((img, i) => (
@@ -225,7 +228,7 @@ export function ArtifactsView() {
                   {runDetails && Object.keys(runDetails.scenarios).length > 0 && (
                     <div className="mt-6 space-y-2">
                       <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
-                        Artifact Folders
+                        Result Files & Reports
                       </h3>
                       <Panel variant="sidebar">
                         <div className="divide-y divide-border">
@@ -272,8 +275,8 @@ export function ArtifactsView() {
           <div className="flex flex-col items-center justify-center h-full text-fg-muted">
             <EmptyState
               icon={<ShieldCheck className="w-8 h-8" />}
-              title="Select a run to view artifacts"
-              description="Choose a run from the history sidebar on the left to inspect captured screenshots and execution logs."
+              title="Select a Test Run to View Results"
+              description="Choose a test run from the history sidebar on the left to inspect captured screenshots and execution logs."
             />
           </div>
         )}

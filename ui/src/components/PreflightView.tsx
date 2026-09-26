@@ -60,10 +60,10 @@ export function PreflightView({
           <div>
             <h2 className="text-xs font-semibold text-fg-bright flex items-center gap-2 uppercase tracking-wide">
               <Server className="w-3.5 h-3.5 text-primary" />
-              Environment & Preflight Status
+              System Health & Readiness Check
             </h2>
             <p className="text-[11px] text-fg-muted mt-0.5">
-              Real-time health verification for HTTP services, Android emulators, and target dependencies.
+              Live status check to confirm background servers, mobile devices, and browser tools are ready to run tests.
             </p>
           </div>
 
@@ -96,12 +96,12 @@ export function PreflightView({
       <div className="space-y-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
           <Globe className="w-3.5 h-3.5 text-primary" />
-          HTTP Services & APIs
+          Connected Web Services & APIs
         </h3>
 
         {!preflightData?.services.length ? (
           <Panel variant="sidebar" className="p-4 text-xs text-fg-muted">
-            No services configured in config.services.
+            No background web services configured.
           </Panel>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -115,18 +115,18 @@ export function PreflightView({
                         <span className="font-semibold text-xs text-fg-bright">{svc.name}</span>
                         {svc.exclusive && (
                           <Badge size="xs" variant="warning">
-                            exclusive
+                            Exclusive
                           </Badge>
                         )}
                       </div>
 
                       {svc.up ? (
                         <Badge size="xs" variant="success" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
-                          UP ({svc.latencyMs}ms)
+                          Online ({svc.latencyMs}ms)
                         </Badge>
                       ) : (
                         <Badge size="xs" variant="danger" icon={<XCircle className="w-3 h-3 text-error" />}>
-                          DOWN
+                          Offline / Unavailable
                         </Badge>
                       )}
                     </div>
@@ -149,7 +149,7 @@ export function PreflightView({
                       </div>
                       {svc.startCmd && (
                         <div className="flex items-center gap-2">
-                          <span className="text-fg-muted">Start Command:</span>
+                          <span className="text-fg-muted">Start Server Command:</span>
                           <span className="text-fg truncate bg-input px-1.5 py-0.5 rounded-xs border border-border">
                             {svc.startCmd}
                           </span>
@@ -175,7 +175,7 @@ export function PreflightView({
                         isLoading={isStarting}
                         icon={<Play className="w-3 h-3" />}
                       >
-                        Start Service
+                        Start Server
                       </Button>
                     </div>
                   )}
@@ -190,15 +190,15 @@ export function PreflightView({
       <div className="space-y-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
           <Smartphone className="w-3.5 h-3.5 text-success" />
-          Mobile Devices & Android ADB
+          Mobile Devices & Simulators
         </h3>
 
         <Panel variant="sidebar">
           <PanelHeader
-            title="Android Debug Bridge (ADB)"
+            title="Mobile Device Bridge (ADB)"
             actions={
               <span className="text-[11px] text-fg-muted font-mono">
-                {preflightData?.devices.length ?? 0} connected device(s)
+                {preflightData?.devices.length ?? 0} Connected Device(s)
               </span>
             }
           />
@@ -211,7 +211,7 @@ export function PreflightView({
                 </Badge>
               ) : (
                 <Badge variant="warning" icon={<AlertCircle className="w-3 h-3 text-warning" />}>
-                  Not Found on PATH / SDK
+                  Not Found on System PATH
                 </Badge>
               )}
             </div>
@@ -219,7 +219,7 @@ export function PreflightView({
             {/* Connected Devices */}
             {!preflightData?.devices.length ? (
               <div className="text-xs text-fg-muted italic py-1">
-                No Android devices or emulators connected. Ensure an emulator is running or a device is plugged in with USB debugging enabled.
+                No mobile devices or simulators connected. Connect a device via USB or start an emulator to run mobile tests.
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -237,14 +237,14 @@ export function PreflightView({
                       <div className="mt-2 space-y-1">
                         {Object.entries(dev.packages).map(([appId, isInstalled]) => (
                           <div key={appId} className="flex items-center gap-2 text-[11px] font-mono">
-                            <span className="text-fg-muted">Package {appId}:</span>
+                            <span className="text-fg-muted">App ID {appId}:</span>
                             {isInstalled ? (
                               <Badge size="xs" variant="success" icon={<CheckCircle2 className="w-2.5 h-2.5 text-success" />}>
                                 Installed
                               </Badge>
                             ) : (
                               <Badge size="xs" variant="danger" icon={<XCircle className="w-2.5 h-2.5 text-error" />}>
-                                Not Installed (Run with --install)
+                                Not Installed (Use "Install Mobile App" Option)
                               </Badge>
                             )}
                           </div>
@@ -252,8 +252,8 @@ export function PreflightView({
                       </div>
                     </div>
 
-                    <Badge size="xs" variant="success">
-                      {dev.state}
+                    <Badge size="xs" variant={dev.state === "device" ? "success" : "warning"}>
+                      {dev.state === "device" ? "Connected" : dev.state.charAt(0).toUpperCase() + dev.state.slice(1)}
                     </Badge>
                   </div>
                 ))}
@@ -267,16 +267,16 @@ export function PreflightView({
       <div className="space-y-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
           <FolderTree className="w-3.5 h-3.5 text-info" />
-          Target Drivers Map
+          Connected Platforms & Engines
         </h3>
 
         <Panel variant="sidebar">
           <table className="w-full text-left text-xs">
             <thead className="bg-titlebar text-fg-muted font-semibold border-b border-border">
               <tr>
-                <th className="p-2.5 pl-3">Target Name</th>
-                <th className="p-2.5">Driver</th>
-                <th className="p-2.5">Associated Service / Details</th>
+                <th className="p-2.5 pl-3">Platform Name</th>
+                <th className="p-2.5">Engine / Type</th>
+                <th className="p-2.5">Associated Service & Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border font-mono text-fg">
@@ -284,11 +284,11 @@ export function PreflightView({
                 <td className="p-2.5 pl-3 font-semibold text-[#dcdcaa]">shell</td>
                 <td className="p-2.5">
                   <Badge size="xs" variant="driver-shell">
-                    shell
+                    Shell
                   </Badge>
                 </td>
                 <td className="p-2.5 text-fg-muted font-sans text-[11px]">
-                  Built-in local shell command runner
+                  Built-in local command line runner
                 </td>
               </tr>
               {Object.entries(config?.targets ?? {}).map(([name, t]) => {
@@ -306,13 +306,13 @@ export function PreflightView({
                     <td className="p-2.5 pl-3 font-semibold text-info">{name}</td>
                     <td className="p-2.5">
                       <Badge size="xs" variant={badgeVariant}>
-                        {t.driver}
+                        {t.driver.charAt(0).toUpperCase() + t.driver.slice(1)}
                       </Badge>
                     </td>
                     <td className="p-2.5 text-fg-muted font-sans text-[11px]">
                       {t.driver === "http" && `Service: ${t.service}`}
-                      {t.driver === "web" && `Service: ${t.service}, Modules: ${t.modules}`}
-                      {t.driver === "mobile" && `App ID: ${t.appId}, Flows: ${t.flows}`}
+                      {t.driver === "web" && `Service: ${t.service}, Browser Modules: ${t.modules}`}
+                      {t.driver === "mobile" && `App ID: ${t.appId}, Workflows: ${t.flows}`}
                     </td>
                   </tr>
                 )

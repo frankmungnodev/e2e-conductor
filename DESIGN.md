@@ -183,10 +183,12 @@ import { Modal } from "./Modal.tsx"
 </Modal>
 ```
 
-### `<Tabs>`
-Navigation tab strip supporting editor tabs, activity bar, or pill styles.
+### `<Tabs>` & `<TabButton>`
+Navigation tab strip and segmented pill tab buttons.
 - **Location**: `ui/src/components/Tabs.tsx`
-- **Variants**: `editor` | `activity` | `pills`
+- **Variants**: `pills` (segmented pill tabs for sub-resource navigation) | `editor` | `activity`
+- **Hook**: `useUrlTab(paramKey, defaultTab, validTabs)` - synchronizes tab state with URL query parameters (e.g. `?tab=...`).
+- **Rule**: All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`).
 
 ### `<Toast>` & `useToast`
 Global toast notifications context and hook.
@@ -209,8 +211,10 @@ Text input controls with unified focus rings and validation error indicators.
 
 ## 3. Rules & Guidelines for AI Coding Agents
 
-1. **Use Existing Primitives**: Always reuse components from `ui/src/components/` (`Button`, `Badge`, `Select`, `NumberInput`, `Checkbox`, `Panel`, `Modal`, `EmptyState`) instead of writing raw HTML elements or bespoke controls.
-2. **Use Design Tokens**: Use the theme tokens (`bg-editor`, `bg-sidebar`, `bg-input`, `border-border`, `border-border-focus`, `text-fg`, `text-fg-muted`, `text-primary`, etc.). Never introduce arbitrary hardcoded hex color codes in component styles.
-3. **High Density**: The orchestrator GUI is a developer tool. Favor compact spacing (`gap-1.5`, `py-1`, `text-xs`), clear visual boundaries (`border border-border`), and monospace fonts for IDs, file paths, durations, and code identifiers.
-4. **Imports**: Import components directly from their file in `ui/src/components/` (e.g. `import { Button } from "./Button.tsx"`) or via the barrel export `import { Button } from "./index.ts"`.
-5. **Quality & Linting**: Always run `pnpm run lint` and verify there are no Biome diagnostics after any UI modification.
+1. **Use Existing Primitives**: Always reuse components from `ui/src/components/` (`Button`, `Badge`, `Select`, `NumberInput`, `Checkbox`, `Panel`, `Modal`, `EmptyState`, `Tabs`, `TabButton`) instead of writing raw HTML elements or bespoke controls.
+2. **`Tabs` & `TabButton`**: Segmented pill tabs for sub-resource navigation. All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`).
+3. **Capitalized Badges**: Every badge text MUST be capitalized using Title Case (capitalize the first character of each word, e.g. `Passed`, `Failed`, `Running`, `Idle`, not all-caps) across all screens and components.
+4. **Use Design Tokens**: Use the theme tokens (`bg-editor`, `bg-sidebar`, `bg-input`, `border-border`, `border-border-focus`, `text-fg`, `text-fg-muted`, `text-primary`, etc.). Never introduce arbitrary hardcoded hex color codes in component styles.
+5. **High Density**: The orchestrator GUI is a developer tool. Favor compact spacing (`gap-1.5`, `py-1`, `text-xs`), clear visual boundaries (`border border-border`), and monospace fonts for IDs, file paths, durations, and code identifiers.
+6. **Imports**: Import components directly from their file in `ui/src/components/` (e.g. `import { Button } from "./Button.tsx"`) or via the barrel export `import { Button } from "./index.ts"`.
+7. **Quality & Linting**: Always run `pnpm run lint` and verify there are no Biome diagnostics after any UI modification.
