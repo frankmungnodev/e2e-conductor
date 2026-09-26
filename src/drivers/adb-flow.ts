@@ -1,8 +1,7 @@
-import { spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import type { Logger } from "../config.ts"
 import { parseFlow } from "../flow.ts"
-import { sleep } from "../process.ts"
+import { runAdb, sleep } from "../process.ts"
 
 /**
  * Runs YAML flows with plain adb: `uiautomator dump` to find elements, `input` to act.
@@ -45,16 +44,7 @@ export class AdbFlowRunner {
   ) {}
 
   private shell(args: string[]): string {
-    const result = spawnSync(this.adb, ["-s", this.device, "shell", ...args], {
-      encoding: "utf8",
-      timeout: 30_000,
-      maxBuffer: 64 * 1024 * 1024,
-    })
-    if (result.status !== 0) {
-      const reason = result.error?.message ?? (result.stderr || result.stdout).trim().slice(0, 300)
-      throw new Error(`adb shell ${args.join(" ")} failed: ${reason}`)
-    }
-    return result.stdout
+    return runAdb(this.adb, this.device, ["shell", ...args])
   }
 
   private dump(): Node[] {
@@ -271,8 +261,12 @@ export class AdbFlowRunner {
     const source = readFileSync(file, "utf8").replace(/\$\{(\w+)\}/g, (whole, name: string) => vars[name] ?? whole)
     const { header, commands } = parseFlow(source)
     const appId = String((header as { appId?: string } | undefined)?.appId ?? vars.APP_ID)
+    await this.runCommands((commands ?? []) as unknown[], appId)
+  }
 
-    for (const entry of (commands ?? []) as unknown[]) {
+  /** Run flow commands in order, logging each with its duration. */
+  async runCommands(entries: unknown[], appId: string) {
+    for (const entry of entries) {
       const [name, arg] = typeof entry === "string" ? [entry, undefined] : Object.entries(entry as object)[0]
       const began = Date.now()
       try {

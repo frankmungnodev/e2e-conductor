@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join, resolve } from "node:path"
 import type { LoadedConfig, MobileTarget, ServiceConfig } from "./config.ts"
 import { color, type RunLog } from "./logger.ts"
-import { adbPath, runShell, sleep, startBackground, stopBackground } from "./process.ts"
+import { adbPath, runAdb, runShell, sleep, startBackground, stopBackground } from "./process.ts"
 
 export type StartedService = { name: string; process: ChildProcess; pidFile: string }
 
@@ -151,7 +151,7 @@ function pickDevice(adb: string, env: Record<string, string>): string {
 const SAVED_IMES = "e2e_saved_imes"
 
 function adbShell(adb: string, device: string, command: string): string {
-  return spawnSync(adb, ["-s", device, "shell", command], { encoding: "utf8" }).stdout?.trim() ?? ""
+  return runAdb(adb, device, ["shell", command], { allowFailure: true }).trim()
 }
 
 /** Re-enable the keyboards a run disabled, and make the saved default keyboard current again. */
@@ -189,16 +189,15 @@ export async function prepareMobile(
 
   const device = pickDevice(adb, config.env)
   restoreKeyboards(adb, device) // undo a run that crashed before its cleanup
-  const model = spawnSync(adb, ["-s", device, "shell", "getprop", "ro.product.model"], { encoding: "utf8" }).stdout.trim()
+  const model = adbShell(adb, device, "getprop ro.product.model")
   out.line(`  ${color.green("✓")} ${name}: device ${device} ${color.dim(model)}`)
 
   // A uiautomator dump left by an interrupted run holds UiAutomation and makes every later
   // dump hang. Clear it before starting.
-  spawnSync(adb, ["-s", device, "shell", "pkill", "-f", "uiautomator"])
+  adbShell(adb, device, "pkill -f uiautomator")
 
   for (const port of target.reversePorts ?? []) {
-    const reverse = spawnSync(adb, ["-s", device, "reverse", `tcp:${port}`, `tcp:${port}`], { encoding: "utf8" })
-    if (reverse.status !== 0) throw new Error(`adb reverse tcp:${port} failed: ${reverse.stderr.trim()}`)
+    runAdb(adb, device, ["reverse", `tcp:${port}`, `tcp:${port}`])
     out.line(`  ${color.green("✓")} ${name}: adb reverse tcp:${port}`)
   }
 
@@ -212,7 +211,7 @@ export async function prepareMobile(
     }
   }
 
-  const packages = spawnSync(adb, ["-s", device, "shell", "pm", "list", "packages", target.appId], { encoding: "utf8" }).stdout
+  const packages = runAdb(adb, device, ["shell", "pm", "list", "packages", target.appId])
   if (!packages.split("\n").some((line) => line.trim() === `package:${target.appId}`)) {
     throw new Error(`${target.appId} is not installed on ${device}${target.install ? " (pass --install)" : ""}`)
   }

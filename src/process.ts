@@ -83,4 +83,14 @@ export function adbPath(): string | undefined {
     .find((path) => existsSync(path))
 }
 
+/** Run `adb -s <device> ...args` and return its stdout. Throws when adb fails, unless `allowFailure`. */
+export function runAdb(adb: string, device: string, args: string[], { allowFailure = false } = {}): string {
+  const result = spawnSync(adb, ["-s", device, ...args], { encoding: "utf8", timeout: 30_000, maxBuffer: 64 * 1024 * 1024 })
+  if (result.status !== 0 && !allowFailure) {
+    const reason = result.error?.message ?? (result.stderr || result.stdout).trim().slice(0, 300)
+    throw new Error(`adb ${args.join(" ")} failed: ${reason}`)
+  }
+  return result.stdout ?? ""
+}
+
 export const sleep = (ms: number) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms))
