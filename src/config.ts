@@ -131,8 +131,21 @@ export function resolveFromConfig(config: LoadedConfig, path = "."): string {
   return resolve(config.configDir, path)
 }
 
+export function starterConfig(configDir = process.cwd()): LoadedConfig {
+  return {
+    configDir,
+    env: {},
+    scenarios: "e2e/scenarios",
+    results: "e2e/results",
+    services: {},
+    targets: {},
+    fixtures: {},
+  }
+}
+
 export function serviceOf(config: LoadedConfig, name: string): ServiceConfig {
   const service = config.services?.[name]
   if (!service) throw new Error(`unknown service "${name}"`)
   return service
 }
+

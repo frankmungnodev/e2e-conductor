@@ -131,8 +131,15 @@ export async function fetchRunDetails(runId: string): Promise<{
   return res.json()
 }
 
-export function subscribeToEvents(onEvent: (event: RunEvent) => void): () => void {
+export function subscribeToEvents(
+  onEvent: (event: RunEvent) => void,
+  onConnectionChange?: (connected: boolean) => void,
+): () => void {
   const eventSource = new EventSource(`${API_BASE}/api/events`)
+
+  eventSource.onopen = () => {
+    onConnectionChange?.(true)
+  }
 
   eventSource.onmessage = (message) => {
     try {
@@ -143,7 +150,12 @@ export function subscribeToEvents(onEvent: (event: RunEvent) => void): () => voi
     }
   }
 
+  eventSource.onerror = () => {
+    onConnectionChange?.(false)
+  }
+
   return () => {
     eventSource.close()
   }
 }
+

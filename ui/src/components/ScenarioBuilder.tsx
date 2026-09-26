@@ -49,9 +49,11 @@ export function ScenarioBuilder({
 
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [bodyDrafts, setBodyDrafts] = useState<Record<number, string>>({})
 
-  // Target options from config
-  const availableTargets = Object.keys(config?.targets ?? {}).concat(["shell"])
+  // Target options from config plus driver defaults
+  const configuredTargets = Object.keys(config?.targets ?? {})
+  const availableTargets = Array.from(new Set([...configuredTargets, "shell", "api", "web", "mobile"]))
 
   const getTargetDriver = (target: string): "http" | "web" | "mobile" | "shell" => {
     if (target === "shell") return "shell"
@@ -61,6 +63,7 @@ export function ScenarioBuilder({
     if (target.includes("mobile") || target.includes("app")) return "mobile"
     return "http"
   }
+
 
   // Default selection
   useEffect(() => {
@@ -212,11 +215,10 @@ export function ScenarioBuilder({
         ? "shell"
         : Object.entries(config?.targets ?? {}).find(([_, t]) => t.driver === targetType)?.[0]
 
-    if (!matchingTarget && targetType !== "shell") {
-      alert(`No target configured with driver "${targetType}" in config.targets.`)
-      return
-    }
-    const defaultTarget = matchingTarget ?? "shell"
+    const fallbackTarget =
+      targetType === "http" ? "api" : targetType === "web" ? "web" : targetType === "mobile" ? "mobile" : "shell"
+    const defaultTarget = matchingTarget ?? fallbackTarget
+
 
     const newStep: ScenarioStep = {
       name: `Step ${draftScenario.steps.length + 1}`,
@@ -749,18 +751,48 @@ export function ScenarioBuilder({
                                         <label className="text-[10px] text-slate-400 font-medium">Request Body (JSON):</label>
                                         <textarea
                                           rows={2}
-                                          value={step.body ? JSON.stringify(step.body, null, 2) : ""}
+                                          value={
+                                            bodyDrafts[idx] !== undefined
+                                              ? bodyDrafts[idx]
+                                              : step.body !== undefined
+                                                ? typeof step.body === "string"
+                                                  ? step.body
+                                                  : JSON.stringify(step.body, null, 2)
+                                                : ""
+                                          }
                                           onChange={(e) => {
+                                            const val = e.target.value
+                                            setBodyDrafts((prev) => ({ ...prev, [idx]: val }))
                                             try {
-                                              updateStep(idx, { body: JSON.parse(e.target.value) })
+                                              const parsed = JSON.parse(val)
+                                              updateStep(idx, { body: parsed })
                                             } catch {
-                                              // Keep raw string or handle invalid
+                                              if (!val.trim()) {
+                                                updateStep(idx, { body: undefined })
+                                              }
+                                            }
+                                          }}
+                                          onBlur={() => {
+                                            const val = bodyDrafts[idx]
+                                            if (val !== undefined) {
+                                              try {
+                                                const parsed = JSON.parse(val)
+                                                updateStep(idx, { body: parsed })
+                                                setBodyDrafts((prev) => {
+                                                  const next = { ...prev }
+                                                  delete next[idx]
+                                                  return next
+                                                })
+                                              } catch {
+                                                // keep raw draft text while invalid
+                                              }
                                             }
                                           }}
                                           placeholder='{"name": "Alice"}'
                                           className="w-full mt-1 p-2 text-xs rounded bg-slate-950 border border-slate-700 text-slate-200 font-mono"
                                         />
                                       </div>
+
                                     )}
                                   </div>
                                 )}

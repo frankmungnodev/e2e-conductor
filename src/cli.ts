@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import { parseArgs } from "node:util"
-import { type LoadedConfig, loadConfig } from "./config.ts"
+import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
 import { initProject } from "./init.ts"
 import { color } from "./logger.ts"
 import { run } from "./runner.ts"
@@ -73,18 +73,11 @@ async function main() {
     let config: LoadedConfig
     if (!existsSync(configPath)) {
       console.log(color.yellow(`Note: ${values.config} not found. Running UI in starter mode.`))
-      config = {
-        configDir: process.cwd(),
-        env: {},
-        scenarios: "e2e/scenarios",
-        results: "e2e/results",
-        services: {},
-        targets: {},
-        fixtures: {},
-      }
+      config = starterConfig()
     } else {
       config = await loadConfig(values.config)
     }
+
     const shouldOpen = !values["no-open"] && values.open !== false
     const { url } = await startServer(config, {
       port,

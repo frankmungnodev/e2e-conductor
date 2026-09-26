@@ -27,6 +27,7 @@ export function App() {
   const [flows, setFlows] = useState<FlowItem[]>([])
   const [preflightData, setPreflightData] = useState<PreflightData | null>(null)
   const [isPreflightLoading, setIsPreflightLoading] = useState(false)
+  const [isConnected, setIsConnected] = useState<boolean>(true)
 
   // Live execution state
   const [isRunning, setIsRunning] = useState(false)
@@ -46,8 +47,10 @@ export function App() {
       setConfig(cfg)
       setScenarios(scList)
       setFlows(flList)
+      setIsConnected(true)
     } catch (e) {
-      console.error("Initial load error:", e)
+      console.warn("Backend not yet ready:", (e as Error).message)
+      setIsConnected(false)
     }
   }
 
@@ -57,8 +60,9 @@ export function App() {
     try {
       const data = await fetchPreflight()
       setPreflightData(data)
-    } catch (e) {
-      console.error("Preflight error:", e)
+      setIsConnected(true)
+    } catch (_e) {
+      setIsConnected(false)
     } finally {
       setIsPreflightLoading(false)
     }
@@ -75,6 +79,7 @@ export function App() {
       if (status.lastSummary) {
         setLastSummary(status.lastSummary)
       }
+      setIsConnected(true)
     } catch (_e) {
       // ignore
     }
@@ -86,28 +91,49 @@ export function App() {
     checkRunStatus()
 
     // Subscribe to SSE events
-    const unsubscribe = subscribeToEvents((event) => {
-      setEvents((prev) => [...prev, event])
+    const unsubscribe = subscribeToEvents(
+      (event) => {
+        setIsConnected(true)
+        setEvents((prev) => [...prev, event])
 
-      if (event.type === "connected") {
-        if (event.active) setIsRunning(true)
-      } else if (event.type === "run_start") {
-        setIsRunning(true)
-        setCurrentRunId(event.runId)
-      } else if (event.type === "log") {
-        setLogs((prev) => [...prev, { text: event.text, level: event.level }])
-      } else if (event.type === "finish") {
-        setIsRunning(false)
-        setLastSummary(event.summary)
-        // Refresh scenarios and runs list
-        fetchScenarios().then(setScenarios).catch(() => {})
+        if (event.type === "connected") {
+          if (event.active) setIsRunning(true)
+        } else if (event.type === "run_start") {
+          setIsRunning(true)
+          setCurrentRunId(event.runId)
+        } else if (event.type === "log") {
+          setLogs((prev) => [...prev, { text: event.text, level: event.level }])
+        } else if (event.type === "finish") {
+          setIsRunning(false)
+          setLastSummary(event.summary)
+          // Refresh scenarios and runs list
+          fetchScenarios().then(setScenarios).catch(() => {})
+        }
+      },
+      (connected) => {
+        setIsConnected(connected)
+        if (connected) {
+          loadInitialData()
+          runPreflightCheck()
+          checkRunStatus()
+        }
+      },
+    )
+
+    // Periodic retry if disconnected
+    const retryInterval = setInterval(() => {
+      if (!isConnected) {
+        loadInitialData()
+        runPreflightCheck()
       }
-    })
+    }, 4000)
 
     return () => {
       unsubscribe()
+      clearInterval(retryInterval)
     }
-  }, [])
+  }, [isConnected])
+
 
   const handleStartRun = async (options: {
     scenarios: string[]
@@ -169,9 +195,29 @@ export function App() {
         isRunning={isRunning}
         lastSummaryStatus={lastSummary?.status}
         scenariosCount={scenarios.length}
+        isConnected={isConnected}
       />
 
+      {!isConnected && (
+        <div className="bg-rose-950/80 border-b border-rose-900/60 px-6 py-2 flex items-center justify-between text-xs text-rose-300">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span>Cannot reach e2e runner server on port 4173. Waiting for server to respond...</span>
+          </div>
+          <button
+            onClick={() => {
+              loadInitialData()
+              runPreflightCheck()
+            }}
+            className="px-2.5 py-1 rounded bg-rose-900/80 hover:bg-rose-800 text-rose-200 border border-rose-700/60 font-medium transition"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
+
       <main className="flex-1 overflow-hidden">
+
         {activeTab === "runner" && (
           <RunnerView
             scenarios={scenarios}

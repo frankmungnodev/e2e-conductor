@@ -8,6 +8,7 @@ type HeaderProps = {
   isRunning: boolean
   lastSummaryStatus?: "PASSED" | "FAILED"
   scenariosCount: number
+  isConnected?: boolean
 }
 
 export function Header({
@@ -16,7 +17,9 @@ export function Header({
   isRunning,
   lastSummaryStatus,
   scenariosCount,
+  isConnected = true,
 }: HeaderProps) {
+
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     { id: "runner", label: "Runner", icon: <Play className="w-4 h-4" /> },
     { id: "scenarios", label: "Scenarios & Flows", icon: <FileCode className="w-4 h-4" /> },
@@ -65,7 +68,19 @@ export function Header({
       </div>
 
       {/* Right Status */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {!isConnected ? (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span>Backend Offline</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60 text-[11px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>API Ready</span>
+          </div>
+        )}
+
         {isRunning ? (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium animate-pulse">
             <Activity className="w-3.5 h-3.5 animate-spin" />
@@ -90,3 +105,4 @@ export function Header({
     </header>
   )
 }
+

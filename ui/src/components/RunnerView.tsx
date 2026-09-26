@@ -76,11 +76,15 @@ export function RunnerView({
   const [executionTree, setExecutionTree] = useState<ScenarioState[]>([])
   const terminalEndRef = useRef<HTMLDivElement>(null)
 
-  // Initialize selected scenarios when scenarios load
+  // Sync selected scenarios when scenarios load or change
   useEffect(() => {
-    if (scenarios.length > 0 && selectedScenarios.length === 0) {
-      setSelectedScenarios(scenarios.map((s) => s.id))
-    }
+    setSelectedScenarios((prev) => {
+      const valid = prev.filter((id) => scenarios.some((s) => s.id === id))
+      if (valid.length === 0 && scenarios.length > 0) {
+        return scenarios.map((s) => s.id)
+      }
+      return valid
+    })
   }, [scenarios])
 
   // Build live execution tree from events
@@ -114,21 +118,48 @@ export function RunnerView({
         }
       } else if (ev.type === "step_start") {
         const target = tree.find((s) => s.id === ev.scenarioId && s.status === "running")
-        if (target?.steps[ev.index]) {
-          target.steps[ev.index].status = "running"
+        if (target) {
+          if (!target.steps[ev.index]) {
+            target.steps[ev.index] = {
+              name: ev.stepName,
+              target: ev.target,
+              status: "running",
+            }
+          } else {
+            target.steps[ev.index].status = "running"
+          }
         }
       } else if (ev.type === "step_pass") {
         const target = tree.find((s) => s.id === ev.scenarioId && s.status === "running")
-        if (target?.steps[ev.index]) {
-          target.steps[ev.index].status = "passed"
-          target.steps[ev.index].duration_ms = ev.duration_ms
+        if (target) {
+          if (!target.steps[ev.index]) {
+            target.steps[ev.index] = {
+              name: ev.stepName,
+              target: ev.target,
+              status: "passed",
+              duration_ms: ev.duration_ms,
+            }
+          } else {
+            target.steps[ev.index].status = "passed"
+            target.steps[ev.index].duration_ms = ev.duration_ms
+          }
         }
       } else if (ev.type === "step_fail") {
         const target = tree.find((s) => s.id === ev.scenarioId && s.status === "running")
-        if (target?.steps[ev.index]) {
-          target.steps[ev.index].status = "failed"
-          target.steps[ev.index].duration_ms = ev.duration_ms
-          target.steps[ev.index].error = ev.error
+        if (target) {
+          if (!target.steps[ev.index]) {
+            target.steps[ev.index] = {
+              name: ev.stepName,
+              target: ev.target,
+              status: "failed",
+              duration_ms: ev.duration_ms,
+              error: ev.error,
+            }
+          } else {
+            target.steps[ev.index].status = "failed"
+            target.steps[ev.index].duration_ms = ev.duration_ms
+            target.steps[ev.index].error = ev.error
+          }
         }
       } else if (ev.type === "scenario_end") {
         const target = tree.find((s) => s.id === ev.scenarioId && s.iteration === ev.iteration)
