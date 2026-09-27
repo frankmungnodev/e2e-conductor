@@ -503,7 +503,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
             variant="pills"
             active={activeSection === "fixtures"}
             onClick={() => setActiveSection("fixtures")}
-            icon={<Terminal className="w-3.5 h-3.5 text-warning" />}
+            icon={<Terminal className={`w-3.5 h-3.5 ${activeSection === "fixtures" ? "text-white" : "text-warning"}`} />}
             badge={<Badge variant={activeSection === "fixtures" ? "primary" : "neutral"} size="xs">{fixturesList.length}</Badge>}
           >
             Fixtures
@@ -512,7 +512,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
             variant="pills"
             active={activeSection === "database"}
             onClick={() => setActiveSection("database")}
-            icon={<Database className="w-3.5 h-3.5 text-primary" />}
+            icon={<Database className={`w-3.5 h-3.5 ${activeSection === "database" ? "text-white" : "text-primary"}`} />}
           >
             Database & Storage
           </TabButton>

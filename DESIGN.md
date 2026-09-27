@@ -71,7 +71,7 @@ All tokens are defined in Tailwind v4 `@theme` and produce direct utility classe
 
 ## 2. Component Primitives (`ui/src/components`)
 
-All reusable UI primitives are located in `ui/src/components/` and re-exported via `ui/src/components/index.ts`.
+All reusable UI primitives are located directly in `ui/src/components/`.
 
 ### `<Button>`
 Universal button component supporting multiple variants, sizes, and loading states.
@@ -189,6 +189,7 @@ Navigation tab strip and segmented pill tab buttons.
 - **Variants**: `pills` (segmented pill tabs for sub-resource navigation) | `editor` | `activity`
 - **Hook**: `useUrlTab(paramKey, defaultTab, validTabs)` - synchronizes tab state with URL query parameters (e.g. `?tab=...`).
 - **Rule**: All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`).
+- **Icon Color Compatibility**: If a tab uses an icon, ensure the icon color is compatible with the tab's selected/active state. For `variant="pills"` tabs, the active state uses `bg-primary text-white`. Never hardcode `text-primary` or colors matching the active background without handling the active state (e.g. use conditional classes like `active ? "text-white" : "text-primary"` or omit explicit text color classes so the icon inherits `currentColor`/`text-white` when selected).
 
 ### `<Toast>` & `useToast`
 Global toast notifications context and hook.
@@ -203,7 +204,7 @@ Syntax-highlighted log/code viewer with line numbers and copy-to-clipboard funct
 Fallback view for empty scenarios, zero run results, or missing artifacts.
 - **Location**: `ui/src/components/EmptyState.tsx`
 
-### `<Input>` & `<TextArea>`
+### `<Input>`
 Text input controls with unified focus rings and validation error indicators.
 - **Location**: `ui/src/components/FormControls.tsx`
 
@@ -211,10 +212,10 @@ Text input controls with unified focus rings and validation error indicators.
 
 ## 3. Rules & Guidelines for AI Coding Agents
 
-1. **Use Existing Primitives**: Always reuse components from `ui/src/components/` (`Button`, `Badge`, `Select`, `NumberInput`, `Checkbox`, `Panel`, `Modal`, `EmptyState`, `Tabs`, `TabButton`) instead of writing raw HTML elements or bespoke controls.
-2. **`Tabs` & `TabButton`**: Segmented pill tabs for sub-resource navigation. All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`).
+1. **Use Existing Primitives**: Always reuse components from `ui/src/components/` (`Button`, `Badge`, `Select`, `NumberInput`, `Checkbox`, `Panel`, `Modal`, `EmptyState`, `TabButton`) instead of writing raw HTML elements or bespoke controls.
+2. **`Tabs` & `TabButton`**: Segmented pill tabs for sub-resource navigation. All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`). If a tab uses an icon, ensure the icon color is compatible with the selected state (never hardcode `text-primary` on active pill tabs so the icon doesn't disappear into `bg-primary`).
 3. **Capitalized Badges**: Every badge text MUST be capitalized using Title Case (capitalize the first character of each word, e.g. `Passed`, `Failed`, `Running`, `Idle`, not all-caps) across all screens and components.
 4. **Use Design Tokens**: Use the theme tokens (`bg-editor`, `bg-sidebar`, `bg-input`, `border-border`, `border-border-focus`, `text-fg`, `text-fg-muted`, `text-primary`, etc.). Never introduce arbitrary hardcoded hex color codes in component styles.
 5. **High Density**: The orchestrator GUI is a developer tool. Favor compact spacing (`gap-1.5`, `py-1`, `text-xs`), clear visual boundaries (`border border-border`), and monospace fonts for IDs, file paths, durations, and code identifiers.
-6. **Imports**: Import components directly from their file in `ui/src/components/` (e.g. `import { Button } from "./Button.tsx"`) or via the barrel export `import { Button } from "./index.ts"`.
+6. **Imports**: Import components directly from their file in `ui/src/components/` (e.g. `import { Button } from "./Button.tsx"`).
 7. **Quality & Linting**: Always run `pnpm run lint` and verify there are no Biome diagnostics after any UI modification.

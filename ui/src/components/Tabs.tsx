@@ -20,7 +20,7 @@ export function TabButton({
 }: TabButtonProps) {
   const variantStyles = {
     pills: active
-      ? "bg-primary text-white shadow-xs"
+      ? "bg-primary text-white shadow-xs [&_svg]:text-white"
       : "text-fg-muted hover:text-fg hover:bg-hover",
     activity: active
       ? "bg-sidebar text-fg-bright border-b-2 border-primary shadow-xs"

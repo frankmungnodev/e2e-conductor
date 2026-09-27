@@ -28,6 +28,7 @@
 
 - **`Tabs` & `TabButton`**:
   - Segmented pill tabs (`variant="pills"`) for sub-resource navigation. All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`).
+  - **Tab Icon Color Compatibility**: If a tab uses an icon, ensure the icon color is compatible with the tab's selected/active state. For `variant="pills"` tabs, the active state uses `bg-primary text-white`. Never hardcode `text-primary` or colors matching the active background without handling the active state (e.g. use conditional classes like `active ? "text-white" : "text-primary"` or omit explicit text color classes so the icon inherits `currentColor`/`text-white` when selected). An icon must never become invisible or blend into the active tab background.
 - **Badges**:
   - Every badge text MUST be capitalized using Title Case (capitalize the first character of each word, e.g. `Passed`, `Failed`, `Running`, `Idle`, not all-caps) across all screens and components.
 - **Forms & Modals**:
