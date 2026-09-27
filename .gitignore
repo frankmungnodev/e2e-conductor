@@ -3,3 +3,4 @@ node_modules/
 ui/dist/
 .playwright-mcp/
 .e2e-db
+.e2e
