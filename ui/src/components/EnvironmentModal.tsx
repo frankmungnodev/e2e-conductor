@@ -25,8 +25,6 @@ export interface EnvironmentModalProps {
   initialDbPath?: string
 }
 
-type EnvPreset = "dev" | "staging" | "prod" | "custom"
-
 export function EnvironmentModal({
   isOpen,
   onClose,
@@ -40,18 +38,9 @@ export function EnvironmentModal({
   const isEditing = Boolean(initialEnvName) && !isInitialSetup
   const [dbPath, setDbPath] = useState(initialDbPath || ".e2e")
 
-  const [preset, setPreset] = useState<EnvPreset>(
-    initialEnvName === "staging"
-      ? "staging"
-      : initialEnvName === "prod"
-        ? "prod"
-        : initialEnvName === "dev"
-          ? "dev"
-          : "dev",
-  )
-  const [name, setName] = useState(initialEnvName || "dev")
+  const [name, setName] = useState(initialEnvName || (isInitialSetup ? "dev" : ""))
   const [description, setDescription] = useState(
-    initialData?.description || "Local development baseline",
+    initialData?.description || (isInitialSetup ? "Local development baseline" : ""),
   )
   const [scenarios, setScenarios] = useState(
     initialData?.scenarios || ".e2e/scenarios",
@@ -73,41 +62,19 @@ export function EnvironmentModal({
       setResults(initialData?.results || ".e2e/results")
       setEnvRows(recordToEnvRows(initialData?.env))
     } else {
-      setName("dev")
-      setDescription("Local development baseline")
+      setName(isInitialSetup ? "dev" : "")
+      setDescription(isInitialSetup ? "Local development baseline" : "")
       setScenarios(".e2e/scenarios")
       setFlows(".e2e/flows")
       setResults(".e2e/results")
-      setEnvRows(recordToEnvRows({ APP_ENV: "dev" }))
-      setPreset("dev")
+      setEnvRows(recordToEnvRows(isInitialSetup ? { APP_ENV: "dev" } : {}))
     }
-  }, [isOpen, initialEnvName, initialData])
-
-  const handleSelectPreset = (p: EnvPreset) => {
-    setPreset(p)
-    if (p === "dev") {
-      setName("dev")
-      setDescription("Local development baseline")
-      setEnvRows(recordToEnvRows({ APP_ENV: "dev" }))
-    } else if (p === "staging") {
-      setName("staging")
-      setDescription("Staging & pre-release verification")
-      setEnvRows(recordToEnvRows({ APP_ENV: "staging" }))
-    } else if (p === "prod") {
-      setName("prod")
-      setDescription("Production sanity verification")
-      setEnvRows(recordToEnvRows({ APP_ENV: "prod" }))
-    } else {
-      setName("custom")
-      setDescription("Custom target environment")
-      setEnvRows(recordToEnvRows({ APP_ENV: "custom" }))
-    }
-  }
+  }, [isOpen, initialEnvName, initialData, isInitialSetup])
 
   const handleSubmit = async () => {
-    const cleanName = name.trim().toLowerCase()
+    const cleanName = name.trim()
     if (!cleanName) {
-      toastError("Environment identifier is required", "Validation Error")
+      toastError("Environment name is required", "Validation Error")
       return
     }
 
@@ -223,88 +190,18 @@ export function EnvironmentModal({
           </div>
         )}
 
-        {/* Preset Selector for new environments */}
-        {!isEditing && (
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-fg-bright">
-              Environment Preset
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => handleSelectPreset("dev")}
-                className={`p-3 rounded-xs border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  preset === "dev"
-                    ? "border-primary bg-primary/10 shadow-xs"
-                    : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-fg-bright">Dev</span>
-                  <Badge variant={preset === "dev" ? "primary" : "neutral"} size="xs">
-                    Default
-                  </Badge>
-                </div>
-                <span className="text-xs text-fg-muted leading-tight">
-                  Local dev baseline
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectPreset("staging")}
-                className={`p-3 rounded-xs border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  preset === "staging"
-                    ? "border-primary bg-primary/10 shadow-xs"
-                    : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-fg-bright">Staging</span>
-                  <Badge variant={preset === "staging" ? "primary" : "neutral"} size="xs">
-                    Staging
-                  </Badge>
-                </div>
-                <span className="text-xs text-fg-muted leading-tight">
-                  Pre-release testing
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectPreset("prod")}
-                className={`p-3 rounded-xs border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  preset === "prod"
-                    ? "border-primary bg-primary/10 shadow-xs"
-                    : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-fg-bright">Prod</span>
-                  <Badge variant={preset === "prod" ? "primary" : "neutral"} size="xs">
-                    Prod
-                  </Badge>
-                </div>
-                <span className="text-xs text-fg-muted leading-tight">
-                  Production sanity
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Identification */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            label="Environment Identifier"
-            hint="Identifier used in CLI (--env) e.g. dev, staging, prod"
+            label="Environment Name"
+            hint="Name used in CLI (--env) e.g. dev, staging, local, qa"
             required
           >
             <Input
               value={name}
-              onChange={(e) => setName(e.target.value.toLowerCase())}
+              onChange={(e) => setName(e.target.value)}
               disabled={isEditing}
-              placeholder="e.g. dev"
+              placeholder={isInitialSetup ? "e.g. dev" : "e.g. staging, local, qa"}
               mono
             />
           </FormField>
