@@ -8,6 +8,22 @@
 
 ---
 
+## Domain & Business Logic
+
+- **Consult Domain Docs First**: Whenever the user discusses, plans, or requests changes relating to domain entities or business logic (environments, platforms, targets, services, fixtures, execution lifecycle):
+  - Always read the relevant documentation in `docs/domain/` (`README.md`, `environments.md`, `platforms.md`, `fixtures.md`) before writing or suggesting changes.
+- **Challenge Assumptions & Debate Tradeoffs**: Check requested changes against existing domain models, schemas, and invariants. Do not blindly implement modifications—surface tradeoffs, highlight constraints or potential conflicts, and debate architectural edge cases with the user.
+- **Sync Documentation on Evolution**: Whenever domain business logic, SQLite schemas, or lifecycle semantics evolve or change, you MUST synchronously update the corresponding documentation under `docs/domain/` in the same turn/commit. Never leave domain docs outdated.
+
+---
+
+## Path & File References
+
+- **Never Use Absolute System Paths or URIs**: NEVER output absolute paths or file URIs (such as `file:///Users/...`, `/Users/...`, or machine-specific paths) in documentation, commit messages, code comments, or conversational responses.
+- **Always Use Relative Workspace Paths**: Always refer to project files and links using clean workspace-relative paths (e.g. `docs/domain/README.md`, `src/config.ts`, `ui/src/App.tsx`).
+
+---
+
 ## UI & Component Conventions
 
 - **`Tabs` & `TabButton`**:
