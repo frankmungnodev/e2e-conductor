@@ -19,6 +19,7 @@ import {
   type PlatformRecord,
   platformsToTargetsAndServices,
   resolveDbPath,
+  resolveProjectDir,
   saveEnvironment,
   saveEnvPlatform,
   saveFixture,
@@ -31,6 +32,13 @@ import { tempDir } from "./temp-dir.ts"
 
 describe("sqlite db configuration storage", () => {
   const dir = tempDir("db-test")
+
+  it("resolves project directory from direct directory or db file paths", () => {
+    assert.equal(resolveProjectDir(dir), dir)
+    assert.equal(resolveProjectDir(join(dir, ".e2e", "e2e.db")), dir)
+    assert.equal(resolveProjectDir(join(dir, ".e2e")), dir)
+    assert.equal(resolveProjectDir(join(dir, "custom.sqlite")), dir)
+  })
 
   it("resolves default db path to .e2e/e2e.db", () => {
     const path = resolveDbPath(dir)

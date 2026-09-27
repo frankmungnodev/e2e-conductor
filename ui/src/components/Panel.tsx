@@ -88,15 +88,3 @@ export function PanelBody({
   )
 }
 
-export interface PanelFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-export function PanelFooter({ children, className = "", ...props }: PanelFooterProps) {
-  return (
-    <div
-      className={`px-3 py-2 border-t border-border bg-sidebar/80 flex items-center justify-between gap-2 ${className}`}
-      {...props}
-    >
-      {children}
-    </div>
-  )
-}

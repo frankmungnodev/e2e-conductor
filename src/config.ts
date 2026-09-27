@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs"
-import { basename, dirname, resolve } from "node:path"
+import { resolve } from "node:path"
 import type { Page } from "playwright"
 import {
   checkDbStatus,
@@ -12,6 +12,7 @@ import {
   openDatabase,
   platformsToTargetsAndServices,
   resolveDbPath,
+  resolveProjectDir,
 } from "./db.ts"
 
 /** A shell command. `cwd` is relative to the config file. */
@@ -117,10 +118,6 @@ export type WebStepArgs = {
 /** A web step module's default export. Returned values can be extracted and asserted. */
 export type WebStep = (args: WebStepArgs) => Promise<Record<string, unknown> | undefined>
 
-export function defineConfig(config: E2EConfig): E2EConfig {
-  return config
-}
-
 export function defineWebStep(step: WebStep): WebStep {
   return step
 }
@@ -136,24 +133,12 @@ export type LoadedConfig = E2EConfig & {
 }
 
 export async function loadConfig(configDirOrDbPath?: string, envName?: string): Promise<LoadedConfig> {
-  let configDir = process.cwd()
-  let dbPath: string
-
-  if (configDirOrDbPath?.trim()) {
-    const trimmed = configDirOrDbPath.trim()
-    if (trimmed.endsWith(".db") || trimmed.endsWith(".sqlite")) {
-      dbPath = resolve(trimmed)
-      configDir = dirname(dbPath)
-      if (basename(configDir) === ".e2e") {
-        configDir = dirname(configDir)
-      }
-    } else {
-      configDir = resolve(trimmed)
-      dbPath = resolveDbPath(configDir)
-    }
-  } else {
-    dbPath = resolveDbPath(configDir)
-  }
+  const configDir = resolveProjectDir(configDirOrDbPath)
+  const trimmed = configDirOrDbPath?.trim()
+  const dbPath =
+    trimmed && (trimmed.endsWith(".db") || trimmed.endsWith(".sqlite"))
+      ? resolve(trimmed)
+      : resolveDbPath(configDir)
 
   if (!existsSync(dbPath)) {
     throw new Error(`Database not found: ${dbPath}. Run "e2e init" or "e2e ui" to initialize your test configuration.`)

@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { dirname, join } from "node:path"
 import { stdin as input, stdout as output } from "node:process"
 import * as readline from "node:readline/promises"
-import { openDatabase, resolveDbPath, saveEnvironment, savePlatform } from "./db.ts"
+import { openDatabase, resolveDbPath, resolveProjectDir, saveEnvironment, savePlatform } from "./db.ts"
 import { color } from "./logger.ts"
 import {
   detectWorkspace,
@@ -22,13 +22,7 @@ const SMOKE = {
  * Never overwrites: an artifact that exists is skipped.
  */
 export function initProject(targetPath: string = process.cwd()): { created: string[]; skipped: string[] } {
-  let rootDir = resolve(targetPath)
-  if (rootDir.endsWith(".db") || rootDir.endsWith(".sqlite") || rootDir.endsWith(".ts") || rootDir.endsWith(".js")) {
-    rootDir = dirname(rootDir)
-    if (rootDir.endsWith(".e2e")) {
-      rootDir = dirname(rootDir)
-    }
-  }
+  const rootDir = resolveProjectDir(targetPath)
 
   const created: string[] = []
   const skipped: string[] = []
@@ -85,13 +79,7 @@ export async function runInteractiveInit(
   targetPath: string = process.cwd(),
 ): Promise<{ created: string[]; skipped: string[] }> {
   const rl = readline.createInterface({ input, output })
-  let rootDir = resolve(targetPath)
-  if (rootDir.endsWith(".db") || rootDir.endsWith(".sqlite") || rootDir.endsWith(".ts") || rootDir.endsWith(".js")) {
-    rootDir = dirname(rootDir)
-    if (rootDir.endsWith(".e2e")) {
-      rootDir = dirname(rootDir)
-    }
-  }
+  const rootDir = resolveProjectDir(targetPath)
 
   const ask = async (query: string, defaultValue = ""): Promise<string> => {
     const promptText = defaultValue ? `${query} [${defaultValue}]: ` : `${query}: `

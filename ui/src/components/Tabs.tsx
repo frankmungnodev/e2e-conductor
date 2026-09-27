@@ -1,14 +1,6 @@
 import type React from "react"
 import { useCallback, useEffect, useState } from "react"
 
-export interface TabItem<T extends string = string> {
-  id: T
-  label: React.ReactNode
-  icon?: React.ReactNode
-  badge?: React.ReactNode
-  disabled?: boolean
-}
-
 export interface TabButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean
   variant?: "editor" | "activity" | "pills"
@@ -60,80 +52,6 @@ export function TabButton({
   )
 }
 
-export interface TabsProps<T extends string = string> {
-  tabs: TabItem<T>[]
-  activeTab: T
-  onChange: (tabId: T) => void
-  variant?: "editor" | "activity" | "pills"
-  className?: string
-}
-
-export function Tabs<T extends string = string>({
-  tabs,
-  activeTab,
-  onChange,
-  variant = "editor",
-  className = "",
-}: TabsProps<T>) {
-  if (variant === "activity") {
-    return (
-      <div className={`flex items-center gap-1 bg-activity p-1 border-b border-border ${className}`}>
-        {tabs.map((tab) => (
-          <TabButton
-            key={tab.id}
-            variant="activity"
-            active={activeTab === tab.id}
-            onClick={() => onChange(tab.id)}
-            disabled={tab.disabled}
-            icon={tab.icon}
-            badge={tab.badge}
-          >
-            {tab.label}
-          </TabButton>
-        ))}
-      </div>
-    )
-  }
-
-  if (variant === "pills") {
-    return (
-      <div className={`inline-flex items-center p-0.5 rounded-sm bg-activity border border-border ${className}`}>
-        {tabs.map((tab) => (
-          <TabButton
-            key={tab.id}
-            variant="pills"
-            active={activeTab === tab.id}
-            onClick={() => onChange(tab.id)}
-            disabled={tab.disabled}
-            icon={tab.icon}
-            badge={tab.badge}
-          >
-            {tab.label}
-          </TabButton>
-        ))}
-      </div>
-    )
-  }
-
-  // Default: VS Code Editor Tabs
-  return (
-    <div className={`flex items-stretch overflow-x-auto bg-sidebar border-b border-border select-none ${className}`}>
-      {tabs.map((tab) => (
-        <TabButton
-          key={tab.id}
-          variant="editor"
-          active={activeTab === tab.id}
-          onClick={() => onChange(tab.id)}
-          disabled={tab.disabled}
-          icon={tab.icon}
-          badge={tab.badge}
-        >
-          {tab.label}
-        </TabButton>
-      ))}
-    </div>
-  )
-}
 
 /**
  * Hook to synchronize tab state with URL query parameters.

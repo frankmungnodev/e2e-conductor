@@ -14,13 +14,14 @@ The orchestrator decouples **test declarations** (scenarios and steps) from **ta
 
 ## Relational Data Model
 
-All configuration and run history live in SQLite (`src/db.ts`). Relationships:
+All configuration entities live in SQLite (`src/db.ts`). Relationships:
 
 - `environments` (1) ── (N) `env_platform` (N) ── (1) `platforms`
   - `env_platform` acts as a junction table storing per-environment overrides (sparse inheritance).
 - `fixtures`: Independent setup commands referenced by name in `scenario.setup`.
 - `settings`: Key-value store tracking `active_environment` and `default_environment`.
-- `runs` (1) ── (N) `run_steps`: Historical execution logs and step outcomes.
+
+Run history and test outcomes are persisted as execution artifacts under the results directory (`.e2e/results/artifacts/<runId>`, `summary.json`, and `run.log`).
 
 ---
 
@@ -32,7 +33,7 @@ When running a scenario (`e2e run` or `POST /api/run`):
 2. **Preflight** (`src/preflight.ts`): Validates that required services are responsive and Android devices are connected. Starts offline services if configured.
 3. **Fixture Setup** (`runFixture` in `src/runner.ts`): Executes hooks listed in `scenario.setup` sequentially. Halts immediately on failure.
 4. **Step Execution**: Dispatches scenario steps to compiled target drivers (`web`, `mobile`, `http`, `shell`).
-5. **Result Recording**: Logs status and duration to the `runs` and `run_steps` database tables and saves artifacts.
+5. **Result Recording**: Writes structured run outcomes to `summary.json`, streams execution logs to `run.log`, and saves failure traces and screenshots under `.e2e/results/artifacts/<runId>/`.
 
 ---
 

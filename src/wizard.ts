@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { dirname, join } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
-import { saveEnvironment, savePlatform } from "./db.ts"
+import { resolveProjectDir, saveEnvironment, savePlatform } from "./db.ts"
 
 export type ComponentType = "api" | "web" | "android"
 
@@ -196,13 +196,7 @@ export function scaffoldWizardFiles(
   projectDir: string,
   components: WizardComponent[],
 ): { created: string[]; skipped: string[] } {
-  let rootDir = resolve(projectDir)
-  if (rootDir.endsWith(".db") || rootDir.endsWith(".sqlite") || rootDir.endsWith(".ts") || rootDir.endsWith(".js")) {
-    rootDir = dirname(rootDir)
-    if (rootDir.endsWith(".e2e")) {
-      rootDir = dirname(rootDir)
-    }
-  }
+  const rootDir = resolveProjectDir(projectDir)
 
   const created: string[] = []
   const skipped: string[] = []

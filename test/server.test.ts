@@ -23,11 +23,6 @@ function mockProject(): LoadedConfig {
     }),
   )
 
-  mkdirSync(join(dir, "web", "admin"), { recursive: true })
-  mkdirSync(join(dir, "fixtures"), { recursive: true })
-  writeFileSync(join(dir, "web", "admin", "login.ts"), "export default () => {}")
-  writeFileSync(join(dir, "fixtures", "seed.ts"), "export const seed = () => {}")
-
   writeFileSync(join(dir, "flows", "test.yaml"), "- tap: Button\n")
 
   return {

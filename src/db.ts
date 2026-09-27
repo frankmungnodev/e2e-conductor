@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { dirname, isAbsolute, join, relative, resolve } from "node:path"
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 import type { EnvironmentConfig, HttpTarget, MobileTarget, ServiceConfig, TargetConfig, WebTarget } from "./config.ts"
 
@@ -59,6 +59,18 @@ export type DbStatus = {
 const POINTER_FILE = ".e2e-db"
 const DEFAULT_DB_DIR = ".e2e"
 const DEFAULT_DB_FILENAME = "e2e.db"
+
+/** Resolves the root project directory from a directory path or database file path. */
+export function resolveProjectDir(targetPath: string = process.cwd()): string {
+  let rootDir = resolve(targetPath.trim() || process.cwd())
+  if (rootDir.endsWith(".db") || rootDir.endsWith(".sqlite")) {
+    rootDir = dirname(rootDir)
+  }
+  if (basename(rootDir) === ".e2e") {
+    rootDir = dirname(rootDir)
+  }
+  return rootDir
+}
 
 export function resolveDbPath(configDir: string, customPath?: string): string {
   if (customPath?.trim()) {

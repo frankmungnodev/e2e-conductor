@@ -25,8 +25,9 @@ import type {
 } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
-import { FormField, Input, NumberInput } from "./FormControls.tsx"
+import { FormField, Input } from "./FormControls.tsx"
 import { Modal } from "./Modal.tsx"
+import { NumberInput } from "./NumberInput.tsx"
 import { useToast } from "./Toast.tsx"
 
 export interface PlatformModalProps {
@@ -39,7 +40,7 @@ export interface PlatformModalProps {
   allEnvPlatforms?: EnvPlatformRecord[]
 }
 
-export function extractComponentsFromConfig(config?: ConfigMeta): WizardComponent[] {
+function extractComponentsFromConfig(config?: ConfigMeta): WizardComponent[] {
   if (!config?.targets) return []
   const components: WizardComponent[] = []
   let order = 1

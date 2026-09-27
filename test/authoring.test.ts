@@ -11,7 +11,6 @@ function setupProject(dir: string) {
   mkdirSync(join(dir, "scenarios"), { recursive: true })
   mkdirSync(join(dir, "flows"), { recursive: true })
   mkdirSync(join(dir, "web", "admin"), { recursive: true })
-  mkdirSync(join(dir, "fixtures"), { recursive: true })
 
   // Link e2e-orchestrator in node_modules so imports resolve
   mkdirSync(join(dir, "node_modules"), { recursive: true })
@@ -84,14 +83,6 @@ function setupProject(dir: string) {
 export default defineWebStep(async ({ page }) => {
   return { status: "logged-in" }
 })
-`,
-  )
-
-  // Fixture script
-  writeFileSync(
-    join(dir, "fixtures", "database.ts"),
-    `import type { FixtureFn } from "e2e-orchestrator"
-export const resetDb: FixtureFn = async () => {}
 `,
   )
 

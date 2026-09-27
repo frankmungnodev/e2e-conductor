@@ -12,7 +12,7 @@ export type {
   WebStepArgs,
   WebTarget,
 } from "./config.ts"
-export { defineConfig, defineWebStep } from "./config.ts"
+export { defineWebStep } from "./config.ts"
 export { runShell } from "./process.ts"
 export type { Summary } from "./runner.ts"
 export type { Scenario, Step } from "./scenario.ts"

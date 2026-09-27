@@ -264,5 +264,5 @@ export type WizardApplyPayload = {
   defaultEnvironment?: string
   scaffoldFiles?: boolean
   fixtures?: Record<string, { cmd: string; cwd?: string }>
-  code?: string
 }
+

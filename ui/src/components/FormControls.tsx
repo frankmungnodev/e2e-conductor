@@ -1,10 +1,6 @@
 import type React from "react"
 import { forwardRef } from "react"
 
-export * from "./Checkbox.tsx"
-export * from "./NumberInput.tsx"
-export * from "./Select.tsx"
-
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
@@ -47,41 +43,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 )
 
 Input.displayName = "Input"
-
-export interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label?: string
-  error?: string
-  helperText?: string
-  mono?: boolean
-}
-
-export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
-  ({ label, error, helperText, mono = false, className = "", id, ...props }, ref) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined)
-
-    return (
-      <div className="flex flex-col gap-1.5 w-full">
-        {label && (
-          <label htmlFor={inputId} className="text-xs font-semibold text-fg-bright">
-            {label}
-          </label>
-        )}
-        <textarea
-          id={inputId}
-          ref={ref}
-          className={`w-full bg-input text-fg border rounded-xs px-3 py-2 text-xs md:text-sm transition-colors focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus disabled:opacity-50 disabled:bg-editor placeholder:text-fg-muted ${
-            error ? "border-error focus:border-error focus:ring-error" : "border-border-light"
-          } ${mono ? "font-mono" : ""} ${className}`}
-          {...props}
-        />
-        {error && <span className="text-xs text-error font-medium">{error}</span>}
-        {helperText && !error && <span className="text-xs text-fg-muted leading-normal">{helperText}</span>}
-      </div>
-    )
-  },
-)
-
-TextArea.displayName = "TextArea"
 
 export interface FormFieldProps {
   label: string

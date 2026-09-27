@@ -160,35 +160,10 @@ export function subscribeToEvents(
   }
 }
 
-export async function initProjectConfig(): Promise<{ ok: boolean; created: string[]; skipped: string[] }> {
-  const res = await fetch(`${API_BASE}/api/init`, { method: "POST" })
-  const data = await res.json()
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error ?? "Failed to initialize project")
-  }
-  return data
-}
-
-
 export async function detectWorkspaceProjects(): Promise<{ detected: import("./types.ts").DetectedService[] }> {
   const res = await fetch(`${API_BASE}/api/wizard/detect`)
   if (!res.ok) throw new Error("Failed to scan workspace")
   return res.json()
-}
-
-export async function applyWizardConfig(
-  data: import("./types.ts").WizardApplyPayload,
-): Promise<{ ok: boolean; message: string; created: string[]; skipped: string[] }> {
-  const res = await fetch(`${API_BASE}/api/wizard/apply`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  })
-  const json = await res.json()
-  if (!res.ok || !json.ok) {
-    throw new Error(json.error ?? "Failed to apply configuration")
-  }
-  return json
 }
 
 export async function setActiveEnvironment(
