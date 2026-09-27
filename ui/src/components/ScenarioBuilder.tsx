@@ -43,7 +43,6 @@ type ScenarioBuilderProps = {
     file: string,
     content: string,
   ) => Promise<{ ok: boolean; isValid: boolean; errors: string[] } | undefined>
-  onOpenModule?: (moduleName: string, targetName?: string) => void
 }
 
 export function ScenarioBuilder({
@@ -53,7 +52,6 @@ export function ScenarioBuilder({
   onSaveScenario,
   onDeleteScenario,
   onSaveFlow,
-  onOpenModule,
 }: ScenarioBuilderProps) {
   // Explorer state
   const [activeItem, setActiveItem] = useState<{ type: "scenario" | "flow"; id: string } | null>(
@@ -1375,23 +1373,9 @@ export function ScenarioBuilder({
                                 {stepDriver === "web" && (
                                   <div className="space-y-2">
                                     <div>
-                                      <div className="flex items-center justify-between">
-                                        <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                          Step Module (run):
-                                        </label>
-                                        {step.run && onOpenModule && (
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              if (step.run) onOpenModule(step.run, step.target)
-                                            }}
-                                            className="text-[10px] text-primary hover:underline flex items-center gap-1 font-sans cursor-pointer"
-                                          >
-                                            <Code2 className="w-3 h-3" />
-                                            Edit Module ↗
-                                          </button>
-                                        )}
-                                      </div>
+                                      <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
+                                        Step Module (run):
+                                      </label>
                                       <input
                                         type="text"
                                         placeholder="e.g. admin/login or checkout"

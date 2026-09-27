@@ -1,7 +1,6 @@
 import type {
   ConfigMeta,
   FlowItem,
-  ModuleFile,
   PreflightData,
   RunEvent,
   RunHistoryItem,
@@ -170,48 +169,6 @@ export async function initProjectConfig(): Promise<{ ok: boolean; created: strin
   return data
 }
 
-export async function fetchModules(): Promise<ModuleFile[]> {
-  const res = await fetch(`${API_BASE}/api/modules`)
-  if (!res.ok) throw new Error("Failed to load modules")
-  return res.json()
-}
-
-export async function saveModule(data: {
-  category: "web" | "fixture" | "helper"
-  target?: string
-  name: string
-  content: string
-}): Promise<ModuleFile> {
-  const res = await fetch(`${API_BASE}/api/modules`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  })
-  const json = await res.json()
-  if (!res.ok || !json.ok) {
-    throw new Error(json.error ?? "Failed to save module")
-  }
-  return json.file
-}
-
-export async function deleteModule(params: {
-  category: "web" | "fixture" | "helper"
-  target?: string
-  name: string
-}): Promise<void> {
-  const query = new URLSearchParams({
-    category: params.category,
-    name: params.name,
-    ...(params.target ? { target: params.target } : {}),
-  })
-  const res = await fetch(`${API_BASE}/api/modules?${query.toString()}`, {
-    method: "DELETE",
-  })
-  const json = await res.json()
-  if (!res.ok || !json.ok) {
-    throw new Error(json.error ?? "Failed to delete module")
-  }
-}
 
 export async function detectWorkspaceProjects(): Promise<{ detected: import("./types.ts").DetectedService[] }> {
   const res = await fetch(`${API_BASE}/api/wizard/detect`)

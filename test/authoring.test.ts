@@ -100,7 +100,7 @@ export const resetDb: FixtureFn = async () => {}
 }
 
 describe("Full Test Suite Authoring via API", () => {
-  it("creates, modifies, and validates complete scenarios and modules", async () => {
+  it("creates, modifies, and validates complete scenarios", async () => {
     const dir = tempDir("authoring")
     setupProject(dir)
 
@@ -177,39 +177,6 @@ describe("Full Test Suite Authoring via API", () => {
       assert.deepEqual(created.setup, ["reset-db", "seed-admin"])
       assert.equal(created.vars.songTitle, "New Praise Song")
       assert.equal(created.steps.length, 3)
-
-      // 5. Manage modules: list modules
-      const modRes = await fetch(`${url}/api/modules`)
-      assert.equal(modRes.status, 200)
-      const modules = (await modRes.json()) as any[]
-      assert.ok(modules.some((m) => m.name === "admin/login.ts" && m.category === "web"))
-      assert.ok(modules.some((m) => m.name === "database.ts" && m.category === "fixture"))
-
-      // 6. Create a nested web step module in admin/songs/create.ts
-      const createModuleRes = await fetch(`${url}/api/modules`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category: "web",
-          target: "admin",
-          name: "admin/songs/create.ts",
-          content: `import { defineWebStep } from "e2e-orchestrator"
-export default defineWebStep(async ({ page, params, log }) => {
-  log("Creating song: " + params.title)
-  return { created: true }
-})
-`,
-        }),
-      })
-      assert.equal(createModuleRes.status, 200)
-      const createModData = (await createModuleRes.json()) as any
-      assert.equal(createModData.ok, true)
-      assert.ok(existsSync(join(dir, "web", "admin", "songs", "create.ts")))
-
-      // 7. Verify newly created module is returned in module list
-      const modRes2 = await fetch(`${url}/api/modules`)
-      const modules2 = (await modRes2.json()) as any[]
-      assert.ok(modules2.some((m) => m.name === "admin/songs/create.ts"))
 
       // 8. Delete scenario
       const delScRes = await fetch(`${url}/api/scenarios/02-admin-publish`, { method: "DELETE" })
