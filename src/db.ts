@@ -23,7 +23,13 @@ export type Step = {
   url?: string
   headers?: Record<string, string>
   body?: unknown
-  // web / mobile
+  // declarative actions (web & mobile)
+  action?: string
+  selector?: string
+  value?: string
+  key?: string
+  ms?: number
+  // web / mobile fallback
   run?: string
   flow?: string
   launch?: "fresh" | "restart"
@@ -31,6 +37,16 @@ export type Step = {
   // shell
   command?: string
   cwd?: string
+}
+
+export type StepGroup = {
+  id: string
+  name: string
+  description?: string
+  target?: string
+  steps: Step[]
+  createdAt?: number
+  updatedAt?: number
 }
 
 export type Scenario = {
@@ -329,6 +345,16 @@ export function openDatabase(dbPath: string): DatabaseSync {
       result_data TEXT,
       artifacts_path TEXT,
       created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS step_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      target TEXT,
+      steps TEXT NOT NULL,
+      created_at INTEGER,
+      updated_at INTEGER
     );
 
     CREATE INDEX IF NOT EXISTS idx_scenario_steps_scenario ON scenario_steps(scenario_id, order_num);
@@ -1261,6 +1287,69 @@ export function saveScenario(db: DatabaseSync, scenario: Scenario): void {
 export function deleteScenario(db: DatabaseSync, id: string): void {
   db.prepare("DELETE FROM scenario_steps WHERE scenario_id = ?").run(id)
   db.prepare("DELETE FROM scenarios WHERE id = ?").run(id)
+}
+
+type StepGroupRow = {
+  id: string
+  name: string
+  description?: string | null
+  target?: string | null
+  steps: string
+  created_at?: number | null
+  updated_at?: number | null
+}
+
+export function getStepGroups(db: DatabaseSync): StepGroup[] {
+  const rows = db.prepare("SELECT * FROM step_groups ORDER BY name ASC").all() as StepGroupRow[]
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description ?? undefined,
+    target: r.target ?? undefined,
+    steps: safeJsonParse<Step[]>(r.steps) ?? [],
+    createdAt: r.created_at ?? undefined,
+    updatedAt: r.updated_at ?? undefined,
+  }))
+}
+
+export function getStepGroup(db: DatabaseSync, id: string): StepGroup | undefined {
+  const r = db.prepare("SELECT * FROM step_groups WHERE id = ?").get(id) as StepGroupRow | undefined
+  if (!r) return undefined
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description ?? undefined,
+    target: r.target ?? undefined,
+    steps: safeJsonParse<Step[]>(r.steps) ?? [],
+    createdAt: r.created_at ?? undefined,
+    updatedAt: r.updated_at ?? undefined,
+  }
+}
+
+export function saveStepGroup(db: DatabaseSync, group: StepGroup): void {
+  const now = Date.now()
+  db.prepare(`
+    INSERT INTO step_groups (id, name, description, target, steps, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      description = excluded.description,
+      target = excluded.target,
+      steps = excluded.steps,
+      updated_at = excluded.updated_at
+  `).run(
+    group.id,
+    group.name,
+    group.description || null,
+    group.target || null,
+    JSON.stringify(group.steps || []),
+    group.createdAt ?? now,
+    now,
+  )
+}
+
+export function deleteStepGroup(db: DatabaseSync, id: string): void {
+  db.prepare("DELETE FROM step_groups WHERE id = ?").run(id)
 }
 
 export function saveRun(db: DatabaseSync, run: RunRecord): void {

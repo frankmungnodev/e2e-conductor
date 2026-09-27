@@ -11,6 +11,7 @@ import {
   deleteFixture as deleteDbFixture,
   deletePlatform as deleteDbPlatform,
   deleteScenario as deleteDbScenario,
+  deleteStepGroup as deleteDbStepGroup,
   type EnvPlatformRecord,
   getActiveEnvironment as getDbActiveEnvironment,
   getDefaultEnvironment as getDbDefaultEnvironment,
@@ -22,16 +23,19 @@ import {
   getRun as getDbRun,
   getRuns as getDbRuns,
   getScenario as getDbScenario,
+  getStepGroups as getDbStepGroups,
   getStepRuns as getDbStepRuns,
   type PlatformRecord,
   type PlatformWithEnvOverrides,
   platformsToTargetsAndServices,
   resolveDbPath,
+  type StepGroup,
   saveEnvironment as saveDbEnvironment,
   saveEnvPlatform as saveDbEnvPlatform,
   saveFixture as saveDbFixture,
   savePlatform as saveDbPlatform,
   saveScenario as saveDbScenario,
+  saveStepGroup as saveDbStepGroup,
   setActiveEnvironment as setDbActiveEnvironment,
   withDb,
   writeDbPointer,
@@ -837,6 +841,56 @@ export function startServer(
               return sendJson(res, 200, { ok: true, id })
             }
             return sendJson(res, 404, { error: `Scenario ${id} not found` })
+          }
+
+          // GET /api/step-groups
+          if (pathname === "/api/step-groups" && req.method === "GET") {
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            if (!existsSync(dbPath)) {
+              return sendJson(res, 200, { stepGroups: [] })
+            }
+            try {
+              const stepGroups = withDb(dbPath, (db) => getDbStepGroups(db))
+              return sendJson(res, 200, { stepGroups })
+            } catch (error) {
+              return sendJson(res, 500, { error: (error as Error).message })
+            }
+          }
+
+          // POST /api/step-groups
+          if (pathname === "/api/step-groups" && req.method === "POST") {
+            const body = (await readBody(req)) as StepGroup
+            if (!body?.name || !body.steps) {
+              return sendJson(res, 400, { error: "Missing required fields: name and steps" })
+            }
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const group: StepGroup = {
+                id: body.id || `preset-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                name: body.name.trim(),
+                description: body.description?.trim(),
+                target: body.target,
+                steps: body.steps,
+                createdAt: body.createdAt,
+                updatedAt: Date.now(),
+              }
+              withDb(dbPath, (db) => saveDbStepGroup(db, group))
+              return sendJson(res, 200, { ok: true, stepGroup: group })
+            } catch (error) {
+              return sendJson(res, 500, { error: (error as Error).message })
+            }
+          }
+
+          // DELETE /api/step-groups/:id
+          if (pathname.startsWith("/api/step-groups/") && req.method === "DELETE") {
+            const id = pathname.replace("/api/step-groups/", "").trim()
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              withDb(dbPath, (db) => deleteDbStepGroup(db, id))
+              return sendJson(res, 200, { ok: true, id })
+            } catch (error) {
+              return sendJson(res, 500, { error: (error as Error).message })
+            }
           }
 
           // GET /api/flows

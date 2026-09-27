@@ -6,6 +6,7 @@ import type {
   RunHistoryItem,
   RunSummary,
   ScenarioItem,
+  StepGroup,
   StepRunItem,
 } from "./types.ts"
 
@@ -366,5 +367,31 @@ export async function fetchStepRuns(params?: {
   const res = await fetch(`${API_BASE}/api/step-runs${query}`)
   if (!res.ok) throw new Error("Failed to load step runs")
   return res.json()
+}
+
+export async function fetchStepGroups(): Promise<{ stepGroups: StepGroup[] }> {
+  const res = await fetch(`${API_BASE}/api/step-groups`)
+  if (!res.ok) throw new Error("Failed to load step groups")
+  return res.json()
+}
+
+export async function saveStepGroup(group: StepGroup): Promise<{ ok: boolean; stepGroup: StepGroup }> {
+  const res = await fetch(`${API_BASE}/api/step-groups`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(group),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error ?? "Failed to save step group")
+  return json
+}
+
+export async function deleteStepGroup(id: string): Promise<{ ok: boolean; id: string }> {
+  const res = await fetch(`${API_BASE}/api/step-groups/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error ?? "Failed to delete step group")
+  return json
 }
 

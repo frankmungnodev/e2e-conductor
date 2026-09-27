@@ -17,12 +17,27 @@ export type ScenarioStep = {
   url?: string
   headers?: Record<string, string>
   body?: unknown
+  action?: string
+  selector?: string
+  value?: string
+  key?: string
+  ms?: number
   run?: string
   flow?: string
   launch?: "fresh" | "restart"
   params?: Record<string, unknown>
   command?: string
   cwd?: string
+}
+
+export type StepGroup = {
+  id: string
+  name: string
+  description?: string
+  target?: string
+  steps: ScenarioStep[]
+  createdAt?: number
+  updatedAt?: number
 }
 
 export type ScenarioData = {

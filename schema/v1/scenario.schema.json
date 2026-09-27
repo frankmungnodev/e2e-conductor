@@ -63,6 +63,25 @@
         "url": { "type": "string", "description": "http: path relative to the service URL, or a full URL" },
         "headers": { "type": "object", "additionalProperties": { "type": "string" } },
         "body": { "description": "http: JSON request body" },
+        "action": {
+          "type": "string",
+          "description": "web or mobile: declarative action name (navigate, click, fill, press, tap, type, etc.)"
+        },
+        "selector": {
+          "type": "string",
+          "description": "web or mobile: CSS selector, accessibility label, ID, or text"
+        },
+        "value": {
+          "description": "web or mobile: text input value, target URL, or script code"
+        },
+        "key": {
+          "type": "string",
+          "description": "web or mobile: keyboard key (e.g. Enter, BACK) or swipe direction"
+        },
+        "ms": {
+          "type": "integer",
+          "description": "web or mobile: duration in milliseconds for wait or delay"
+        },
         "run": { "type": "string", "description": "web: step module name in the target's modules folder" },
         "flow": { "type": "string", "description": "mobile: YAML flow file in the target's flows folder" },
         "launch": {

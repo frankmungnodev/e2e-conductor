@@ -9,6 +9,7 @@ import {
   deleteFixture,
   deletePlatform,
   deleteScenario,
+  deleteStepGroup,
   getActiveEnvironment,
   getDefaultEnvironment,
   getEnvironments,
@@ -20,6 +21,8 @@ import {
   getRuns,
   getScenario,
   getScenarios,
+  getStepGroup,
+  getStepGroups,
   getStepRuns,
   openDatabase,
   type PlatformRecord,
@@ -32,6 +35,7 @@ import {
   savePlatform,
   saveRun,
   saveScenario,
+  saveStepGroup,
   saveStepRun,
   setActiveEnvironment,
   setDefaultEnvironment,
@@ -504,6 +508,49 @@ describe("sqlite db configuration storage", () => {
     const stepRuns = getStepRuns(db, { stepId: "step-checkout" })
     assert.equal(stepRuns.length, 1)
     assert.equal(stepRuns[0].errorMessage, "Order timeout")
+
+    db.close()
+  })
+
+  it("manages step groups and reusable presets in the database", () => {
+    const dbPath = join(dir, "step-groups.db")
+    const db = openDatabase(dbPath)
+
+    // Initially empty
+    let groups = getStepGroups(db)
+    assert.equal(groups.length, 0)
+
+    // Save a step group
+    saveStepGroup(db, {
+      id: "preset-login",
+      name: "Admin Web Login",
+      description: "Navigates to login page and submits credentials",
+      target: "web",
+      steps: [
+        { name: "Navigate to Login", target: "web", action: "navigate", url: "/admin/login" },
+        { name: "Fill Email", target: "web", action: "fill", selector: "#email", value: "admin@example.com" },
+        { name: "Fill Password", target: "web", action: "fill", selector: "#password", value: "secret123" },
+        { name: "Click Submit", target: "web", action: "click", selector: "button[type='submit']" },
+      ],
+    })
+
+    groups = getStepGroups(db)
+    assert.equal(groups.length, 1)
+    assert.equal(groups[0].id, "preset-login")
+    assert.equal(groups[0].name, "Admin Web Login")
+    assert.equal(groups[0].steps.length, 4)
+    assert.equal(groups[0].steps[0].action, "navigate")
+    assert.equal(groups[0].steps[1].selector, "#email")
+
+    // Get specific group
+    const group = getStepGroup(db, "preset-login")
+    assert.ok(group)
+    assert.equal(group.name, "Admin Web Login")
+
+    // Delete step group
+    deleteStepGroup(db, "preset-login")
+    assert.equal(getStepGroups(db).length, 0)
+    assert.equal(getStepGroup(db, "preset-login"), undefined)
 
     db.close()
   })

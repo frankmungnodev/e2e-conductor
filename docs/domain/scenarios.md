@@ -37,32 +37,62 @@ CREATE TABLE IF NOT EXISTS scenario_steps (
   updated_at INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS step_groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  target TEXT,                     -- Optional platform affinity ("web", "mobile", etc.)
+  steps TEXT NOT NULL,             -- Serialized JSON array: Step[]
+  created_at INTEGER,
+  updated_at INTEGER
+);
+
 CREATE INDEX IF NOT EXISTS idx_scenario_steps_scenario ON scenario_steps(scenario_id, order_num);
 ```
 
 ---
 
-## 2. Step Fields & Driver Configuration
+## 2. Step Fields & Declarative Actions
 
-Each scenario step consists of common orchestration fields and target-specific driver arguments:
+Each scenario step consists of common orchestration fields and target-specific driver configurations. The orchestrator employs a **Zero-Code Declarative Model** where standard browser and mobile interactions execute natively without requiring helper files.
 
 ### Common Fields
-- `id`: Optional unique identifier for the step (auto-generated as a UUID if omitted upon persistence).
+- `id`: Optional unique identifier for the step (auto-generated if omitted upon persistence).
 - `name`: Human-readable label displayed in test execution runners and logs.
 - `target`: The platform or driver to execute against (e.g. `web`, `http`, `shell`, `android`). Must match a compiled target in configuration.
-- `timeout`: Maximum step duration in milliseconds (`timeout_ms`).
-- `retry`: Retry policy specifying `times` (`retry_times`) and `delayMs` (`retry_delay_ms`).
+- `timeout_ms`: Maximum step duration in milliseconds.
+- `retry`: Retry policy specifying `times` and `delay_ms`.
 - `assert`: Assertions to evaluate against the driver outcome (`assert_json`).
 - `extract`: Map of variable names to JSON path expressions extracted from step results into the execution context (`extract_json`).
 
 ### Target Driver Fields (`driver_config`)
-Driver-specific properties are stored serialized in `driver_config`:
-- **Web driver**: `action`, `selector`, `url`, `value`, `key`, `ms`, etc.
-- **HTTP driver**: `url`, `method`, `headers`, `body`, `query`.
-- **Shell driver**: `command`, `args`, `cwd`, `env`.
-- **Mobile driver**: `flow`, `substitutions`.
+- **Web driver (`target: "web"`)**:
+  - `action`: Declarative action (`navigate`, `click`, `fill`, `press`, `wait_for`, `assert_visible`, `assert_text`, `hover`, `select`, `check`, `uncheck`, `screenshot`, `eval`).
+  - `url`: Destination URL or relative path for `navigate`.
+  - `selector`: CSS selector or locator for target DOM elements.
+  - `value`: Input text for `fill`, expected text for `assert_text`, or JavaScript code for `eval`.
+  - `key`: Keyboard key for `press` (e.g. `Enter`, `Tab`, `Escape`).
+  - `ms`: Delay duration in milliseconds for `wait_for`.
+  - *Escape Hatch (`run`)*: Optional TypeScript module name in `.e2e/modules` for complex script execution.
+- **Mobile driver (`target: "mobile"`)**:
+  - `action`: Declarative action (`tap`, `type`, `press`, `swipe`, `assert_visible`, `assert_not_visible`, `wait`, `back`, `hidekeyboard`, `launch`).
+  - `selector`: Target element text, accessibility label, or resource ID.
+  - `value`: Text input content for `type`.
+  - `key`: Key name for `press` (`BACK`, `ENTER`, `HOME`, `TAB`) or swipe direction (`RIGHT`, `LEFT`, `UP`, `DOWN`).
+  - `ms`: Delay duration in milliseconds.
+  - `launch`: App lifecycle behavior (`restart` or `fresh` to wipe state).
+  - *Legacy Fallback (`flow`)*: Optional YAML flow file in `.e2e/flows`.
+- **HTTP driver (`target: "http"`)**: `url`, `method`, `headers`, `body`.
+- **Shell driver (`target: "shell"`)**: `command`, `cwd`.
 
-When loaded into memory, these driver fields are unflattened into the standard `Step` object.
+---
+
+## 3. Reusable Step Presets (`step_groups`)
+
+The `step_groups` table stores modular, reusable step sequences (e.g., *Admin Login*, *Seed Test Database*, *Verify Cart Total*).
+- Presets can be inserted directly into any scenario at any position from the Scenario Studio UI.
+- Test authors can save any scenario's step sequence as a new reusable preset in SQLite.
+- Presets eliminate boilerplate repetition across test suites without needing code-based helper functions.
 
 ---
 

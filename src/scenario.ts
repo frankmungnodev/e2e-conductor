@@ -18,8 +18,8 @@ export type { Assert, Scenario, Step }
 /** Fields each driver accepts on top of the common step fields. */
 const DRIVER_FIELDS: Record<string, string[]> = {
   http: ["method", "url", "headers", "body"],
-  web: ["run", "params"],
-  mobile: ["flow", "launch", "params"],
+  web: ["action", "selector", "value", "key", "url", "ms", "run", "params"],
+  mobile: ["action", "selector", "value", "key", "ms", "flow", "launch", "params"],
   shell: ["command", "cwd"],
 }
 const REQUIRED: Record<string, string> = { http: "url", web: "run", mobile: "flow", shell: "command" }
@@ -64,9 +64,20 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlow
         errors.push(`${where}: "${key}" is not valid for a ${driver} target`)
       }
     }
-    const hasRequired = step[REQUIRED[driver] as keyof Step] !== undefined || (driver === "mobile" && step.launch !== undefined)
+    const hasRequired =
+      driver === "web"
+        ? step.action !== undefined || step.run !== undefined
+        : driver === "mobile"
+          ? step.action !== undefined || step.flow !== undefined || step.launch !== undefined
+          : step[REQUIRED[driver] as keyof Step] !== undefined
     if (!hasRequired) {
-      errors.push(`${where}: ${driver} step needs "${REQUIRED[driver]}"${driver === "mobile" ? ' or "launch"' : ""}`)
+      if (driver === "web") {
+        errors.push(`${where}: web step needs "action" or "run"`)
+      } else if (driver === "mobile") {
+        errors.push(`${where}: mobile step needs "action", "flow", or "launch"`)
+      } else {
+        errors.push(`${where}: ${driver} step needs "${REQUIRED[driver]}"`)
+      }
     }
     // A flow name with a placeholder is only known at run time; the mobile driver checks it then.
     if (driver === "mobile" && step.flow !== undefined && !step.flow.includes("${")) {

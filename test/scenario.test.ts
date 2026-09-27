@@ -111,7 +111,7 @@ describe("loadScenarios", () => {
       }),
     )
     assert.match(problems, /http step needs "url"/)
-    assert.match(problems, /mobile step needs "flow" or "launch"/)
+    assert.match(problems, /mobile step needs "action", "flow", or "launch"/)
   })
 
   it("checks each named flow once", () => {

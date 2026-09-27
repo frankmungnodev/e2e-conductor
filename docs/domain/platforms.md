@@ -50,14 +50,16 @@ CREATE TABLE IF NOT EXISTS platforms (
 
 ### Web (`type: "web"`)
 - **Driver**: `"web"` (`WebTarget` in `src/config.ts`) powered by Playwright.
-- **Modules**: Directory of TypeScript step files (default `.e2e/modules`) exporting a `WebStep` function.
+- **Declarative Actions**: Executes browser actions directly (`navigate`, `click`, `fill`, `press`, `wait_for`, `assert_visible`, `assert_text`, `hover`, `screenshot`) without requiring code files.
+- **Modules (Optional)**: Optional directory of TypeScript step files (default `.e2e/modules`) exporting a `WebStep` function for custom script execution.
 - **Service Dependency**: Must link to a backing HTTP service for its base URL.
 - **Options**: `headless` (toggle browser UI) and `slowMo` (delay per action for visual debugging).
 
 ### Android (`type: "android"`)
-- **Driver**: `"mobile"` (`MobileTarget` in `src/config.ts`) powered by ADB and UIAutomator YAML flows.
+- **Driver**: `"mobile"` (`MobileTarget` in `src/config.ts`) powered by ADB and UIAutomator.
+- **Declarative Actions**: Executes gestures and assertions directly (`tap`, `type`, `press`, `swipe`, `assert_visible`, `wait`, `launch`) via ADB without requiring YAML flow files.
 - **Package**: `appId` specifies the application identifier.
-- **Flows**: Directory containing declarative YAML flow files (default `.e2e/flows`).
+- **Flows (Optional)**: Optional directory containing legacy YAML flow files (default `.e2e/flows`).
 - **Device Setup**: `grantPermissions` auto-granted on launch; `reversePorts` forwarded via `adb reverse`.
 
 ### API (`type: "api"`)

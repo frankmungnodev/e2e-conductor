@@ -9,7 +9,7 @@ The orchestrator decouples **test declarations** (scenarios and steps) from **ta
 | **[Environments](./environments.md)** | Target deployment contexts (`dev`, `staging`, `prod`), variable injection (`${env.VAR}`), and path routing. | `environments` table & `settings` pointers | [`environments.md`](./environments.md) |
 | **[Platforms](./platforms.md)** | Target surfaces (`web`, `android`, `api`) compiled into drivers and background services. | `platforms` & `env_platform` tables | [`platforms.md`](./platforms.md) |
 | **[Fixtures](./fixtures.md)** | Deterministic pre-test setup hooks (database seeding, cache resets, auth setup). | `fixtures` table & TypeScript modules | [`fixtures.md`](./fixtures.md) |
-| **[Scenarios & Steps](./scenarios.md)** | Test specifications, execution steps, assertions, extraction rules, and target driver bindings. | `scenarios` & `scenario_steps` tables | [`scenarios.md`](./scenarios.md) |
+| **[Scenarios & Steps](./scenarios.md)** | Test specifications, declarative execution steps, assertions, extraction rules, and target driver bindings. | `scenarios`, `scenario_steps`, & `step_groups` tables | [`scenarios.md`](./scenarios.md) |
 | **[Runs & Step Runs](./runs.md)** | Test execution sessions, per-step timing, attempts/retries, status outcomes, and telemetry. | `runs` & `step_runs` tables | [`runs.md`](./runs.md) |
 
 ---
@@ -23,6 +23,7 @@ All configuration and execution entities live in SQLite (`src/db.ts`). Relations
 - `fixtures`: Independent setup commands referenced by name in `scenario.setup`.
 - `scenarios` (1) ── (N) `scenario_steps`
   - `scenario_steps` belongs to a scenario with cascading deletion (`ON DELETE CASCADE`) and explicit `order_num` sequencing.
+- `step_groups`: Reusable modular step sequences saved in SQLite for instant composition across scenarios.
 - `runs` (1) ── (N) `step_runs`
   - `step_runs` records per-attempt results for each step with cascading deletion (`ON DELETE CASCADE`).
 - `settings`: Key-value store tracking `active_environment` and `default_environment`.
