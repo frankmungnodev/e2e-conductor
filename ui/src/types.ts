@@ -224,6 +224,7 @@ export type WizardComponent = {
   health?: string
   startCmd?: string
   cwd?: string
+  exclusive?: boolean
   // Web SPA fields
   service?: string
   modules?: string

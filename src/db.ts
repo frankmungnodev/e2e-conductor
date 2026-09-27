@@ -740,7 +740,6 @@ export function getPlatformsForEnv(db: DatabaseSync, envName: string): PlatformW
   return rows.map((r) => {
     let grantPermissions: string[] | undefined
     let reversePorts: number[] | undefined
-    let configJson: Record<string, unknown> | undefined
 
     if (r.grant_permissions) {
       try {
@@ -804,18 +803,60 @@ export function getPlatformsForEnv(db: DatabaseSync, envName: string): PlatformW
       if (r.ep_app_id !== r.app_id) overriddenFields.push("appId")
     }
 
+    let epConfigJson: Record<string, unknown> | undefined
     if (r.ep_config_json) {
       try {
-        configJson = JSON.parse(r.ep_config_json)
+        epConfigJson = JSON.parse(r.ep_config_json)
       } catch {
         // ignore
       }
-    } else if (r.config_json) {
+    }
+
+    let baseConfigJson: Record<string, unknown> | undefined
+    if (r.config_json) {
       try {
-        configJson = JSON.parse(r.config_json)
+        baseConfigJson = JSON.parse(r.config_json)
       } catch {
         // ignore
       }
+    }
+
+    const configJson = epConfigJson || baseConfigJson
+
+    let effectiveModules = r.modules || undefined
+    if (isLinked && epConfigJson && typeof epConfigJson.modules === "string") {
+      effectiveModules = epConfigJson.modules || undefined
+      if (effectiveModules !== (r.modules || undefined)) overriddenFields.push("modules")
+    }
+
+    let effectiveExclusive = r.exclusive === 1
+    if (isLinked && epConfigJson && typeof epConfigJson.exclusive === "boolean") {
+      effectiveExclusive = epConfigJson.exclusive
+      if (effectiveExclusive !== (r.exclusive === 1)) overriddenFields.push("exclusive")
+    }
+
+    let effectiveFlows = r.flows || undefined
+    if (isLinked && epConfigJson && typeof epConfigJson.flows === "string") {
+      effectiveFlows = epConfigJson.flows || undefined
+      if (effectiveFlows !== (r.flows || undefined)) overriddenFields.push("flows")
+    }
+
+    let effectiveInstallCmd = r.install_cmd || undefined
+    if (isLinked && epConfigJson && typeof epConfigJson.installCmd === "string") {
+      effectiveInstallCmd = epConfigJson.installCmd || undefined
+      if (effectiveInstallCmd !== (r.install_cmd || undefined)) overriddenFields.push("installCmd")
+    }
+
+    let effectiveGrantPermissions = grantPermissions
+    if (isLinked && epConfigJson && Array.isArray(epConfigJson.grantPermissions)) {
+      effectiveGrantPermissions = epConfigJson.grantPermissions as string[]
+      overriddenFields.push("grantPermissions")
+    }
+
+    let effectiveReversePorts = reversePorts
+    if (isLinked && epConfigJson && Array.isArray(epConfigJson.reversePorts)) {
+      effectiveReversePorts = epConfigJson.reversePorts as number[]
+      overriddenFields.push("reversePorts")
     }
 
     return {
@@ -828,15 +869,15 @@ export function getPlatformsForEnv(db: DatabaseSync, envName: string): PlatformW
       health: effectiveHealth,
       startCmd: effectiveStartCmd,
       cwd: effectiveCwd,
-      modules: r.modules || undefined,
+      modules: effectiveModules,
       slowMo: effectiveSlowMo,
       headless: effectiveHeadless,
-      exclusive: r.exclusive === 1,
+      exclusive: effectiveExclusive,
       appId: effectiveAppId,
-      flows: r.flows || undefined,
-      installCmd: r.install_cmd || undefined,
-      grantPermissions,
-      reversePorts,
+      flows: effectiveFlows,
+      installCmd: effectiveInstallCmd,
+      grantPermissions: effectiveGrantPermissions,
+      reversePorts: effectiveReversePorts,
       configJson,
       envName,
       enabled,
@@ -872,13 +913,13 @@ export function saveEnvPlatform(db: DatabaseSync, record: EnvPlatformRecord): vo
     record.envName,
     record.platformId,
     enabledVal,
-    record.url?.trim() || null,
-    record.health?.trim() || null,
-    record.startCmd?.trim() || null,
-    record.cwd?.trim() || null,
+    record.url !== undefined ? (record.url ? record.url.trim() : "") : null,
+    record.health !== undefined ? (record.health ? record.health.trim() : "") : null,
+    record.startCmd !== undefined ? (record.startCmd ? record.startCmd.trim() : "") : null,
+    record.cwd !== undefined ? (record.cwd ? record.cwd.trim() : "") : null,
     headlessVal,
     record.slowMo ?? null,
-    record.appId?.trim() || null,
+    record.appId !== undefined ? (record.appId ? record.appId.trim() : "") : null,
     configJson,
     now,
     now,

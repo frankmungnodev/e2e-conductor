@@ -577,13 +577,13 @@ export function startServer(
                 envName: body.envName.trim(),
                 platformId: body.platformId.trim(),
                 enabled: body.enabled !== false,
-                url: body.url?.trim() || undefined,
-                health: body.health?.trim() || undefined,
-                startCmd: body.startCmd?.trim() || undefined,
-                cwd: body.cwd?.trim() || undefined,
+                url: body.url !== undefined ? body.url.trim() : undefined,
+                health: body.health !== undefined ? body.health.trim() : undefined,
+                startCmd: body.startCmd !== undefined ? body.startCmd.trim() : undefined,
+                cwd: body.cwd !== undefined ? body.cwd.trim() : undefined,
                 headless: body.headless,
                 slowMo: body.slowMo,
-                appId: body.appId?.trim() || undefined,
+                appId: body.appId !== undefined ? body.appId.trim() : undefined,
                 configJson: body.configJson,
               })
 
@@ -624,6 +624,13 @@ export function startServer(
               deleteDbEnvPlatform(db, envParam, platParam)
               const envPlatforms = getDbEnvPlatforms(db, envParam)
               const platformsWithEnv = getDbPlatformsForEnv(db, envParam)
+
+              // If removing an override for the active environment, sync currentConfig
+              if (envParam === currentConfig.activeEnvironment) {
+                const platRes = platformsToTargetsAndServices(platformsWithEnv)
+                currentConfig.targets = platRes.targets
+                currentConfig.services = platRes.services
+              }
               db.close()
 
               return sendJson(res, 200, {
@@ -631,6 +638,8 @@ export function startServer(
                 message: "Environment platform link removed",
                 envPlatforms,
                 platformsWithEnv,
+                targets: currentConfig.targets,
+                services: currentConfig.services,
               })
             } catch (err) {
               return sendJson(res, 500, { ok: false, error: (err as Error).message })

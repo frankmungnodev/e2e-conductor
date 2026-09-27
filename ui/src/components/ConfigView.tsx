@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Save,
   Server,
+  SlidersHorizontal,
   Smartphone,
   Terminal,
   Trash2,
@@ -26,7 +27,13 @@ import {
   saveFixture,
   setActiveEnvironment,
 } from "../api.ts"
-import type { ConfigMeta, EnvironmentMeta, EnvPlatformRecord } from "../types.ts"
+import type {
+  ConfigMeta,
+  EnvironmentMeta,
+  EnvPlatformRecord,
+  PlatformRecord,
+  PlatformWithEnvOverrides,
+} from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
 import { EnvironmentModal } from "./EnvironmentModal.tsx"
@@ -73,6 +80,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
 
   // Dedicated Modals State
   const [isPlatformModalOpen, setIsPlatformModalOpen] = useState(false)
+  const [overrideModalPlat, setOverrideModalPlat] = useState<PlatformWithEnvOverrides | null>(null)
   const [isAddEnvOpen, setIsAddEnvOpen] = useState(false)
 
   // Fixture modals state
@@ -161,7 +169,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
     }
   }
 
-  const loadEnvPlatforms = async (envName: string) => {
+  const loadEnvPlatforms = async (envName?: string) => {
     try {
       const data = await fetchEnvPlatforms(envName)
       if (data.envPlatforms) {
@@ -173,10 +181,15 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
   }
 
   useEffect(() => {
-    if (selectedEnvName) {
-      loadEnvPlatforms(selectedEnvName)
+    loadEnvPlatforms()
+  }, [])
+
+  useEffect(() => {
+    if (config?.envPlatforms && config.envPlatforms.length > 0) {
+      setAllEnvPlatforms(config.envPlatforms)
     }
-  }, [selectedEnvName])
+  }, [config?.envPlatforms])
+
 
   const handleTogglePlatform = async (platformId: string, currentEnabled: boolean, platformName: string) => {
     try {
@@ -356,7 +369,99 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
         cwd: undefined,
       }))
 
-  const platformsCount = Object.keys(config?.targets ?? {}).length
+  const basePlatforms: PlatformRecord[] =
+    config?.platforms && config.platforms.length > 0
+      ? config.platforms
+      : Object.entries(config?.targets ?? {}).map(([name, target], idx) => {
+          const platId = `plat-${name}`
+          const srv = config?.services?.[target.service]
+          return {
+            id: platId,
+            name,
+            type: target.driver === "mobile" ? "android" : target.driver === "web" ? "web" : "api",
+            orderNum: idx + 1,
+            url: srv?.url,
+            serviceName: target.service,
+            health: srv?.health,
+            startCmd: srv?.startCmd,
+            cwd: srv?.startCwd,
+            modules: target.modules,
+            slowMo: target.slowMo,
+            headless: target.headless,
+            exclusive: srv?.exclusive,
+            appId: target.appId,
+            flows: target.flows,
+            installCmd: target.install?.cmd,
+            grantPermissions: target.grantPermissions,
+            reversePorts: target.reversePorts,
+          }
+        })
+
+  const displayPlatforms: PlatformWithEnvOverrides[] = basePlatforms.map((p) => {
+    const pivot = allEnvPlatforms.find(
+      (ep) => ep.envName === selectedEnvName && ep.platformId === p.id,
+    )
+    const overriddenFields: string[] = []
+    let effectiveUrl = p.url
+    if (pivot && pivot.url !== undefined && pivot.url !== null) {
+      effectiveUrl = pivot.url
+      if (pivot.url !== p.url) overriddenFields.push("url")
+    }
+
+    let effectiveHealth = p.health
+    if (pivot && pivot.health !== undefined && pivot.health !== null) {
+      effectiveHealth = pivot.health
+      if (pivot.health !== p.health) overriddenFields.push("health")
+    }
+
+    let effectiveStartCmd = p.startCmd
+    if (pivot && pivot.startCmd !== undefined) {
+      effectiveStartCmd = pivot.startCmd || undefined
+      if (pivot.startCmd !== p.startCmd) overriddenFields.push("startCmd")
+    }
+
+    let effectiveCwd = p.cwd
+    if (pivot && pivot.cwd !== undefined && pivot.cwd !== null) {
+      effectiveCwd = pivot.cwd
+      if (pivot.cwd !== p.cwd) overriddenFields.push("cwd")
+    }
+
+    let effectiveHeadless = p.headless
+    if (pivot && pivot.headless !== undefined && pivot.headless !== null) {
+      effectiveHeadless = pivot.headless
+      if (pivot.headless !== p.headless) overriddenFields.push("headless")
+    }
+
+    let effectiveSlowMo = p.slowMo
+    if (pivot && pivot.slowMo !== undefined && pivot.slowMo !== null) {
+      effectiveSlowMo = pivot.slowMo
+      if (pivot.slowMo !== p.slowMo) overriddenFields.push("slowMo")
+    }
+
+    let effectiveAppId = p.appId
+    if (pivot && pivot.appId !== undefined && pivot.appId !== null) {
+      effectiveAppId = pivot.appId
+      if (pivot.appId !== p.appId) overriddenFields.push("appId")
+    }
+
+    return {
+      ...p,
+      url: effectiveUrl,
+      health: effectiveHealth,
+      startCmd: effectiveStartCmd,
+      cwd: effectiveCwd,
+      headless: effectiveHeadless,
+      slowMo: effectiveSlowMo,
+      appId: effectiveAppId,
+      envName: selectedEnvName,
+      enabled: pivot ? pivot.enabled : true,
+      isLinked: Boolean(pivot),
+      hasOverrides: overriddenFields.length > 0,
+      overriddenFields,
+    } as PlatformWithEnvOverrides
+  })
+
+  const platformsCount = displayPlatforms.length
 
   return (
     <div className="flex-1 flex flex-col h-full bg-editor overflow-hidden select-text">
@@ -744,42 +849,51 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.entries(config?.targets ?? {}).map(([name, target]) => {
-                  const driverStr = String(target.driver ?? "http")
-                  const driverTitle = driverStr.charAt(0).toUpperCase() + driverStr.slice(1)
+                {displayPlatforms.map((plat) => {
+                  const driverStr = String(plat.type ?? "api")
+                  const driverTitle =
+                    driverStr === "web" ? "Web" : driverStr === "android" ? "Android" : "Api"
                   const variant =
-                    target.driver === "http"
+                    plat.type === "api"
                       ? "driver-http"
-                      : target.driver === "web"
+                      : plat.type === "web"
                         ? "driver-web"
-                        : target.driver === "mobile"
-                          ? "driver-mobile"
-                          : "driver-shell"
+                        : "driver-mobile"
 
-                  const service = config?.services?.[target.service]
-                  const platId = config?.platforms?.find((p) => p.name === name)?.id || `plat-${name}`
-                  const currentPivot = allEnvPlatforms.find(
-                    (ep) => ep.envName === selectedEnvName && ep.platformId === platId,
-                  )
-                  const isPlatEnabled = currentPivot ? currentPivot.enabled : true
-                  const selectedEnvCapitalized = selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)
+                  const isPlatEnabled = plat.enabled
+                  const selectedEnvCapitalized =
+                    selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)
 
                   return (
                     <div
-                      key={name}
+                      key={plat.id}
                       className={`bg-sidebar border rounded-xs p-4 flex flex-col justify-between space-y-3 transition-colors shadow-xs ${
-                        isPlatEnabled ? "border-border hover:border-border-light" : "border-border/60 opacity-75"
+                        isPlatEnabled
+                          ? "border-border hover:border-border-light"
+                          : "border-border/60 opacity-75"
                       }`}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
                           <div className="flex items-center gap-2">
-                            {target.driver === "web" && <Globe className="w-4 h-4 text-primary" />}
-                            {target.driver === "mobile" && <Smartphone className="w-4 h-4 text-success" />}
-                            {target.driver === "http" && <Server className="w-4 h-4 text-info" />}
-                            <span className="font-bold text-sm text-fg-bright">{name}</span>
+                            {plat.type === "web" && <Globe className="w-4 h-4 text-primary" />}
+                            {plat.type === "android" && (
+                              <Smartphone className="w-4 h-4 text-success" />
+                            )}
+                            {plat.type === "api" && <Server className="w-4 h-4 text-info" />}
+                            <span className="font-bold text-sm text-fg-bright">{plat.name}</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {plat.hasOverrides && (
+                              <Badge variant="primary" size="xs">
+                                Overridden
+                              </Badge>
+                            )}
+                            {plat.exclusive && (
+                              <Badge variant="neutral" size="xs">
+                                Exclusive
+                              </Badge>
+                            )}
                             <Badge variant={isPlatEnabled ? "success" : "neutral"} size="xs">
                               {isPlatEnabled ? "Active" : "Disabled"}
                             </Badge>
@@ -791,81 +905,129 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
 
                         {/* Details */}
                         <div className="space-y-2 text-xs text-fg-muted">
-                          {target.driver === "web" && (
+                          {plat.type === "web" && (
                             <>
                               <div className="flex items-center justify-between text-xs">
-                                <span>Dev Server:</span>
+                                <span className="flex items-center gap-1">
+                                  <span>Dev Server:</span>
+                                  {plat.overriddenFields?.includes("url") && (
+                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                  )}
+                                </span>
                                 <span className="font-mono text-primary truncate max-w-[170px]">
-                                  {service?.url || "Custom Target"}
+                                  {plat.url || "Custom Target"}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between text-xs">
                                 <span>Step Modules:</span>
                                 <span className="font-mono text-fg truncate max-w-[170px]">
-                                  {target.modules}
+                                  {plat.modules || ".e2e/modules/web"}
                                 </span>
                               </div>
-                              {typeof target.slowMo === "number" && (
+                              {typeof plat.slowMo === "number" && (
                                 <div className="flex items-center justify-between text-xs">
-                                  <span>Slow-Mo:</span>
-                                  <span className="font-mono text-fg">{target.slowMo}ms</span>
+                                  <span className="flex items-center gap-1">
+                                    <span>Slow-Mo:</span>
+                                    {plat.overriddenFields?.includes("slowMo") && (
+                                      <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                    )}
+                                  </span>
+                                  <span className="font-mono text-fg">{plat.slowMo}ms</span>
                                 </div>
                               )}
-                              {service?.startCmd && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="flex items-center gap-1">
+                                  <span>Headless:</span>
+                                  {plat.overriddenFields?.includes("headless") && (
+                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                  )}
+                                </span>
+                                <span className="font-mono text-fg">{plat.headless ? "Yes" : "No"}</span>
+                              </div>
+                              {plat.startCmd && (
                                 <div className="text-[11px] font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
-                                  $ {service.startCmd}
+                                  <span className="text-fg-bright">$</span> {plat.startCmd}
+                                  {plat.overriddenFields?.includes("startCmd") && (
+                                    <span className="ml-2 text-[10px] text-primary">(overridden)</span>
+                                  )}
                                 </div>
                               )}
                             </>
                           )}
 
-                          {target.driver === "mobile" && (
+                          {plat.type === "android" && (
                             <>
                               <div className="flex items-center justify-between text-xs">
-                                <span>Application ID:</span>
+                                <span className="flex items-center gap-1">
+                                  <span>Application ID:</span>
+                                  {plat.overriddenFields?.includes("appId") && (
+                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                  )}
+                                </span>
                                 <span className="font-mono text-success truncate max-w-[170px]">
-                                  {target.appId}
+                                  {plat.appId}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between text-xs">
                                 <span>Flows Folder:</span>
                                 <span className="font-mono text-fg truncate max-w-[170px]">
-                                  {target.flows}
+                                  {plat.flows || ".e2e/flows"}
                                 </span>
                               </div>
-                              {target.reversePorts && (
+                              {plat.reversePorts && plat.reversePorts.length > 0 && (
                                 <div className="flex items-center justify-between text-xs">
                                   <span>Reverse Ports:</span>
                                   <span className="font-mono text-fg">
-                                    {target.reversePorts.join(", ")}
+                                    {plat.reversePorts.join(", ")}
                                   </span>
                                 </div>
                               )}
-                              {target.install?.cmd && (
+                              {plat.grantPermissions && plat.grantPermissions.length > 0 && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span>Permissions:</span>
+                                  <span className="font-mono text-fg truncate max-w-[160px]" title={plat.grantPermissions.join(", ")}>
+                                    {plat.grantPermissions.join(", ")}
+                                  </span>
+                                </div>
+                              )}
+                              {plat.installCmd && (
                                 <div className="text-[11px] font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
-                                  $ {target.install.cmd}
+                                  <span className="text-fg-bright">$</span> {plat.installCmd}
                                 </div>
                               )}
                             </>
                           )}
 
-                          {target.driver === "http" && (
+                          {plat.type === "api" && (
                             <>
                               <div className="flex items-center justify-between text-xs">
-                                <span>Endpoint URL:</span>
+                                <span className="flex items-center gap-1">
+                                  <span>Endpoint URL:</span>
+                                  {plat.overriddenFields?.includes("url") && (
+                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                  )}
+                                </span>
                                 <span className="font-mono text-info truncate max-w-[170px]">
-                                  {service?.url}
+                                  {plat.url}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between text-xs">
-                                <span>Health Check:</span>
+                                <span className="flex items-center gap-1">
+                                  <span>Health Check:</span>
+                                  {plat.overriddenFields?.includes("health") && (
+                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                  )}
+                                </span>
                                 <span className="font-mono text-fg truncate max-w-[170px]">
-                                  {service?.health || "/"}
+                                  {plat.health || "/"}
                                 </span>
                               </div>
-                              {service?.startCmd && (
+                              {plat.startCmd && (
                                 <div className="text-[11px] font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
-                                  $ {service.startCmd}
+                                  <span className="text-fg-bright">$</span> {plat.startCmd}
+                                  {plat.overriddenFields?.includes("startCmd") && (
+                                    <span className="ml-2 text-[10px] text-primary">(overridden)</span>
+                                  )}
                                 </div>
                               )}
                             </>
@@ -881,19 +1043,16 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                         <div className="flex flex-wrap gap-1.5">
                           {envKeys.map((eName) => {
                             const pivot = allEnvPlatforms.find(
-                              (ep) => ep.envName === eName && ep.platformId === platId,
+                              (ep) => ep.envName === eName && ep.platformId === plat.id,
                             )
                             const isEnvPlatEnabled = pivot ? pivot.enabled : true
-                            const isSelected = eName === selectedEnvName
                             const capitalized = eName.charAt(0).toUpperCase() + eName.slice(1)
                             return (
                               <button
                                 type="button"
                                 key={eName}
                                 onClick={() => setUrlEnv(eName)}
-                                className={`cursor-pointer transition-transform hover:scale-105 ${
-                                  isSelected ? "ring-2 ring-primary rounded-xs" : ""
-                                }`}
+                                className="cursor-pointer transition-transform hover:scale-105"
                                 title={`Switch to ${capitalized} environment`}
                               >
                                 <Badge
@@ -908,20 +1067,30 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-border flex items-center justify-between">
-                        <Button
-                          size="xs"
-                          variant={isPlatEnabled ? "ghost" : "secondary"}
-                          onClick={() => handleTogglePlatform(platId, isPlatEnabled, name)}
-                        >
-                          {isPlatEnabled
-                            ? `Disable in ${selectedEnvCapitalized}`
-                            : `Enable in ${selectedEnvCapitalized}`}
-                        </Button>
+                      <div className="pt-2 border-t border-border flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="xs"
+                            variant={plat.hasOverrides ? "primary" : "secondary"}
+                            onClick={() => setOverrideModalPlat(plat)}
+                            icon={<SlidersHorizontal className="w-3 h-3" />}
+                          >
+                            Overrides ({selectedEnvCapitalized})
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant={isPlatEnabled ? "ghost" : "secondary"}
+                            onClick={() => handleTogglePlatform(plat.id, isPlatEnabled, plat.name)}
+                          >
+                            {isPlatEnabled
+                              ? `Disable in ${selectedEnvCapitalized}`
+                              : `Enable in ${selectedEnvCapitalized}`}
+                          </Button>
+                        </div>
                         <Button
                           size="xs"
                           variant="ghost"
-                          onClick={() => handleDeletePlatform(name)}
+                          onClick={() => handleDeletePlatform(plat.name)}
                           className="text-error hover:text-error hover:bg-error-bg"
                           icon={<Trash2 className="w-3 h-3" />}
                         >
@@ -1134,13 +1303,22 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
         />
       )}
 
-      {/* Add Platform Modal */}
-      {isPlatformModalOpen && (
+      {/* Platform Modal (Add or Override) */}
+      {(isPlatformModalOpen || Boolean(overrideModalPlat)) && (
         <PlatformModal
-          isOpen={isPlatformModalOpen}
+          isOpen={isPlatformModalOpen || Boolean(overrideModalPlat)}
           config={config ?? undefined}
-          onClose={() => setIsPlatformModalOpen(false)}
-          onSaved={onConfigReload}
+          overridePlatform={overrideModalPlat}
+          targetEnv={selectedEnvName}
+          allEnvPlatforms={allEnvPlatforms}
+          onClose={() => {
+            setIsPlatformModalOpen(false)
+            setOverrideModalPlat(null)
+          }}
+          onSaved={() => {
+            loadEnvPlatforms(selectedEnvName)
+            onConfigReload()
+          }}
         />
       )}
 

@@ -1,9 +1,25 @@
-import { Check, Globe, Layers, Search, Server, Smartphone } from "lucide-react"
+import {
+  Check,
+  Globe,
+  Layers,
+  RotateCcw,
+  Search,
+  Server,
+  SlidersHorizontal,
+  Smartphone,
+} from "lucide-react"
 import { useEffect, useState } from "react"
-import { detectWorkspaceProjects, savePlatform } from "../api.ts"
+import {
+  deleteEnvPlatform,
+  detectWorkspaceProjects,
+  saveEnvPlatform,
+  savePlatform,
+} from "../api.ts"
 import type {
   ConfigMeta,
   DetectedService,
+  EnvPlatformRecord,
+  PlatformWithEnvOverrides,
   WizardComponent,
   WizardComponentType,
 } from "../types.ts"
@@ -18,6 +34,9 @@ export interface PlatformModalProps {
   onClose: () => void
   onSaved: () => void
   config?: ConfigMeta
+  overridePlatform?: PlatformWithEnvOverrides | null
+  targetEnv?: string
+  allEnvPlatforms?: EnvPlatformRecord[]
 }
 
 export function extractComponentsFromConfig(config?: ConfigMeta): WizardComponent[] {
@@ -73,7 +92,30 @@ export function PlatformModal({
   onClose,
   onSaved,
   config,
+  overridePlatform,
+  targetEnv,
+  allEnvPlatforms,
 }: PlatformModalProps) {
+  const isOverride = Boolean(overridePlatform && targetEnv)
+  const capitalizedEnv = targetEnv
+    ? targetEnv.charAt(0).toUpperCase() + targetEnv.slice(1)
+    : ""
+  const pivot = allEnvPlatforms?.find(
+    (ep) => ep.envName === targetEnv && ep.platformId === overridePlatform?.id,
+  )
+  const hasExistingOverrides = Boolean(
+    overridePlatform?.hasOverrides ||
+      (pivot &&
+        (pivot.url !== undefined ||
+          pivot.startCmd !== undefined ||
+          pivot.health !== undefined ||
+          pivot.cwd !== undefined ||
+          pivot.headless !== undefined ||
+          pivot.slowMo !== undefined ||
+          pivot.appId !== undefined ||
+          pivot.configJson !== undefined)),
+  )
+
   const [platform, setPlatform] = useState<WizardComponentType>("web")
   const [detected, setDetected] = useState<DetectedService[]>([])
   const [isApplying, setIsApplying] = useState(false)
@@ -87,6 +129,7 @@ export function PlatformModal({
   const [webModules, setWebModules] = useState(".e2e/modules/web")
   const [webSlowMo, setWebSlowMo] = useState(50)
   const [webHeadless, setWebHeadless] = useState(false)
+  const [webExclusive, setWebExclusive] = useState(false)
 
   // Mobile platform state
   const [mobileName, setMobileName] = useState("app")
@@ -95,6 +138,7 @@ export function PlatformModal({
   const [mobileInstallCmd, setMobileInstallCmd] = useState("./gradlew installDebug")
   const [mobileCwd, setMobileCwd] = useState("")
   const [mobileReversePorts, setMobileReversePorts] = useState("8080")
+  const [mobileGrantPermissions, setMobileGrantPermissions] = useState("")
 
   // API platform state
   const [apiName, setApiName] = useState("api")
@@ -102,24 +146,103 @@ export function PlatformModal({
   const [apiHealth, setApiHealth] = useState("/health")
   const [apiStartCmd, setApiStartCmd] = useState("pnpm run dev")
   const [apiCwd, setApiCwd] = useState("")
+  const [apiExclusive, setApiExclusive] = useState(false)
 
   const { error: toastError, success: toastSuccess } = useToast()
 
-  // Load workspace detections when opened
+  // Initialize or reset state when modal opens
   useEffect(() => {
     if (!isOpen) return
-    detectWorkspaceProjects()
-      .then((res) => {
-        const found = res.detected ?? []
-        setDetected(found)
-        if (found.length > 0) {
-          applyDetection(found[0])
-        }
-      })
-      .catch(() => {
-        // ignore scan errors
-      })
-  }, [isOpen])
+
+    if (overridePlatform && targetEnv) {
+      setPlatform(overridePlatform.type)
+      const currentPivot = allEnvPlatforms?.find(
+        (ep) => ep.envName === targetEnv && ep.platformId === overridePlatform.id,
+      )
+      const cfg = (currentPivot?.configJson || overridePlatform.configJson) as
+        | Record<string, unknown>
+        | undefined
+
+      if (overridePlatform.type === "web") {
+        setWebName(overridePlatform.name)
+        setWebUrl(currentPivot?.url ?? overridePlatform.url ?? "http://localhost:5173")
+        setWebStartCmd(currentPivot?.startCmd ?? overridePlatform.startCmd ?? "")
+        setWebCwd(currentPivot?.cwd ?? overridePlatform.cwd ?? "")
+        setWebModules(
+          (cfg?.modules as string) ?? overridePlatform.modules ?? ".e2e/modules/web",
+        )
+        setWebSlowMo(currentPivot?.slowMo ?? overridePlatform.slowMo ?? 50)
+        setWebHeadless(currentPivot?.headless ?? overridePlatform.headless ?? false)
+        setWebExclusive(
+          (cfg?.exclusive as boolean) ?? overridePlatform.exclusive ?? false,
+        )
+      } else if (overridePlatform.type === "android") {
+        setMobileName(overridePlatform.name)
+        setMobileAppId(currentPivot?.appId ?? overridePlatform.appId ?? "com.example.app")
+        setMobileFlows((cfg?.flows as string) ?? overridePlatform.flows ?? ".e2e/flows")
+        setMobileInstallCmd(
+          (cfg?.installCmd as string) ??
+            overridePlatform.installCmd ??
+            "./gradlew installDebug",
+        )
+        setMobileCwd(currentPivot?.cwd ?? overridePlatform.cwd ?? "")
+        const ports =
+          (cfg?.reversePorts as number[]) ?? overridePlatform.reversePorts ?? []
+        setMobileReversePorts(ports.length > 0 ? ports.join(", ") : "8080")
+        const perms =
+          (cfg?.grantPermissions as string[]) ??
+          overridePlatform.grantPermissions ??
+          []
+        setMobileGrantPermissions(perms.join(", "))
+      } else if (overridePlatform.type === "api") {
+        setApiName(overridePlatform.name)
+        setApiUrl(currentPivot?.url ?? overridePlatform.url ?? "http://localhost:3000")
+        setApiHealth(currentPivot?.health ?? overridePlatform.health ?? "/health")
+        setApiStartCmd(currentPivot?.startCmd ?? overridePlatform.startCmd ?? "")
+        setApiCwd(currentPivot?.cwd ?? overridePlatform.cwd ?? "")
+        setApiExclusive(
+          (cfg?.exclusive as boolean) ?? overridePlatform.exclusive ?? false,
+        )
+      }
+    } else {
+      setPlatform("web")
+      setWebName("web")
+      setWebUrl("http://localhost:5173")
+      setWebStartCmd("pnpm run dev")
+      setWebCwd("")
+      setWebModules(".e2e/modules/web")
+      setWebSlowMo(50)
+      setWebHeadless(false)
+      setWebExclusive(false)
+
+      setMobileName("app")
+      setMobileAppId("com.example.app")
+      setMobileFlows(".e2e/flows")
+      setMobileInstallCmd("./gradlew installDebug")
+      setMobileCwd("")
+      setMobileReversePorts("8080")
+      setMobileGrantPermissions("")
+
+      setApiName("api")
+      setApiUrl("http://localhost:3000")
+      setApiHealth("/health")
+      setApiStartCmd("pnpm run dev")
+      setApiCwd("")
+      setApiExclusive(false)
+
+      detectWorkspaceProjects()
+        .then((res) => {
+          const found = res.detected ?? []
+          setDetected(found)
+          if (found.length > 0) {
+            applyDetection(found[0])
+          }
+        })
+        .catch(() => {
+          // ignore scan errors
+        })
+    }
+  }, [isOpen, overridePlatform, targetEnv, allEnvPlatforms])
 
   const applyDetection = (det: DetectedService) => {
     setPlatform(det.suggestedType)
@@ -141,7 +264,118 @@ export function PlatformModal({
     }
   }
 
+  const handleResetOverrides = async () => {
+    if (!overridePlatform || !targetEnv) return
+    setIsApplying(true)
+    try {
+      await deleteEnvPlatform(targetEnv, overridePlatform.id)
+      toastSuccess(
+        `Reset overrides for "${overridePlatform.name}" in ${capitalizedEnv}`,
+        "Defaults Restored",
+      )
+      onSaved()
+      onClose()
+    } catch (err) {
+      toastError((err as Error).message, "Failed to Reset Overrides")
+    } finally {
+      setIsApplying(false)
+    }
+  }
+
   const handleSubmit = async () => {
+    if (isOverride && overridePlatform && targetEnv) {
+      const currentPivot = allEnvPlatforms?.find(
+        (ep) => ep.envName === targetEnv && ep.platformId === overridePlatform.id,
+      )
+      const isPlatEnabled = currentPivot
+        ? currentPivot.enabled
+        : overridePlatform.enabled !== false
+
+      let payload: EnvPlatformRecord
+
+      if (platform === "web") {
+        if (!webUrl.trim()) {
+          toastError("Please enter an application URL", "Validation Error")
+          return
+        }
+        payload = {
+          envName: targetEnv,
+          platformId: overridePlatform.id,
+          enabled: isPlatEnabled,
+          url: webUrl.trim(),
+          startCmd: webStartCmd.trim(),
+          cwd: webCwd.trim(),
+          headless: webHeadless,
+          slowMo: webSlowMo || undefined,
+          configJson: {
+            modules: webModules.trim() || undefined,
+            exclusive: webExclusive,
+          },
+        }
+      } else if (platform === "android") {
+        if (!mobileAppId.trim()) {
+          toastError("Please enter an Application ID", "Validation Error")
+          return
+        }
+        const ports = mobileReversePorts
+          .split(",")
+          .map((s) => Number(s.trim()))
+          .filter((n) => !Number.isNaN(n) && n > 0)
+
+        const permissions = mobileGrantPermissions
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+
+        payload = {
+          envName: targetEnv,
+          platformId: overridePlatform.id,
+          enabled: isPlatEnabled,
+          cwd: mobileCwd.trim(),
+          appId: mobileAppId.trim(),
+          configJson: {
+            flows: mobileFlows.trim() || undefined,
+            installCmd: mobileInstallCmd.trim() || undefined,
+            reversePorts: ports.length > 0 ? ports : undefined,
+            grantPermissions: permissions.length > 0 ? permissions : undefined,
+          },
+        }
+      } else {
+        if (!apiUrl.trim()) {
+          toastError("Please enter a service endpoint URL", "Validation Error")
+          return
+        }
+        payload = {
+          envName: targetEnv,
+          platformId: overridePlatform.id,
+          enabled: isPlatEnabled,
+          url: apiUrl.trim(),
+          health: apiHealth.trim(),
+          startCmd: apiStartCmd.trim(),
+          cwd: apiCwd.trim(),
+          configJson: {
+            exclusive: apiExclusive,
+          },
+        }
+      }
+
+      setIsApplying(true)
+      try {
+        await saveEnvPlatform(payload)
+        toastSuccess(
+          `Saved overrides for "${overridePlatform.name}" in ${capitalizedEnv}`,
+          "Overrides Saved",
+        )
+        onSaved()
+        onClose()
+      } catch (err) {
+        toastError((err as Error).message, "Failed to Save Overrides")
+      } finally {
+        setIsApplying(false)
+      }
+      return
+    }
+
     let component: WizardComponent
 
     if (platform === "web") {
@@ -164,6 +398,7 @@ export function PlatformModal({
         modules: webModules.trim() || ".e2e/modules/web",
         slowMo: webSlowMo || undefined,
         headless: webHeadless,
+        exclusive: webExclusive,
       }
     } else if (platform === "android") {
       if (!mobileName.trim()) {
@@ -179,6 +414,11 @@ export function PlatformModal({
         .map((s) => Number(s.trim()))
         .filter((n) => !Number.isNaN(n) && n > 0)
 
+      const permissions = mobileGrantPermissions
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+
       component = {
         id: `mobile-${Date.now()}`,
         type: "android",
@@ -189,6 +429,7 @@ export function PlatformModal({
         installCmd: mobileInstallCmd.trim() || undefined,
         cwd: mobileCwd.trim() || undefined,
         reversePorts: ports.length > 0 ? ports : undefined,
+        grantPermissions: permissions.length > 0 ? permissions : undefined,
       }
     } else {
       if (!apiName.trim()) {
@@ -208,6 +449,7 @@ export function PlatformModal({
         health: apiHealth.trim() || undefined,
         startCmd: apiStartCmd.trim() || undefined,
         cwd: apiCwd.trim() || undefined,
+        exclusive: apiExclusive,
       }
     }
 
@@ -248,22 +490,53 @@ export function PlatformModal({
       maxWidth="xl"
       title={
         <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-primary" />
-          <span>Add Platform</span>
+          {isOverride ? (
+            <>
+              <SlidersHorizontal className="w-4 h-4 text-primary" />
+              <span>
+                Platform Overrides: {overridePlatform?.name} ({capitalizedEnv})
+              </span>
+            </>
+          ) : (
+            <>
+              <Layers className="w-4 h-4 text-primary" />
+              <span>Add Platform</span>
+            </>
+          )}
         </div>
       }
-      description="Configure a new platform (Web, Android, or REST API) for this project."
+      description={
+        isOverride
+          ? `Configure environment-specific settings for "${capitalizedEnv}". Values take precedence over default platform settings.`
+          : "Configure a new platform (Web, Android, or REST API) for this project."
+      }
       footer={
         <div className="flex items-center justify-between w-full">
-          <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={scaffoldFiles}
-              onChange={(e) => setScaffoldFiles(e.target.checked)}
-              className="rounded-xs border-border bg-input text-primary focus:ring-0"
-            />
-            <span>Scaffold starter test files and smoke scenario</span>
-          </label>
+          {isOverride ? (
+            hasExistingOverrides ? (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={handleResetOverrides}
+                disabled={isApplying}
+                icon={<RotateCcw className="w-3.5 h-3.5 text-warning" />}
+              >
+                Reset Defaults
+              </Button>
+            ) : (
+              <div />
+            )
+          ) : (
+            <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={scaffoldFiles}
+                onChange={(e) => setScaffoldFiles(e.target.checked)}
+                className="rounded-xs border-border bg-input text-primary focus:ring-0"
+              />
+              <span>Scaffold starter test files and smoke scenario</span>
+            </label>
+          )}
 
           <div className="flex items-center gap-2">
             <Button size="xs" variant="ghost" onClick={onClose} disabled={isApplying}>
@@ -276,7 +549,7 @@ export function PlatformModal({
               isLoading={isApplying}
               icon={<Check className="w-3.5 h-3.5" />}
             >
-              Add Platform
+              {isOverride ? "Save Overrides" : "Add Platform"}
             </Button>
           </div>
         </div>
@@ -284,7 +557,7 @@ export function PlatformModal({
     >
       <div className="space-y-5">
         {/* Workspace Detected Banner */}
-        {detected.length > 0 && (
+        {detected.length > 0 && !isOverride && (
           <div className="bg-primary/10 border border-primary/20 rounded-xs p-3">
             <div className="text-xs font-semibold text-primary mb-1.5 flex items-center gap-1.5">
               <Search className="w-3.5 h-3.5" />
@@ -321,11 +594,16 @@ export function PlatformModal({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               type="button"
-              onClick={() => setPlatform("web")}
-              className={`p-3 rounded-xs border text-left transition-all cursor-pointer flex flex-col justify-between ${
+              disabled={isOverride}
+              onClick={() => !isOverride && setPlatform("web")}
+              className={`p-3 rounded-xs border text-left transition-all flex flex-col justify-between ${
+                isOverride ? "cursor-default" : "cursor-pointer"
+              } ${
                 platform === "web"
                   ? "border-primary bg-primary/10 shadow-xs"
-                  : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
+                  : isOverride
+                    ? "border-border bg-sidebar/50 opacity-40"
+                    : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
               }`}
             >
               <div className="flex items-center gap-2 mb-1.5">
@@ -345,11 +623,16 @@ export function PlatformModal({
 
             <button
               type="button"
-              onClick={() => setPlatform("android")}
-              className={`p-3 rounded-xs border text-left transition-all cursor-pointer flex flex-col justify-between ${
+              disabled={isOverride}
+              onClick={() => !isOverride && setPlatform("android")}
+              className={`p-3 rounded-xs border text-left transition-all flex flex-col justify-between ${
+                isOverride ? "cursor-default" : "cursor-pointer"
+              } ${
                 platform === "android"
                   ? "border-primary bg-primary/10 shadow-xs"
-                  : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
+                  : isOverride
+                    ? "border-border bg-sidebar/50 opacity-40"
+                    : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
               }`}
             >
               <div className="flex items-center gap-2 mb-1.5">
@@ -369,11 +652,16 @@ export function PlatformModal({
 
             <button
               type="button"
-              onClick={() => setPlatform("api")}
-              className={`p-3 rounded-xs border text-left transition-all cursor-pointer flex flex-col justify-between ${
+              disabled={isOverride}
+              onClick={() => !isOverride && setPlatform("api")}
+              className={`p-3 rounded-xs border text-left transition-all flex flex-col justify-between ${
+                isOverride ? "cursor-default" : "cursor-pointer"
+              } ${
                 platform === "api"
                   ? "border-primary bg-primary/10 shadow-xs"
-                  : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
+                  : isOverride
+                    ? "border-border bg-sidebar/50 opacity-40"
+                    : "border-border bg-sidebar hover:border-border-light hover:bg-hover"
               }`}
             >
               <div className="flex items-center gap-2 mb-1.5">
@@ -399,7 +687,7 @@ export function PlatformModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 label="Target Name"
-                hint="Identifier in scenario steps e.g. web"
+                hint={isOverride ? "Platform identifier (read-only)" : "Identifier in scenario steps e.g. web"}
                 required
               >
                 <Input
@@ -407,12 +695,13 @@ export function PlatformModal({
                   onChange={(e) => setWebName(e.target.value)}
                   placeholder="e.g. web"
                   mono
+                  disabled={isOverride}
                 />
               </FormField>
 
               <FormField
                 label="Application URL"
-                hint="Address where web app runs"
+                hint={isOverride ? `Address where web app runs in ${capitalizedEnv}` : "Address where web app runs"}
                 required
               >
                 <Input
@@ -427,7 +716,7 @@ export function PlatformModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 label="Dev Start Command"
-                hint="Optional command to launch app automatically"
+                hint={isOverride ? `Command to launch in ${capitalizedEnv} (leave empty if already running)` : "Optional command to launch app automatically"}
               >
                 <Input
                   value={webStartCmd}
@@ -477,15 +766,27 @@ export function PlatformModal({
               </FormField>
             </div>
 
-            <label className="flex items-center gap-2 text-xs text-fg-bright cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={webHeadless}
-                onChange={(e) => setWebHeadless(e.target.checked)}
-                className="rounded-xs border-border bg-input text-primary focus:ring-0"
-              />
-              <span>Run browser in headless mode (no visual browser window)</span>
-            </label>
+            <div className="space-y-2 pt-1">
+              <label className="flex items-center gap-2 text-xs text-fg-bright cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={webHeadless}
+                  onChange={(e) => setWebHeadless(e.target.checked)}
+                  className="rounded-xs border-border bg-input text-primary focus:ring-0"
+                />
+                <span>Run browser in headless mode (no visual browser window)</span>
+              </label>
+
+              <label className="flex items-center gap-2 text-xs text-fg-bright cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={webExclusive}
+                  onChange={(e) => setWebExclusive(e.target.checked)}
+                  className="rounded-xs border-border bg-input text-primary focus:ring-0"
+                />
+                <span>Exclusive service (never reuse an already running instance; always start freshly)</span>
+              </label>
+            </div>
           </div>
         )}
 
@@ -495,7 +796,7 @@ export function PlatformModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 label="Target Name"
-                hint="Identifier in scenario steps e.g. app"
+                hint={isOverride ? "Platform identifier (read-only)" : "Identifier in scenario steps e.g. app"}
                 required
               >
                 <Input
@@ -503,6 +804,7 @@ export function PlatformModal({
                   onChange={(e) => setMobileName(e.target.value)}
                   placeholder="e.g. app"
                   mono
+                  disabled={isOverride}
                 />
               </FormField>
 
@@ -566,11 +868,23 @@ export function PlatformModal({
                 <Input
                   value={mobileReversePorts}
                   onChange={(e) => setMobileReversePorts(e.target.value)}
-                  placeholder="e.g. 8080, 3000"
+                  placeholder="e.g. 8080, 8787"
                   mono
                 />
               </FormField>
             </div>
+
+            <FormField
+              label="Grant Runtime Permissions"
+              hint="Android permissions to auto-grant on launch (comma separated)"
+            >
+              <Input
+                value={mobileGrantPermissions}
+                onChange={(e) => setMobileGrantPermissions(e.target.value)}
+                placeholder="e.g. android.permission.POST_NOTIFICATIONS, android.permission.CAMERA"
+                mono
+              />
+            </FormField>
           </div>
         )}
 
@@ -580,7 +894,7 @@ export function PlatformModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 label="Target Name"
-                hint="Identifier in scenario steps e.g. api"
+                hint={isOverride ? "Platform identifier (read-only)" : "Identifier in scenario steps e.g. api"}
                 required
               >
                 <Input
@@ -588,12 +902,13 @@ export function PlatformModal({
                   onChange={(e) => setApiName(e.target.value)}
                   placeholder="e.g. api"
                   mono
+                  disabled={isOverride}
                 />
               </FormField>
 
               <FormField
                 label="Service Endpoint URL"
-                hint="Root URL where the API service runs"
+                hint={isOverride ? `Root URL where the API runs in ${capitalizedEnv}` : "Root URL where the API service runs"}
                 required
               >
                 <Input
@@ -620,7 +935,7 @@ export function PlatformModal({
 
               <FormField
                 label="Start Command"
-                hint="Optional command to launch backend service"
+                hint={isOverride ? `Command to launch in ${capitalizedEnv} (leave empty if backend already running)` : "Optional command to launch backend service"}
               >
                 <Input
                   value={apiStartCmd}
@@ -644,6 +959,16 @@ export function PlatformModal({
                 />
               </FormField>
             </div>
+
+            <label className="flex items-center gap-2 text-xs text-fg-bright cursor-pointer select-none pt-1">
+              <input
+                type="checkbox"
+                checked={apiExclusive}
+                onChange={(e) => setApiExclusive(e.target.checked)}
+                className="rounded-xs border-border bg-input text-primary focus:ring-0"
+              />
+              <span>Exclusive service (never reuse an already running instance; always start freshly)</span>
+            </label>
           </div>
         )}
       </div>
