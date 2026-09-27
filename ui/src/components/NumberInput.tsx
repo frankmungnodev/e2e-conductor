@@ -126,9 +126,9 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
     }[size]
 
     return (
-      <div className={`flex flex-col gap-1 w-full ${className}`}>
+      <div className={`flex flex-col gap-1.5 w-full ${className}`}>
         {label && (
-          <label htmlFor={inputId} className="text-[11px] font-medium text-fg-muted uppercase tracking-wider">
+          <label htmlFor={inputId} className="text-xs font-semibold text-fg-bright">
             {label}
           </label>
         )}
@@ -224,8 +224,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           )}
         </div>
 
-        {error && <span className="text-[11px] text-error font-medium">{error}</span>}
-        {helperText && !error && <span className="text-[11px] text-fg-muted">{helperText}</span>}
+        {error && <span className="text-xs text-error font-medium">{error}</span>}
+        {helperText && !error && <span className="text-xs text-fg-muted leading-normal">{helperText}</span>}
       </div>
     )
   },

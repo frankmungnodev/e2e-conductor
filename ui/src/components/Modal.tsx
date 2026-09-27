@@ -9,7 +9,8 @@ export interface ModalProps {
   description?: React.ReactNode
   children: React.ReactNode
   footer?: React.ReactNode
-  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "full"
+  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full"
+  dismissable?: boolean
 }
 
 export function Modal({
@@ -20,16 +21,17 @@ export function Modal({
   children,
   footer,
   maxWidth = "lg",
+  dismissable = true,
 }: ModalProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === "Escape" && isOpen && dismissable) {
         onClose()
       }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, dismissable])
 
   if (!isOpen) return null
 
@@ -39,13 +41,18 @@ export function Modal({
     lg: "max-w-lg",
     xl: "max-w-xl",
     "2xl": "max-w-2xl",
+    "3xl": "max-w-3xl",
     full: "max-w-4xl",
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
       {/* Backdrop */}
-      <div className="fixed inset-0 -z-10" onClick={onClose} aria-hidden="true" />
+      <div
+        className="fixed inset-0 -z-10"
+        onClick={dismissable ? onClose : undefined}
+        aria-hidden="true"
+      />
 
       {/* Modal Dialog */}
       <div
@@ -65,13 +72,15 @@ export function Modal({
               <p className="text-[11px] text-fg-muted mt-0.5">{description}</p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-xs text-fg-muted hover:text-fg-bright hover:bg-hover transition-colors cursor-pointer"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {dismissable && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded-xs text-fg-muted hover:text-fg-bright hover:bg-hover transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Content */}

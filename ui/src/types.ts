@@ -84,8 +84,65 @@ export type PreflightData = {
   devices: DeviceStatus[]
 }
 
+export type EnvironmentMeta = {
+  description?: string
+  url?: string
+  scenarios?: string
+  flows?: string
+  results?: string
+  services?: Record<string, { url: string; health?: string }>
+  env?: Record<string, string>
+}
+
+export type PlatformRecord = {
+  id: string
+  name: string
+  type: "web" | "android" | "api"
+  orderNum?: number
+  url?: string
+  serviceName?: string
+  health?: string
+  startCmd?: string
+  cwd?: string
+  modules?: string
+  slowMo?: number
+  headless?: boolean
+  exclusive?: boolean
+  appId?: string
+  flows?: string
+  installCmd?: string
+  grantPermissions?: string[]
+  reversePorts?: number[]
+  configJson?: Record<string, unknown>
+}
+
+export type EnvPlatformRecord = {
+  envName: string
+  platformId: string
+  enabled: boolean
+  url?: string
+  health?: string
+  startCmd?: string
+  cwd?: string
+  headless?: boolean
+  slowMo?: number
+  appId?: string
+  configJson?: Record<string, unknown>
+}
+
+export type PlatformWithEnvOverrides = PlatformRecord & {
+  envName: string
+  enabled: boolean
+  isLinked: boolean
+  hasOverrides: boolean
+  overriddenFields: string[]
+}
+
 export type ConfigMeta = {
   configDir: string
+  defaultEnvironment?: string
+  activeEnvironment?: string
+  environments?: Record<string, EnvironmentMeta>
   services: Record<
     string,
     {
@@ -101,6 +158,13 @@ export type ConfigMeta = {
   scenariosPath: string
   resultsPath: string
   fixtures: string[]
+  fixturesMap?: Record<string, { cmd: string; cwd?: string }>
+  dbExists?: boolean
+  dbPath?: string
+  hasEnvironments?: boolean
+  platforms?: PlatformRecord[]
+  envPlatforms?: EnvPlatformRecord[]
+  platformsWithEnv?: PlatformWithEnvOverrides[]
 }
 
 export type RunSummary = {
@@ -180,4 +244,34 @@ export type DetectedService = {
   startCmd?: string
   port?: number
   appId?: string
+}
+
+export type WizardEnvironment = {
+  name: string
+  url?: string
+  description?: string
+  scenarios?: string
+  flows?: string
+  results?: string
+  env?: Record<string, string>
+}
+
+export type WizardApplyPayload = {
+  components?: WizardComponent[]
+  environment?: WizardEnvironment
+  environments?: Record<
+    string,
+    {
+      description?: string
+      url?: string
+      scenarios?: string
+      flows?: string
+      results?: string
+      env?: Record<string, string>
+    }
+  >
+  defaultEnvironment?: string
+  scaffoldFiles?: boolean
+  fixtures?: Record<string, { cmd: string; cwd?: string }>
+  code?: string
 }

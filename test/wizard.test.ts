@@ -3,9 +3,10 @@ import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { loadConfig } from "../src/config.ts"
+import { openDatabase } from "../src/db.ts"
 import {
   detectWorkspace,
-  generateConfigCode,
+  saveWizardComponentsToDb,
   scaffoldWizardFiles,
   type WizardComponent,
 } from "../src/wizard.ts"
@@ -19,7 +20,7 @@ function mockProject(): string {
 }
 
 describe("wizard config generator", () => {
-  it("sorts components by run order and generates valid TypeScript config", async () => {
+  it("sorts components by run order and saves to SQLite database", async () => {
     const components: WizardComponent[] = [
       {
         id: "comp-3",
@@ -27,7 +28,7 @@ describe("wizard config generator", () => {
         name: "mobile_app",
         order: 3,
         appId: "com.example.mobile",
-        flows: "e2e/flows/mobile",
+        flows: ".e2e/flows/mobile",
         installCmd: "./gradlew installDebug",
         reversePorts: [8080],
       },
@@ -48,37 +49,44 @@ describe("wizard config generator", () => {
         service: "frontend_server",
         url: "http://localhost:5173",
         startCmd: "pnpm dev",
-        modules: "e2e/modules/web",
+        modules: ".e2e/modules/web",
         slowMo: 100,
       },
     ]
 
-    const code = generateConfigCode(components)
-
-    // Check run order in the output: backend_api before frontend_server/frontend_web, before mobile_app
-    const backendIdx = code.indexOf("backend_api:")
-    const frontendIdx = code.indexOf("frontend_web:")
-    const mobileIdx = code.indexOf("mobile_app:")
-
-    assert.ok(backendIdx < frontendIdx, "Backend API should appear before frontend web in run order")
-    assert.ok(frontendIdx < mobileIdx, "Frontend web should appear before mobile in run order")
-
-    // Test that the generated code actually compiles and loads with loadConfig
     const dir = mockProject()
-    const configPath = join(dir, "e2e.config.ts")
-    writeFileSync(configPath, code, "utf8")
+    const dbPath = join(dir, ".e2e", "e2e.db")
+    const db = openDatabase(dbPath)
 
-    const loaded = await loadConfig(configPath)
+    saveWizardComponentsToDb(db, components, {
+      defaultEnvironment: "dev",
+      environments: {
+        dev: {
+          description: "Local dev baseline",
+          url: "http://localhost:5173",
+        },
+        staging: {
+          description: "Staging cluster",
+          url: "https://staging.example.com",
+        },
+      },
+    })
+    db.close()
+
+    // Test that the database loads with loadConfig
+    const loaded = await loadConfig(dir)
     assert.ok(loaded.services?.backend_api)
     assert.ok(loaded.services?.frontend_server)
     assert.ok(loaded.targets.backend_api)
     assert.ok(loaded.targets.frontend_web)
     assert.ok(loaded.targets.mobile_app)
+    assert.equal(loaded.defaultEnvironment, "dev")
+    assert.ok(loaded.environments?.dev)
+    assert.ok(loaded.environments?.staging)
   })
 
-  it("scaffolds starter files and generates a smoke scenario in run order", () => {
+  it("scaffolds starter files under .e2e and generates a smoke scenario in run order", () => {
     const dir = mockProject()
-    const configPath = join(dir, "e2e.config.ts")
 
     const components: WizardComponent[] = [
       {
@@ -94,7 +102,7 @@ describe("wizard config generator", () => {
         type: "web",
         name: "admin_web",
         order: 2,
-        modules: "e2e/modules/admin",
+        modules: ".e2e/modules/admin",
       },
       {
         id: "mobile",
@@ -102,24 +110,24 @@ describe("wizard config generator", () => {
         name: "driver_app",
         order: 3,
         appId: "com.example.driver",
-        flows: "e2e/flows/driver",
+        flows: ".e2e/flows/driver",
       },
     ]
 
-    const res = scaffoldWizardFiles(configPath, components)
-    assert.ok(res.created.includes("e2e/scenarios/smoke.json"))
-    assert.ok(res.created.includes("e2e/modules/admin/sample_step.ts"))
-    assert.ok(res.created.includes("e2e/flows/driver/smoke.yaml"))
+    const res = scaffoldWizardFiles(dir, components)
+    assert.ok(res.created.includes(".e2e/scenarios/smoke.json"))
+    assert.ok(res.created.includes(".e2e/modules/admin/sample_step.ts"))
+    assert.ok(res.created.includes(".e2e/flows/driver/smoke.yaml"))
 
     // Verify smoke scenario steps follow the run order
-    const smokeContent = JSON.parse(readFileSync(join(dir, "e2e/scenarios/smoke.json"), "utf8"))
+    const smokeContent = JSON.parse(readFileSync(join(dir, ".e2e/scenarios/smoke.json"), "utf8"))
     assert.equal(smokeContent.steps.length, 3)
     assert.equal(smokeContent.steps[0].target, "core_api")
     assert.equal(smokeContent.steps[1].target, "admin_web")
     assert.equal(smokeContent.steps[2].target, "driver_app")
 
     // Running again should skip existing files
-    const res2 = scaffoldWizardFiles(configPath, components)
+    const res2 = scaffoldWizardFiles(dir, components)
     assert.equal(res2.created.length, 0)
     assert.equal(res2.skipped.length, 3)
   })

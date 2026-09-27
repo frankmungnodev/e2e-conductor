@@ -277,14 +277,13 @@ export function ModulesView({ config, initialSelectedId }: ModulesViewProps) {
     }
     if (selectedModule.category === "fixture") {
       const nameWithoutExt = selectedModule.name.replace(/\.(ts|js)$/, "")
-      return `// In e2e.config.ts fixtures:
-import { ${nameWithoutExt} } from "./fixtures/${selectedModule.name}"
+      return `// Scenario setup fixture usage:
+// Add to scenario setup array in .e2e/scenarios/*.json:
+{
+  "setup": ["${nameWithoutExt}"]
+}
 
-export default defineConfig({
-  fixtures: {
-    "${nameWithoutExt}": ${nameWithoutExt},
-  },
-})`
+// Or configure shell/script fixture in Database & Storage settings`
     }
     return `// In your step module:
 import { ... } from "./${selectedModule.name}"`
@@ -409,7 +408,7 @@ import { ... } from "./${selectedModule.name}"`
                     </div>
                     {item.target && (
                       <Badge variant="neutral" className="text-[10px] shrink-0 font-mono">
-                        {item.target}
+                        {item.target.charAt(0).toUpperCase() + item.target.slice(1)}
                       </Badge>
                     )}
                   </div>

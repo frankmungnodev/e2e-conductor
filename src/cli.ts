@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
@@ -14,11 +13,14 @@ Commands:
   run     Run scenarios (default)
   check   Preflight only: services, devices, installed apps
   list    List scenarios and validate them
-  init    Write a starter config and scenario (never overwrites)
+  init    Initialize SQLite configuration and starter scenario under .e2e
   ui      Start the web GUI dashboard
 
 Options:
-  -c, --config <path>     Config file (default: ./e2e.config.ts)
+  -d, --dir <path>        Project directory (default: .)
+      --db <path>         SQLite database path (default: .e2e/e2e.db)
+  -c, --config <path>     Directory or database path alias
+  -e, --env <name>        Target environment profile (e.g. main, staging, prod)
   -s, --scenario <text>   Only scenarios whose file name contains <text> (repeatable)
   -r, --repeat <n>        Run each scenario n times (flakiness check)
       --start             Start services that are down
@@ -36,7 +38,10 @@ async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
-      config: { type: "string", short: "c", default: "e2e.config.ts" },
+      dir: { type: "string", short: "d" },
+      db: { type: "string" },
+      config: { type: "string", short: "c" },
+      env: { type: "string", short: "e" },
       scenario: { type: "string", short: "s", multiple: true, default: [] },
       repeat: { type: "string", short: "r", default: "1" },
       start: { type: "boolean", default: false },
@@ -57,28 +62,29 @@ async function main() {
     console.log(HELP)
     process.exit(values.help ? 0 : 2)
   }
+  if (values.env) process.env.E2E_ENV = values.env
   if (values.headless) process.env.E2E_HEADLESS = "1"
   if (values.verbose) process.env.E2E_VERBOSE = "1"
 
+  const targetPath = values.db || values.dir || values.config || process.cwd()
+
   if (command === "init") {
     const isInteractive = values.interactive
-    const { created, skipped } = isInteractive ? await runInteractiveInit(values.config) : initProject(values.config)
+    const { created, skipped } = isInteractive ? await runInteractiveInit(targetPath) : initProject(targetPath)
     for (const file of created) console.log(`${color.green("created")} ${file}`)
     for (const file of skipped) console.log(`${color.yellow("skipped")} ${file} ${color.dim("(exists)")}`)
-    if (created.length > 0) console.log(`\nNext: verify your setup in ${values.config}, then run: e2e check`)
+    if (created.length > 0) console.log(`\nNext: verify your setup in .e2e/e2e.db, then run: e2e check`)
     return
   }
 
   if (command === "ui") {
     const port = Number(values.port)
     if (Number.isNaN(port) || port < 1 || port > 65535) throw new Error("--port must be a valid port number (1-65535)")
-    const configPath = resolve(values.config)
     let config: LoadedConfig
-    if (!existsSync(configPath)) {
-      console.log(color.yellow(`Note: ${values.config} not found. Running UI in starter mode.`))
-      config = starterConfig()
-    } else {
-      config = await loadConfig(values.config)
+    try {
+      config = await loadConfig(targetPath)
+    } catch {
+      config = starterConfig(resolve(targetPath))
     }
 
     const shouldOpen = !values["no-open"] && values.open !== false
@@ -92,7 +98,7 @@ async function main() {
     return
   }
 
-  const config = await loadConfig(values.config)
+  const config = await loadConfig(targetPath, values.env)
 
   if (command === "list") {
     for (const scenario of loadScenarios(config, values.scenario)) {

@@ -23,10 +23,7 @@ function devBackendPlugin(): Plugin {
       }
 
       if (!isUp) {
-        const configPath = resolve(process.cwd(), "e2e.config.ts")
-        const config: LoadedConfig = existsSync(configPath)
-          ? await loadConfig(configPath)
-          : starterConfig()
+        const config: LoadedConfig = await loadConfig(process.cwd()).catch(() => starterConfig(process.cwd()))
 
         const { server: apiServer } = await startServer(config, {
           port: 4173,

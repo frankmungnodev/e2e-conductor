@@ -4,18 +4,45 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net"
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { type LoadedConfig, loadConfig, type MobileTarget, resolveFromConfig, type WebTarget } from "./config.ts"
+import {
+  checkDbStatus,
+  deleteEnvironment as deleteDbEnvironment,
+  deleteEnvPlatform as deleteDbEnvPlatform,
+  deleteFixture as deleteDbFixture,
+  deletePlatform as deleteDbPlatform,
+  type EnvPlatformRecord,
+  getActiveEnvironment as getDbActiveEnvironment,
+  getDefaultEnvironment as getDbDefaultEnvironment,
+  getEnvironments as getDbEnvironments,
+  getEnvPlatforms as getDbEnvPlatforms,
+  getFixtures as getDbFixtures,
+  getPlatforms as getDbPlatforms,
+  getPlatformsForEnv as getDbPlatformsForEnv,
+  openDatabase,
+  type PlatformRecord,
+  type PlatformWithEnvOverrides,
+  platformsToTargetsAndServices,
+  resolveDbPath,
+  saveEnvironment as saveDbEnvironment,
+  saveEnvPlatform as saveDbEnvPlatform,
+  saveFixture as saveDbFixture,
+  savePlatform as saveDbPlatform,
+  setActiveEnvironment as setDbActiveEnvironment,
+  writeDbPointer,
+} from "./db.ts"
 import { checkFlow } from "./flow.ts"
 import { initProject } from "./init.ts"
 import { isUp, unfinishedGitOperation } from "./preflight.ts"
-import { adbPath, runAdb, startBackground } from "./process.ts"
+import { adbPath, runAdb, runShell, startBackground } from "./process.ts"
 import { type RunEvent, type RunOptions, run, type Summary } from "./runner.ts"
 import { checkSteps, type Scenario } from "./scenario.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 import {
   detectWorkspace,
-  generateConfigCode,
+  saveWizardComponentsToDb,
   scaffoldWizardFiles,
   type WizardComponent,
+  type WizardEnvironment,
 } from "./wizard.ts"
 
 const UI_DIST_PATH = resolve(import.meta.dirname, "../ui/dist")
@@ -155,11 +182,11 @@ function resolveSafeModulePath(
     if (target?.driver !== "web") {
       throw new Error(`Target "${targetName}" is not a valid web target`)
     }
-    rootDir = resolveFromConfig(currentConfig, (target as WebTarget).modules || "./web")
+    rootDir = resolveFromConfig(currentConfig, (target as WebTarget).modules || ".e2e/modules")
   } else if (category === "fixture") {
-    rootDir = resolveFromConfig(currentConfig, "./fixtures")
+    rootDir = resolveFromConfig(currentConfig, ".e2e/fixtures")
   } else if (category === "helper") {
-    rootDir = resolveFromConfig(currentConfig, "./helpers")
+    rootDir = resolveFromConfig(currentConfig, ".e2e/helpers")
   } else {
     throw new Error(`Unsupported category: ${category}`)
   }
@@ -181,6 +208,29 @@ export function startServer(
     const port = options.port ?? 4173
     const host = options.host ?? "127.0.0.1"
     let currentConfig = config
+    const initialDbStatus = checkDbStatus(currentConfig.configDir)
+    if (initialDbStatus.dbExists) {
+      try {
+        const db = openDatabase(initialDbStatus.dbPath)
+        const dbEnvs = getDbEnvironments(db)
+        if (Object.keys(dbEnvs).length > 0) {
+          currentConfig.environments = dbEnvs
+          const active = getDbActiveEnvironment(db)
+          const def = getDbDefaultEnvironment(db)
+          if (active) currentConfig.activeEnvironment = active
+          if (def) currentConfig.defaultEnvironment = def
+        }
+        const dbPlats = getDbPlatforms(db)
+        if (dbPlats.length > 0) {
+          const { targets, services } = platformsToTargetsAndServices(dbPlats)
+          currentConfig.targets = { ...currentConfig.targets, ...targets }
+          currentConfig.services = { ...currentConfig.services, ...services }
+        }
+        db.close()
+      } catch {
+        // ignore load errors
+      }
+    }
     const sseClients = new Set<ServerResponse>()
     let activeRun: ActiveRun | null = null
     let lastSummary: Summary | null = null
@@ -261,59 +311,439 @@ export function startServer(
                 },
               ]),
             )
+            const fixturesMap: Record<string, { cmd: string; cwd?: string }> = {}
+            for (const [name, fix] of Object.entries(currentConfig.fixtures ?? {})) {
+              if (typeof fix === "object" && fix && "cmd" in fix) {
+                fixturesMap[name] = { cmd: fix.cmd, cwd: fix.cwd }
+              } else if (typeof fix === "function") {
+                fixturesMap[name] = { cmd: "(custom typescript function)" }
+              }
+            }
+            const dbStatus = checkDbStatus(currentConfig.configDir)
+            let dbPlatforms: PlatformRecord[] = []
+            let dbEnvPlatforms: EnvPlatformRecord[] = []
+            let platformsWithEnv: PlatformWithEnvOverrides[] = []
+
+            if (dbStatus.dbExists) {
+              try {
+                const db = openDatabase(dbStatus.dbPath)
+                dbPlatforms = getDbPlatforms(db)
+                dbEnvPlatforms = getDbEnvPlatforms(db)
+                const targetEnv = url.searchParams.get("env") || currentConfig.activeEnvironment || currentConfig.defaultEnvironment
+                if (targetEnv) {
+                  platformsWithEnv = getDbPlatformsForEnv(db, targetEnv)
+                }
+                db.close()
+              } catch {
+                // ignore
+              }
+            }
+
             return sendJson(res, 200, {
               configDir: currentConfig.configDir,
+              defaultEnvironment: currentConfig.defaultEnvironment,
+              activeEnvironment: currentConfig.activeEnvironment,
+              environments: currentConfig.environments ?? {},
               services: servicesMeta,
               targets: currentConfig.targets,
               scenariosPath: currentConfig.scenarios,
               resultsPath: currentConfig.results,
               fixtures: Object.keys(currentConfig.fixtures ?? {}),
+              fixturesMap,
+              dbExists: dbStatus.dbExists,
+              dbPath: dbStatus.relativeDbPath,
+              hasEnvironments: dbStatus.hasEnvironments,
+              platforms: dbPlatforms,
+              envPlatforms: dbEnvPlatforms,
+              platformsWithEnv,
             })
           }
 
-          // GET /api/config/code
-          if (pathname === "/api/config/code" && req.method === "GET") {
-            const configPath = join(currentConfig.configDir, "e2e.config.ts")
-            const exists = existsSync(configPath)
-            let content = ""
-            if (exists) {
-              content = readFileSync(configPath, "utf8")
+          // POST /api/config/environment/active
+          if (pathname === "/api/config/environment/active" && req.method === "POST") {
+            const body = (await readBody(req)) as { environment?: string }
+            if (!body?.environment?.trim()) {
+              return sendJson(res, 400, { ok: false, error: "Environment name is required" })
+            }
+            const envName = body.environment.trim()
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              setDbActiveEnvironment(db, envName)
+              db.close()
+            } catch {
+              // ignore
+            }
+            try {
+              currentConfig = await loadConfig(currentConfig.configDir, envName)
+            } catch {
+              currentConfig.activeEnvironment = envName
+              currentConfig.defaultEnvironment = envName
             }
             return sendJson(res, 200, {
-              exists,
-              path: configPath,
-              content,
-              configDir: currentConfig.configDir,
+              ok: true,
+              activeEnvironment: currentConfig.activeEnvironment,
+              defaultEnvironment: currentConfig.defaultEnvironment,
+              message: `Active environment set to ${currentConfig.activeEnvironment}`,
             })
           }
 
-          // POST /api/config/code
-          if (pathname === "/api/config/code" && req.method === "POST") {
-            const body = (await readBody(req)) as { content?: string }
-            if (typeof body?.content !== "string") {
-              return sendJson(res, 400, { ok: false, error: "Missing 'content' string in payload" })
+          // POST /api/config/environment
+          if (pathname === "/api/config/environment" && req.method === "POST") {
+            const body = (await readBody(req)) as {
+              name?: string
+              url?: string
+              description?: string
+              scenarios?: string
+              flows?: string
+              results?: string
+              env?: Record<string, string>
+              dbPath?: string
             }
-            const configPath = join(currentConfig.configDir, "e2e.config.ts")
+            if (!body?.name?.trim()) {
+              return sendJson(res, 400, { ok: false, error: "Environment name is required" })
+            }
+            const envName = body.name.trim()
+            const targetDbPath = resolveDbPath(currentConfig.configDir, body.dbPath)
+            const defaultDbPath = resolveDbPath(currentConfig.configDir)
+            if (body.dbPath && targetDbPath !== defaultDbPath) {
+              writeDbPointer(currentConfig.configDir, targetDbPath)
+            }
+
             try {
-              writeFileSync(configPath, body.content, "utf8")
-              currentConfig = await loadConfig(configPath)
-              return sendJson(res, 200, { ok: true, message: "Configuration saved and reloaded" })
+              const db = openDatabase(targetDbPath)
+              saveDbEnvironment(db, envName, {
+                url: body.url?.trim() || undefined,
+                description: body.description?.trim() || undefined,
+                scenarios: body.scenarios?.trim() || undefined,
+                flows: body.flows?.trim() || undefined,
+                results: body.results?.trim() || undefined,
+                env: body.env,
+              })
+              currentConfig.environments = getDbEnvironments(db)
+              const active = getDbActiveEnvironment(db)
+              const def = getDbDefaultEnvironment(db)
+              if (active) currentConfig.activeEnvironment = active
+              if (def) currentConfig.defaultEnvironment = def
+              db.close()
+              currentConfig = await loadConfig(currentConfig.configDir, currentConfig.activeEnvironment)
             } catch (err) {
-              return sendJson(res, 400, { ok: false, error: (err as Error).message })
+              return sendJson(res, 500, { ok: false, error: `SQLite error: ${(err as Error).message}` })
+            }
+
+            return sendJson(res, 200, {
+              ok: true,
+              message: `Environment "${envName}" saved`,
+              environments: currentConfig.environments ?? {},
+              activeEnvironment: currentConfig.activeEnvironment,
+              defaultEnvironment: currentConfig.defaultEnvironment,
+              dbPath: relative(currentConfig.configDir, targetDbPath),
+              hasEnvironments: true,
+            })
+          }
+
+          // DELETE /api/config/environment
+          if (pathname.startsWith("/api/config/environment") && req.method === "DELETE") {
+            const nameParam = url.searchParams.get("name") || pathname.split("/").pop()
+            if (!nameParam || nameParam === "environment") {
+              return sendJson(res, 400, { ok: false, error: "Environment name is required" })
+            }
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              deleteDbEnvironment(db, nameParam)
+              db.close()
+              currentConfig = await loadConfig(currentConfig.configDir, currentConfig.activeEnvironment)
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+
+            return sendJson(res, 200, {
+              ok: true,
+              message: `Environment "${nameParam}" removed`,
+              environments: currentConfig.environments ?? {},
+            })
+          }
+
+          // POST /api/config/platform
+          if (pathname === "/api/config/platform" && req.method === "POST") {
+            const body = (await readBody(req)) as PlatformRecord & { scaffoldFiles?: boolean }
+            if (!body?.name?.trim() || !body?.type) {
+              return sendJson(res, 400, { ok: false, error: "Platform name and type are required" })
+            }
+            const platName = body.name.trim()
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              saveDbPlatform(db, {
+                id: body.id || `plat-${Date.now()}`,
+                name: platName,
+                type: body.type,
+                orderNum: body.orderNum ?? 1,
+                url: body.url?.trim() || undefined,
+                serviceName: body.serviceName?.trim() || platName,
+                health: body.health?.trim() || undefined,
+                startCmd: body.startCmd?.trim() || undefined,
+                cwd: body.cwd?.trim() || undefined,
+                modules: body.modules?.trim() || undefined,
+                slowMo: body.slowMo,
+                headless: body.headless,
+                exclusive: body.exclusive,
+                appId: body.appId?.trim() || undefined,
+                flows: body.flows?.trim() || undefined,
+                installCmd: body.installCmd?.trim() || undefined,
+                grantPermissions: body.grantPermissions,
+                reversePorts: body.reversePorts,
+              })
+              const allPlatforms = getDbPlatforms(db)
+              const { targets, services } = platformsToTargetsAndServices(allPlatforms)
+              currentConfig.targets = { ...currentConfig.targets, ...targets }
+              currentConfig.services = { ...currentConfig.services, ...services }
+              db.close()
+
+              if (body.scaffoldFiles) {
+                scaffoldWizardFiles(currentConfig.configDir, [body as any])
+              }
+
+              currentConfig = await loadConfig(currentConfig.configDir, currentConfig.activeEnvironment)
+
+              return sendJson(res, 200, {
+                ok: true,
+                message: `Platform "${platName}" saved`,
+                targets: currentConfig.targets,
+                services: currentConfig.services,
+              })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // DELETE /api/config/platform
+          if (pathname.startsWith("/api/config/platform") && req.method === "DELETE") {
+            const nameParam = url.searchParams.get("name") || pathname.split("/").pop()
+            if (!nameParam || nameParam === "platform") {
+              return sendJson(res, 400, { ok: false, error: "Platform name is required" })
+            }
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              deleteDbPlatform(db, nameParam)
+              const allPlatforms = getDbPlatforms(db)
+              const { targets, services } = platformsToTargetsAndServices(allPlatforms)
+              currentConfig.targets = targets
+              currentConfig.services = services
+              db.close()
+
+              return sendJson(res, 200, {
+                ok: true,
+                message: `Platform "${nameParam}" removed`,
+                targets: currentConfig.targets,
+                services: currentConfig.services,
+              })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // GET /api/config/env-platforms
+          if (pathname === "/api/config/env-platforms" && req.method === "GET") {
+            const envParam = url.searchParams.get("env") || undefined
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              const envPlatforms = getDbEnvPlatforms(db, envParam)
+              const platformsWithEnv = envParam ? getDbPlatformsForEnv(db, envParam) : undefined
+              db.close()
+              return sendJson(res, 200, {
+                ok: true,
+                envPlatforms,
+                platformsWithEnv,
+              })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // POST /api/config/env-platform
+          if (pathname === "/api/config/env-platform" && req.method === "POST") {
+            const body = (await readBody(req)) as EnvPlatformRecord
+            if (!body?.envName?.trim() || !body?.platformId?.trim()) {
+              return sendJson(res, 400, { ok: false, error: "Environment name and platform ID are required" })
+            }
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              saveDbEnvPlatform(db, {
+                envName: body.envName.trim(),
+                platformId: body.platformId.trim(),
+                enabled: body.enabled !== false,
+                url: body.url?.trim() || undefined,
+                health: body.health?.trim() || undefined,
+                startCmd: body.startCmd?.trim() || undefined,
+                cwd: body.cwd?.trim() || undefined,
+                headless: body.headless,
+                slowMo: body.slowMo,
+                appId: body.appId?.trim() || undefined,
+                configJson: body.configJson,
+              })
+
+              const envPlatforms = getDbEnvPlatforms(db, body.envName)
+              const platformsWithEnv = getDbPlatformsForEnv(db, body.envName)
+
+              // If updating the active environment, sync currentConfig targets and services
+              if (body.envName === currentConfig.activeEnvironment) {
+                const platRes = platformsToTargetsAndServices(platformsWithEnv)
+                currentConfig.targets = platRes.targets
+                currentConfig.services = platRes.services
+              }
+              db.close()
+
+              return sendJson(res, 200, {
+                ok: true,
+                message: `Environment platform updated for "${body.envName}"`,
+                envPlatforms,
+                platformsWithEnv,
+                targets: currentConfig.targets,
+                services: currentConfig.services,
+              })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // DELETE /api/config/env-platform
+          if (pathname === "/api/config/env-platform" && req.method === "DELETE") {
+            const envParam = url.searchParams.get("env")
+            const platParam = url.searchParams.get("platformId")
+            if (!envParam || !platParam) {
+              return sendJson(res, 400, { ok: false, error: "Both env and platformId parameters are required" })
+            }
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              deleteDbEnvPlatform(db, envParam, platParam)
+              const envPlatforms = getDbEnvPlatforms(db, envParam)
+              const platformsWithEnv = getDbPlatformsForEnv(db, envParam)
+              db.close()
+
+              return sendJson(res, 200, {
+                ok: true,
+                message: "Environment platform link removed",
+                envPlatforms,
+                platformsWithEnv,
+              })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+          }
+
+
+          // POST /api/config/fixture
+          if (pathname === "/api/config/fixture" && req.method === "POST") {
+            const body = (await readBody(req)) as { name?: string; cmd?: string; cwd?: string }
+            if (!body?.name?.trim() || !body?.cmd?.trim()) {
+              return sendJson(res, 400, { ok: false, error: "Fixture name and cmd are required" })
+            }
+            const fixName = body.name.trim()
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              saveDbFixture(db, fixName, {
+                cmd: body.cmd.trim(),
+                cwd: body.cwd?.trim() || undefined,
+              })
+              const fixturesMap = getDbFixtures(db)
+              db.close()
+              currentConfig.fixtures = fixturesMap
+
+              return sendJson(res, 200, {
+                ok: true,
+                message: `Fixture "${fixName}" saved`,
+                fixtures: Object.keys(fixturesMap),
+                fixturesMap,
+              })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // DELETE /api/config/fixture
+          if (pathname.startsWith("/api/config/fixture") && req.method === "DELETE") {
+            const nameParam = url.searchParams.get("name") || pathname.split("/").pop()
+            if (!nameParam || nameParam === "fixture") {
+              return sendJson(res, 400, { ok: false, error: "Fixture name is required" })
+            }
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
+            try {
+              const db = openDatabase(targetDbPath)
+              deleteDbFixture(db, nameParam)
+              const fixturesMap = getDbFixtures(db)
+              db.close()
+              currentConfig.fixtures = fixturesMap
+
+              return sendJson(res, 200, {
+                ok: true,
+                message: `Fixture "${nameParam}" removed`,
+                fixtures: Object.keys(fixturesMap),
+                fixturesMap,
+              })
+            } catch (err) {
+              return sendJson(res, 500, { ok: false, error: (err as Error).message })
+            }
+          }
+
+          // POST /api/fixtures/run
+          if (pathname === "/api/fixtures/run" && req.method === "POST") {
+            const body = (await readBody(req)) as { name?: string; cmd?: string; cwd?: string }
+            let cmdToRun = body?.cmd
+            let cwdToRun = body?.cwd
+            if (body?.name && currentConfig.fixtures?.[body.name]) {
+              const fix = currentConfig.fixtures[body.name]
+              if (typeof fix === "object" && fix && "cmd" in fix) {
+                cmdToRun = fix.cmd
+                cwdToRun = fix.cwd
+              }
+            }
+            if (!cmdToRun) {
+              return sendJson(res, 400, { ok: false, error: "No shell command specified to run" })
+            }
+            const start = Date.now()
+            const logs: string[] = []
+            try {
+              const fullCwd = cwdToRun ? resolveFromConfig(currentConfig, cwdToRun) : currentConfig.configDir
+              const resCmd = await runShell(cmdToRun, {
+                cwd: fullCwd,
+                timeoutMs: 60_000,
+                log: (line) => logs.push(line),
+              })
+              const durationMs = Date.now() - start
+              const stdout = (resCmd.stdout || "").trim()
+              const stderr = (resCmd.stderr || "").trim()
+              const output = [stdout, stderr, ...logs].filter(Boolean).join("\n") || "(no output)"
+              return sendJson(res, 200, {
+                ok: resCmd.exitCode === 0,
+                exitCode: resCmd.exitCode,
+                output,
+                durationMs,
+              })
+            } catch (err) {
+              return sendJson(res, 500, {
+                ok: false,
+                exitCode: 1,
+                output: (err as Error).message,
+                durationMs: Date.now() - start,
+              })
             }
           }
 
           // POST /api/init
           if (pathname === "/api/init" && req.method === "POST") {
-            const configPath = join(currentConfig.configDir, "e2e.config.ts")
             try {
-              const { created, skipped } = initProject(configPath)
-              if (existsSync(configPath)) {
-                try {
-                  currentConfig = await loadConfig(configPath)
-                } catch {
-                  // Ignore reload error if node_modules not yet linked in target dir
-                }
+              const { created, skipped } = initProject(currentConfig.configDir)
+              try {
+                currentConfig = await loadConfig(currentConfig.configDir)
+              } catch {
+                // Ignore reload error if not yet initialized
               }
               return sendJson(res, 200, { ok: true, created, skipped })
             } catch (err) {
@@ -331,32 +761,46 @@ export function startServer(
           if (pathname === "/api/wizard/apply" && req.method === "POST") {
             const body = (await readBody(req)) as {
               components?: WizardComponent[]
-              code?: string
+              environment?: WizardEnvironment
+              environments?: Record<string, { description?: string; url?: string; scenarios?: string; flows?: string; results?: string; env?: Record<string, string> }>
+              defaultEnvironment?: string
               scaffoldFiles?: boolean
+              fixtures?: Record<string, { cmd: string; cwd?: string }>
             }
-            const configPath = join(currentConfig.configDir, "e2e.config.ts")
             const components = body.components ?? []
-            const codeToSave = body.code || generateConfigCode(components)
+            const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              writeFileSync(configPath, codeToSave, "utf8")
-              let created: string[] = [configPath]
+              const db = openDatabase(targetDbPath)
+              saveWizardComponentsToDb(db, components, {
+                environment: body.environment,
+                environments: body.environments,
+                defaultEnvironment: body.defaultEnvironment,
+              })
+              if (body.fixtures) {
+                for (const [name, fix] of Object.entries(body.fixtures)) {
+                  saveDbFixture(db, name, fix)
+                }
+              }
+              db.close()
+
+              let created: string[] = [targetDbPath]
               let skipped: string[] = []
 
               if (body.scaffoldFiles && components.length > 0) {
-                const scaffoldRes = scaffoldWizardFiles(configPath, components)
+                const scaffoldRes = scaffoldWizardFiles(currentConfig.configDir, components)
                 created = [...created, ...scaffoldRes.created]
                 skipped = [...skipped, ...scaffoldRes.skipped]
               }
 
               try {
-                currentConfig = await loadConfig(configPath)
+                currentConfig = await loadConfig(currentConfig.configDir, body.defaultEnvironment || body.environment?.name)
               } catch {
                 // Ignore reload error
               }
 
               return sendJson(res, 200, {
                 ok: true,
-                message: "Configuration generated and applied successfully",
+                message: "Configuration applied successfully",
                 created,
                 skipped,
               })
@@ -739,6 +1183,7 @@ export function startServer(
               install?: boolean
               headless?: boolean
               verbose?: boolean
+              environment?: string
             }
             if (body.headless) process.env.E2E_HEADLESS = "1"
             if (body.verbose) process.env.E2E_VERBOSE = "1"
@@ -765,7 +1210,15 @@ export function startServer(
             // Launch run asynchronously
             void (async () => {
               try {
-                const summary = await run(currentConfig, runOptions)
+                let runConfig = currentConfig
+                if (body.environment) {
+                  try {
+                    runConfig = await loadConfig(currentConfig.configDir, body.environment)
+                  } catch {
+                    // Fall back to currentConfig if loading fails
+                  }
+                }
+                const summary = await run(runConfig, runOptions)
                 lastSummary = summary
               } catch (err) {
                 const errorMsg = (err as Error).message

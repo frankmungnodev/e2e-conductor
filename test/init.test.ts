@@ -16,27 +16,28 @@ function project(): string {
 }
 
 describe("initProject", () => {
-  it("writes a config and scenario that load and validate", async () => {
+  it("writes a sqlite db and smoke scenario under .e2e that load and validate", async () => {
     const dir = project()
-    const { created, skipped } = initProject(join(dir, "e2e.config.ts"))
-    assert.deepEqual(created, [join(dir, "e2e.config.ts"), join(dir, "e2e/scenarios/smoke.json")])
+    const { created, skipped } = initProject(dir)
+    assert.deepEqual(created, [join(dir, ".e2e/e2e.db"), join(dir, ".e2e/scenarios/smoke.json")])
     assert.deepEqual(skipped, [])
 
-    const config = await loadConfig(join(dir, "e2e.config.ts"))
+    const config = await loadConfig(dir)
     assert.deepEqual(
       loadScenarios(config).map((scenario) => scenario.id),
       ["smoke"],
     )
-    const smoke = JSON.parse(readFileSync(join(dir, "e2e/scenarios/smoke.json"), "utf8"))
-    assert.ok(readFileSync(resolve(dir, "e2e/scenarios", smoke.$schema), "utf8").includes("urn:e2e-orchestrator:scenario:v1"))
+    const smoke = JSON.parse(readFileSync(join(dir, ".e2e/scenarios/smoke.json"), "utf8"))
+    assert.ok(readFileSync(resolve(dir, ".e2e/scenarios", smoke.$schema), "utf8").includes("urn:e2e-orchestrator:scenario:v1"))
   })
 
   it("never overwrites existing files", () => {
     const dir = project()
-    writeFileSync(join(dir, "e2e.config.ts"), "mine")
-    const { created, skipped } = initProject(join(dir, "e2e.config.ts"))
-    assert.deepEqual(skipped, [join(dir, "e2e.config.ts")])
-    assert.deepEqual(created, [join(dir, "e2e/scenarios/smoke.json")])
-    assert.equal(readFileSync(join(dir, "e2e.config.ts"), "utf8"), "mine")
+    mkdirSync(join(dir, ".e2e"), { recursive: true })
+    writeFileSync(join(dir, ".e2e/e2e.db"), "custom-db")
+    const { created, skipped } = initProject(dir)
+    assert.deepEqual(skipped, [join(dir, ".e2e/e2e.db")])
+    assert.deepEqual(created, [join(dir, ".e2e/scenarios/smoke.json")])
+    assert.equal(readFileSync(join(dir, ".e2e/e2e.db"), "utf8"), "custom-db")
   })
 })

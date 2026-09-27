@@ -2,27 +2,14 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { stdin as input, stdout as output } from "node:process"
 import * as readline from "node:readline/promises"
+import { openDatabase, resolveDbPath, saveEnvironment, savePlatform } from "./db.ts"
 import { color } from "./logger.ts"
 import {
   detectWorkspace,
-  generateConfigCode,
+  saveWizardComponentsToDb,
   scaffoldWizardFiles,
   type WizardComponent,
 } from "./wizard.ts"
-
-const CONFIG = `import { defineConfig } from "e2e-orchestrator"
-
-export default defineConfig({
-  services: {
-    api: { url: "http://localhost:3000" },
-  },
-  targets: {
-    api: { driver: "http", service: "api" },
-  },
-  scenarios: "e2e/scenarios",
-  results: "e2e/results",
-})
-`
 
 const SMOKE = {
   $schema: "../../node_modules/e2e-orchestrator/schema/v1/scenario.schema.json",
@@ -31,40 +18,80 @@ const SMOKE = {
 }
 
 /**
- * Write a starter config and one scenario next to `configPath`.
- * Never overwrites: a file that exists is skipped.
+ * Write a starter SQLite database and smoke scenario under .e2e.
+ * Never overwrites: an artifact that exists is skipped.
  */
-export function initProject(configPath: string): { created: string[]; skipped: string[] } {
-  const config = resolve(configPath)
-  const files: Record<string, string> = {
-    [config]: CONFIG,
-    [join(dirname(config), "e2e/scenarios/smoke.json")]: `${JSON.stringify(SMOKE, null, 2)}\n`,
+export function initProject(targetPath: string = process.cwd()): { created: string[]; skipped: string[] } {
+  let rootDir = resolve(targetPath)
+  if (rootDir.endsWith(".db") || rootDir.endsWith(".sqlite") || rootDir.endsWith(".ts") || rootDir.endsWith(".js")) {
+    rootDir = dirname(rootDir)
+    if (rootDir.endsWith(".e2e")) {
+      rootDir = dirname(rootDir)
+    }
   }
+
   const created: string[] = []
   const skipped: string[] = []
-  for (const [file, content] of Object.entries(files)) {
-    if (existsSync(file)) {
-      skipped.push(file)
-      continue
-    }
-    mkdirSync(dirname(file), { recursive: true })
-    writeFileSync(file, content)
-    created.push(file)
+
+  const dbPath = resolveDbPath(rootDir)
+  if (existsSync(dbPath)) {
+    skipped.push(dbPath)
+  } else {
+    const db = openDatabase(dbPath)
+    saveEnvironment(
+      db,
+      "dev",
+      {
+        description: "Local development baseline",
+        url: "http://localhost:3000",
+        scenarios: ".e2e/scenarios",
+        flows: ".e2e/flows",
+        results: ".e2e/results",
+        env: { APP_ENV: "dev" },
+      },
+      { isDefault: true, isActive: true },
+    )
+    savePlatform(db, {
+      id: "plat-api",
+      name: "api",
+      type: "api",
+      orderNum: 1,
+      url: "http://localhost:3000",
+      serviceName: "api",
+      health: "/",
+    })
+    db.close()
+    created.push(dbPath)
   }
+
+  const smokePath = join(rootDir, ".e2e", "scenarios", "smoke.json")
+  if (existsSync(smokePath)) {
+    skipped.push(smokePath)
+  } else {
+    mkdirSync(dirname(smokePath), { recursive: true })
+    writeFileSync(smokePath, `${JSON.stringify(SMOKE, null, 2)}\n`)
+    created.push(smokePath)
+  }
+
   return { created, skipped }
 }
 
 /**
  * Interactive terminal configuration wizard.
  * Prompts user step-by-step for components, captures types & run orders,
- * then generates e2e.config.ts and starter files.
+ * then saves configuration directly into SQLite database under .e2e.
  */
 export async function runInteractiveInit(
-  configPath: string,
+  targetPath: string = process.cwd(),
 ): Promise<{ created: string[]; skipped: string[] }> {
   const rl = readline.createInterface({ input, output })
-  const config = resolve(configPath)
-  const rootDir = dirname(config)
+  let rootDir = resolve(targetPath)
+  if (rootDir.endsWith(".db") || rootDir.endsWith(".sqlite") || rootDir.endsWith(".ts") || rootDir.endsWith(".js")) {
+    rootDir = dirname(rootDir)
+    if (rootDir.endsWith(".e2e")) {
+      rootDir = dirname(rootDir)
+    }
+  }
 
   const ask = async (query: string, defaultValue = ""): Promise<string> => {
     const promptText = defaultValue ? `${query} [${defaultValue}]: ` : `${query}: `
@@ -124,7 +151,7 @@ export async function runInteractiveInit(
       const cwd = await ask("   Project directory path", defaultWeb?.path || "./frontend")
       const startCmd = await ask("   Dev server start command", defaultWeb?.startCmd || "pnpm run dev")
       const url = await ask("   Dev server URL", defaultWeb?.port ? `http://localhost:${defaultWeb.port}` : "http://localhost:5173")
-      const modules = await ask("   Web steps directory", `e2e/modules/${name}`)
+      const modules = await ask("   Web steps directory", `.e2e/modules/${name}`)
 
       components.push({
         id: `comp-${Date.now()}-2`,
@@ -146,7 +173,7 @@ export async function runInteractiveInit(
       const appId = await ask("   Application ID (package)", defaultAndroid?.appId || "com.example.app")
       const cwd = await ask("   Android project path", defaultAndroid?.path || "./android")
       const installCmd = await ask("   Build & install command", defaultAndroid?.startCmd || "./gradlew installDebug")
-      const flows = await ask("   Mobile flows directory", `e2e/flows/${name}`)
+      const flows = await ask("   Mobile flows directory", `.e2e/flows/${name}`)
       const reversePortStr = await ask("   Reverse ports (comma separated, e.g. 3000)", "")
       const reversePorts = reversePortStr
         ? reversePortStr
@@ -170,7 +197,7 @@ export async function runInteractiveInit(
 
     if (components.length === 0) {
       console.log(color.yellow("\nNo components configured. Falling back to default starter config."))
-      return initProject(configPath)
+      return initProject(rootDir)
     }
 
     // Run Order Confirmation
@@ -189,27 +216,16 @@ export async function runInteractiveInit(
       components.sort((a, b) => a.order - b.order)
     }
 
-    // Generate config code
-    const generatedCode = generateConfigCode(components)
-    const files: Record<string, string> = {
-      [config]: generatedCode,
-    }
+    const dbPath = resolveDbPath(rootDir)
+    const db = openDatabase(dbPath)
+    saveWizardComponentsToDb(db, components)
+    db.close()
 
-    const created: string[] = []
+    const created: string[] = [dbPath]
     const skipped: string[] = []
 
-    for (const [file, content] of Object.entries(files)) {
-      if (existsSync(file)) {
-        skipped.push(file)
-        continue
-      }
-      mkdirSync(dirname(file), { recursive: true })
-      writeFileSync(file, content)
-      created.push(file)
-    }
-
-    // Scaffold starter files
-    const scaffoldRes = scaffoldWizardFiles(configPath, components)
+    // Scaffold starter files under .e2e
+    const scaffoldRes = scaffoldWizardFiles(rootDir, components)
     created.push(...scaffoldRes.created)
     skipped.push(...scaffoldRes.skipped)
 

@@ -11,8 +11,9 @@ import type {
 
 const API_BASE = ""
 
-export async function fetchConfig(): Promise<ConfigMeta> {
-  const res = await fetch(`${API_BASE}/api/config`)
+export async function fetchConfig(env?: string): Promise<ConfigMeta> {
+  const query = env ? `?env=${encodeURIComponent(env)}` : ""
+  const res = await fetch(`${API_BASE}/api/config${query}`)
   if (!res.ok) throw new Error("Failed to load config")
   return res.json()
 }
@@ -160,30 +161,6 @@ export function subscribeToEvents(
   }
 }
 
-export async function fetchConfigCode(): Promise<{
-  exists: boolean
-  path: string
-  content: string
-  configDir: string
-}> {
-  const res = await fetch(`${API_BASE}/api/config/code`)
-  if (!res.ok) throw new Error("Failed to load config code")
-  return res.json()
-}
-
-export async function saveConfigCode(content: string): Promise<{ ok: boolean; message?: string; error?: string }> {
-  const res = await fetch(`${API_BASE}/api/config/code`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  })
-  const data = await res.json()
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error ?? "Failed to save configuration")
-  }
-  return data
-}
-
 export async function initProjectConfig(): Promise<{ ok: boolean; created: string[]; skipped: string[] }> {
   const res = await fetch(`${API_BASE}/api/init`, { method: "POST" })
   const data = await res.json()
@@ -242,11 +219,9 @@ export async function detectWorkspaceProjects(): Promise<{ detected: import("./t
   return res.json()
 }
 
-export async function applyWizardConfig(data: {
-  components?: import("./types.ts").WizardComponent[]
-  code?: string
-  scaffoldFiles?: boolean
-}): Promise<{ ok: boolean; message: string; created: string[]; skipped: string[] }> {
+export async function applyWizardConfig(
+  data: import("./types.ts").WizardApplyPayload,
+): Promise<{ ok: boolean; message: string; created: string[]; skipped: string[] }> {
   const res = await fetch(`${API_BASE}/api/wizard/apply`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -259,4 +234,186 @@ export async function applyWizardConfig(data: {
   return json
 }
 
+export async function setActiveEnvironment(
+  environment: string,
+): Promise<{ ok: boolean; activeEnvironment: string; defaultEnvironment: string; message: string }> {
+  const res = await fetch(`${API_BASE}/api/config/environment/active`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ environment }),
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to set active environment")
+  }
+  return json
+}
 
+export async function saveEnvironment(
+  name: string,
+  data: {
+    url?: string
+    description?: string
+    scenarios?: string
+    flows?: string
+    results?: string
+    env?: Record<string, string>
+  },
+  dbPath?: string,
+): Promise<{
+  ok: boolean
+  message: string
+  environments: Record<string, any>
+  dbPath?: string
+  hasEnvironments?: boolean
+}> {
+  const res = await fetch(`${API_BASE}/api/config/environment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, ...data, dbPath }),
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to save environment")
+  }
+  return json
+}
+
+export async function deleteEnvironment(
+  name: string,
+): Promise<{ ok: boolean; message: string; environments: Record<string, any> }> {
+  const res = await fetch(`${API_BASE}/api/config/environment?name=${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to delete environment")
+  }
+  return json
+}
+
+export async function savePlatform(
+  platform: import("./types.ts").WizardComponent,
+  scaffoldFiles = false,
+): Promise<{ ok: boolean; message: string; targets: Record<string, any>; services: Record<string, any> }> {
+  const res = await fetch(`${API_BASE}/api/config/platform`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...platform, scaffoldFiles }),
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to save platform")
+  }
+  return json
+}
+
+export async function deletePlatform(
+  name: string,
+): Promise<{ ok: boolean; message: string; targets: Record<string, any>; services: Record<string, any> }> {
+  const res = await fetch(`${API_BASE}/api/config/platform?name=${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to delete platform")
+  }
+  return json
+}
+
+export async function fetchEnvPlatforms(
+  env?: string,
+): Promise<{ ok: boolean; envPlatforms: import("./types.ts").EnvPlatformRecord[]; platformsWithEnv?: import("./types.ts").PlatformWithEnvOverrides[] }> {
+  const query = env ? `?env=${encodeURIComponent(env)}` : ""
+  const res = await fetch(`${API_BASE}/api/config/env-platforms${query}`)
+  if (!res.ok) throw new Error("Failed to load environment platforms")
+  return res.json()
+}
+
+export async function saveEnvPlatform(
+  data: import("./types.ts").EnvPlatformRecord,
+): Promise<{
+  ok: boolean
+  message: string
+  envPlatforms: import("./types.ts").EnvPlatformRecord[]
+  platformsWithEnv: import("./types.ts").PlatformWithEnvOverrides[]
+  targets: Record<string, any>
+  services: Record<string, any>
+}> {
+  const res = await fetch(`${API_BASE}/api/config/env-platform`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to save environment platform")
+  }
+  return json
+}
+
+export async function deleteEnvPlatform(
+  env: string,
+  platformId: string,
+): Promise<{
+  ok: boolean
+  message: string
+  envPlatforms: import("./types.ts").EnvPlatformRecord[]
+  platformsWithEnv: import("./types.ts").PlatformWithEnvOverrides[]
+}> {
+  const res = await fetch(
+    `${API_BASE}/api/config/env-platform?env=${encodeURIComponent(env)}&platformId=${encodeURIComponent(platformId)}`,
+    {
+      method: "DELETE",
+    },
+  )
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to remove environment platform link")
+  }
+  return json
+}
+
+export async function saveFixture(
+  name: string,
+  data: { cmd: string; cwd?: string },
+): Promise<{ ok: boolean; message: string; fixtures: string[]; fixturesMap: Record<string, { cmd: string; cwd?: string }> }> {
+  const res = await fetch(`${API_BASE}/api/config/fixture`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, cmd: data.cmd, cwd: data.cwd }),
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to save fixture")
+  }
+  return json
+}
+
+export async function deleteFixture(
+  name: string,
+): Promise<{ ok: boolean; message: string; fixtures: string[]; fixturesMap: Record<string, { cmd: string; cwd?: string }> }> {
+  const res = await fetch(`${API_BASE}/api/config/fixture?name=${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  })
+  const json = await res.json()
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? "Failed to delete fixture")
+  }
+  return json
+}
+
+export async function runFixtureTest(
+  params: { name?: string; cmd?: string; cwd?: string },
+): Promise<{ ok: boolean; exitCode: number; output: string; durationMs: number }> {
+  const res = await fetch(`${API_BASE}/api/fixtures/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  })
+  const json = await res.json()
+  if (!res.ok && !json.output) {
+    throw new Error(json.error ?? "Failed to run fixture command")
+  }
+  return json
+}

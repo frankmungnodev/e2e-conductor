@@ -174,37 +174,20 @@ describe("startServer", () => {
       const unknownRes = await fetch(`${url}/api/nonexistent`)
       assert.equal(unknownRes.status, 404)
 
-      // 10. GET /api/config/code
-      const codeRes = await fetch(`${url}/api/config/code`)
-      assert.equal(codeRes.status, 200)
-      const codeData = (await codeRes.json()) as any
-      assert.equal(codeData.exists, false)
-
-      // 11. POST /api/init
+      // 10. POST /api/init initializes project sqlite db under .e2e
       const initRes = await fetch(`${url}/api/init`, { method: "POST" })
       assert.equal(initRes.status, 200)
       const initData = (await initRes.json()) as any
       assert.equal(initData.ok, true)
+      assert.ok(initData.created.some((p: string) => p.includes("e2e.db") || p.includes("smoke.json")))
 
-      // Verify code now exists
-      const codeRes2 = await fetch(`${url}/api/config/code`)
-      const codeData2 = (await codeRes2.json()) as any
-      assert.equal(codeData2.exists, true)
-      assert.ok(codeData2.content.includes("defineConfig"))
+      // 11. Verify dbExists is true in GET /api/config
+      const postInitCfgRes = await fetch(`${url}/api/config`)
+      const postInitCfg = (await postInitCfgRes.json()) as any
+      assert.equal(postInitCfg.dbExists, true)
+      assert.ok(postInitCfg.targets.api)
 
-      // 12. POST /api/config/code
-      const saveCodeRes = await fetch(`${url}/api/config/code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: `${codeData2.content}\n// test comment\n`,
-        }),
-      })
-      assert.equal(saveCodeRes.status, 200)
-      const saveCodeData = (await saveCodeRes.json()) as any
-      assert.equal(saveCodeData.ok, true)
-
-      // 13. GET /api/wizard/detect
+      // 12. GET /api/wizard/detect
       const detectRes = await fetch(`${url}/api/wizard/detect`)
       assert.equal(detectRes.status, 200)
       const detectData = (await detectRes.json()) as any
@@ -239,6 +222,111 @@ describe("startServer", () => {
       const wizardData = (await wizardRes.json()) as any
       assert.equal(wizardData.ok, true)
       assert.ok(wizardData.created.length > 0)
+
+      // 15. POST /api/config/fixture
+      const addFixtureRes = await fetch(`${url}/api/config/fixture`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "db:seed",
+          cmd: "echo 'seeding db ok'",
+        }),
+      })
+      assert.equal(addFixtureRes.status, 200)
+      const addFixtureData = (await addFixtureRes.json()) as any
+      assert.equal(addFixtureData.ok, true)
+      assert.ok(addFixtureData.fixtures.includes("db:seed"))
+
+      // 16. POST /api/fixtures/run
+      const runFixtureRes = await fetch(`${url}/api/fixtures/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "db:seed" }),
+      })
+      assert.equal(runFixtureRes.status, 200)
+      const runFixtureData = (await runFixtureRes.json()) as any
+      assert.equal(runFixtureData.ok, true)
+      assert.equal(runFixtureData.exitCode, 0)
+      assert.ok(runFixtureData.output.includes("seeding db ok"))
+
+      // 17. DELETE /api/config/fixture
+      const delFixtureRes = await fetch(`${url}/api/config/fixture?name=db:seed`, {
+        method: "DELETE",
+      })
+      assert.equal(delFixtureRes.status, 200)
+      const delFixtureData = (await delFixtureRes.json()) as any
+      assert.equal(delFixtureData.ok, true)
+      assert.ok(!delFixtureData.fixtures.includes("db:seed"))
+
+      // 18. POST /api/config/environment (save staging environment)
+      const addEnvRes = await fetch(`${url}/api/config/environment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "staging",
+          url: "https://staging.example.com",
+          description: "Staging cluster",
+          env: { APP_ENV: "staging" },
+        }),
+      })
+      assert.equal(addEnvRes.status, 200)
+      const addEnvData = (await addEnvRes.json()) as any
+      assert.equal(addEnvData.ok, true)
+      assert.ok(addEnvData.environments.staging)
+
+      // 19. POST /api/config/environment/active
+      const activeEnvRes = await fetch(`${url}/api/config/environment/active`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ environment: "staging" }),
+      })
+      assert.equal(activeEnvRes.status, 200)
+      const activeEnvData = (await activeEnvRes.json()) as any
+      assert.equal(activeEnvData.ok, true)
+      assert.equal(activeEnvData.activeEnvironment, "staging")
+
+      // 20. DELETE /api/config/environment
+      const delEnvRes = await fetch(`${url}/api/config/environment?name=staging`, {
+        method: "DELETE",
+      })
+      assert.equal(delEnvRes.status, 200)
+      const delEnvData = (await delEnvRes.json()) as any
+      assert.equal(delEnvData.ok, true)
+      assert.ok(!delEnvData.environments.staging)
+
+      // 21. Verify SQLite db fields in GET /api/config
+      const cfgWithDbRes = await fetch(`${url}/api/config`)
+      assert.equal(cfgWithDbRes.status, 200)
+      const cfgWithDb = (await cfgWithDbRes.json()) as any
+      assert.equal(typeof cfgWithDb.dbExists, "boolean")
+      assert.equal(typeof cfgWithDb.dbPath, "string")
+      assert.equal(typeof cfgWithDb.hasEnvironments, "boolean")
+
+      // 22. POST /api/config/platform
+      const addPlatformRes = await fetch(`${url}/api/config/platform`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "web_admin",
+          type: "web",
+          url: "http://localhost:8080",
+          startCmd: "pnpm start",
+        }),
+      })
+      assert.equal(addPlatformRes.status, 200)
+      const addPlatformData = (await addPlatformRes.json()) as any
+      assert.equal(addPlatformData.ok, true)
+      assert.ok(addPlatformData.targets.web_admin)
+      assert.equal(addPlatformData.targets.web_admin.driver, "web")
+
+      // 23. DELETE /api/config/platform
+      const delPlatformRes = await fetch(`${url}/api/config/platform?name=web_admin`, {
+        method: "DELETE",
+      })
+      assert.equal(delPlatformRes.status, 200)
+      const delPlatformData = (await delPlatformRes.json()) as any
+      assert.equal(delPlatformData.ok, true)
+      assert.ok(!delPlatformData.targets.web_admin)
     } finally {
       await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
     }

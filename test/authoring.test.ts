@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { loadConfig } from "../src/config.ts"
+import { openDatabase, saveEnvironment, saveFixture, savePlatform } from "../src/db.ts"
 import { startServer } from "../src/server.ts"
 import { tempDir } from "./temp-dir.ts"
 
@@ -17,29 +18,39 @@ function setupProject(dir: string) {
   const pkgRoot = resolve(import.meta.dirname, "..")
   symlinkSync(pkgRoot, join(dir, "node_modules", "e2e-orchestrator"), "junction")
 
-  // e2e.config.ts
-  writeFileSync(
-    join(dir, "e2e.config.ts"),
-    `import { defineConfig } from "e2e-orchestrator"
-export default defineConfig({
-  services: {
-    backend: { url: "http://localhost:3000", health: "/health" },
-    web: { url: "http://localhost:5173" },
-  },
-  targets: {
-    api: { driver: "http", service: "backend" },
-    admin: { driver: "web", service: "web", modules: "./web" },
-    app: { driver: "mobile", platform: "android", appId: "com.example", flows: "./flows" },
-  },
-  fixtures: {
-    "reset-db": async () => {},
-    "seed-admin": async () => {},
-  },
-  scenarios: "scenarios",
-  results: "results",
-})
-`,
-  )
+  // SQLite configuration in .e2e/e2e.db
+  const db = openDatabase(join(dir, ".e2e", "e2e.db"))
+  saveEnvironment(db, "dev", {
+    description: "Development baseline",
+    scenarios: "scenarios",
+    results: "results",
+  })
+  savePlatform(db, {
+    id: "plat-api",
+    name: "api",
+    type: "api",
+    url: "http://localhost:3000",
+    health: "/health",
+    serviceName: "backend",
+  })
+  savePlatform(db, {
+    id: "plat-admin",
+    name: "admin",
+    type: "web",
+    url: "http://localhost:5173",
+    modules: "./web",
+    serviceName: "web",
+  })
+  savePlatform(db, {
+    id: "plat-app",
+    name: "app",
+    type: "android",
+    appId: "com.example",
+    flows: "./flows",
+  })
+  saveFixture(db, "reset-db", { cmd: "node -e 'console.log()'" })
+  saveFixture(db, "seed-admin", { cmd: "node -e 'console.log()'" })
+  db.close()
 
   // Seed scenario
   writeFileSync(
@@ -93,7 +104,7 @@ describe("Full Test Suite Authoring via API", () => {
     const dir = tempDir("authoring")
     setupProject(dir)
 
-    const config = await loadConfig(join(dir, "e2e.config.ts"))
+    const config = await loadConfig(dir)
     const { server, url } = await startServer(config, { port: 0, host: "127.0.0.1", open: false })
 
     try {

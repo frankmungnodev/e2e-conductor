@@ -18,9 +18,11 @@ export type LogListener = (line: string, isDetail: boolean) => void
 
 /** Writes to the console and to a plain-text log file. */
 export class RunLog {
+  private file: string
   private listener?: LogListener
 
-  constructor(private readonly file: string, onLine?: LogListener) {
+  constructor(file: string, onLine?: LogListener) {
+    this.file = file
     mkdirSync(dirname(file), { recursive: true })
     writeFileSync(file, "")
     this.listener = onLine

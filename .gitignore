@@ -2,3 +2,4 @@ node_modules/
 .context/compound-engineering/
 ui/dist/
 .playwright-mcp/
+.e2e-db
