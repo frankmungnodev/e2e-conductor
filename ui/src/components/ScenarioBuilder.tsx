@@ -319,29 +319,55 @@ export function ScenarioBuilder({
     updateStep(stepIdx, { extract: nextExtract })
   }
 
-  const updateStepHeader = (
-    stepIdx: number,
-    headerKey: string,
-    headerVal: string,
-    oldKey?: string,
-  ) => {
+  const addStepHeader = (stepIdx: number) => {
     if (!draftScenario) return
     const currentHeaders = { ...(draftScenario.steps[stepIdx].headers ?? {}) }
-    if (oldKey && oldKey !== headerKey) {
-      delete currentHeaders[oldKey]
+    let newKey = "Header"
+    if (!("Content-Type" in currentHeaders)) {
+      newKey = "Content-Type"
+      currentHeaders[newKey] = "application/json"
+    } else if (!("Authorization" in currentHeaders)) {
+      newKey = "Authorization"
+      currentHeaders[newKey] = "Bearer "
+    } else {
+      let counter = 1
+      while (`Header-${counter}` in currentHeaders) {
+        counter++
+      }
+      newKey = `Header-${counter}`
+      currentHeaders[newKey] = ""
     }
-    if (headerKey.trim()) {
-      currentHeaders[headerKey.trim()] = headerVal
-    }
-    const nextHeaders = Object.keys(currentHeaders).length > 0 ? currentHeaders : undefined
-    updateStep(stepIdx, { headers: nextHeaders })
+    updateStep(stepIdx, { headers: currentHeaders })
   }
 
-  const deleteStepHeader = (stepIdx: number, headerKey: string) => {
+  const updateStepHeader = (
+    stepIdx: number,
+    headerIdx: number,
+    newKey: string,
+    newVal: string,
+  ) => {
     if (!draftScenario) return
-    const currentHeaders = { ...(draftScenario.steps[stepIdx].headers ?? {}) }
-    delete currentHeaders[headerKey]
-    const nextHeaders = Object.keys(currentHeaders).length > 0 ? currentHeaders : undefined
+    const entries = Object.entries(draftScenario.steps[stepIdx].headers ?? {})
+    if (headerIdx >= 0 && headerIdx < entries.length) {
+      entries[headerIdx] = [newKey, newVal]
+    } else {
+      entries.push([newKey, newVal])
+    }
+    const nextHeaders: Record<string, string> = {}
+    for (const [k, v] of entries) {
+      nextHeaders[k] = v
+    }
+    updateStep(stepIdx, {
+      headers: Object.keys(nextHeaders).length > 0 ? nextHeaders : undefined,
+    })
+  }
+
+  const deleteStepHeader = (stepIdx: number, headerIdx: number) => {
+    if (!draftScenario) return
+    const entries = Object.entries(draftScenario.steps[stepIdx].headers ?? {})
+    const nextEntries = entries.filter((_, i) => i !== headerIdx)
+    const nextHeaders =
+      nextEntries.length > 0 ? Object.fromEntries(nextEntries) : undefined
     updateStep(stepIdx, { headers: nextHeaders })
   }
 
@@ -451,6 +477,19 @@ export function ScenarioBuilder({
           setIsSaving(false)
           return
         }
+      } else if (content.steps && Array.isArray(content.steps)) {
+        const sanitizedSteps = content.steps.map((st: ScenarioStep) => {
+          if (!st.headers) return st
+          const cleanHeaders: Record<string, string> = {}
+          for (const [k, v] of Object.entries(st.headers)) {
+            if (k.trim()) cleanHeaders[k.trim()] = v
+          }
+          return {
+            ...st,
+            headers: Object.keys(cleanHeaders).length > 0 ? cleanHeaders : undefined,
+          }
+        })
+        content = { ...content, steps: sanitizedSteps }
       }
       const res = await onSaveScenario(draftScenario.id, content)
       if (res) {
@@ -1224,15 +1263,13 @@ export function ScenarioBuilder({
                                     {/* HTTP Request Headers */}
                                     <div className="pt-1.5 border-t border-border/50">
                                       <div className="flex items-center justify-between mb-1">
-                                        <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
+                                        <label className="text-xs text-fg-muted font-medium uppercase tracking-wider">
                                           Request Headers ({Object.keys(step.headers ?? {}).length}):
                                         </label>
                                         <Button
                                           size="xs"
                                           variant="ghost"
-                                          onClick={() =>
-                                            updateStepHeader(idx, "Content-Type", "application/json")
-                                          }
+                                          onClick={() => addStepHeader(idx)}
                                           icon={<Plus className="w-2.5 h-2.5" />}
                                         >
                                           Add Header
@@ -1240,28 +1277,28 @@ export function ScenarioBuilder({
                                       </div>
                                       {step.headers && Object.keys(step.headers).length > 0 && (
                                         <div className="space-y-1">
-                                          {Object.entries(step.headers).map(([hKey, hVal]) => (
-                                            <div key={hKey} className="flex items-center gap-1">
+                                          {Object.entries(step.headers).map(([hKey, hVal], headerIdx) => (
+                                            <div key={headerIdx} className="flex items-center gap-1">
                                               <input
                                                 type="text"
                                                 value={hKey}
                                                 onChange={(e) =>
                                                   updateStepHeader(
                                                     idx,
+                                                    headerIdx,
                                                     e.target.value,
                                                     hVal,
-                                                    hKey,
                                                   )
                                                 }
                                                 placeholder="Header (e.g. Authorization)"
-                                                className="w-36 px-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                                className="w-36 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                                               />
                                               <span className="text-fg-muted font-mono">:</span>
                                               <input
                                                 type="text"
                                                 value={hVal}
                                                 onChange={(e) =>
-                                                  updateStepHeader(idx, hKey, e.target.value)
+                                                  updateStepHeader(idx, headerIdx, hKey, e.target.value)
                                                 }
                                                 placeholder="Header value (e.g. Bearer token123)"
                                                 className="flex-1 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
@@ -1269,7 +1306,7 @@ export function ScenarioBuilder({
                                               <Button
                                                 size="xs"
                                                 variant="ghost"
-                                                onClick={() => deleteStepHeader(idx, hKey)}
+                                                onClick={() => deleteStepHeader(idx, headerIdx)}
                                                 title="Remove header"
                                                 icon={<X className="w-3 h-3 text-error" />}
                                               />
