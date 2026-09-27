@@ -1,7 +1,5 @@
 import {
   Check,
-  ChevronDown,
-  ChevronUp,
   Database,
   Edit,
   Globe,
@@ -12,7 +10,6 @@ import {
   RefreshCw,
   Save,
   Server,
-  Settings2,
   Smartphone,
   Terminal,
   Trash2,
@@ -29,11 +26,17 @@ import {
   saveFixture,
   setActiveEnvironment,
 } from "../api.ts"
-import type { ConfigMeta, EnvironmentMeta, EnvPlatformRecord, PlatformWithEnvOverrides } from "../types.ts"
+import type { ConfigMeta, EnvironmentMeta, EnvPlatformRecord } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
 import { EnvironmentModal } from "./EnvironmentModal.tsx"
-import { FormField, Input, NumberInput, TextArea } from "./FormControls.tsx"
+import {
+  EnvVariablesEditor,
+  type EnvVarRow,
+  envRowsToRecord,
+  recordToEnvRows,
+} from "./EnvVariablesEditor.tsx"
+import { FormField, Input } from "./FormControls.tsx"
 import { Modal } from "./Modal.tsx"
 import { PlatformModal } from "./PlatformModal.tsx"
 import { TabButton, useUrlTab } from "./Tabs.tsx"
@@ -114,7 +117,6 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
   }
 
   // Env-Platform pivot state
-  const [envPlatforms, setEnvPlatforms] = useState<PlatformWithEnvOverrides[]>([])
   const [allEnvPlatforms, setAllEnvPlatforms] = useState<EnvPlatformRecord[]>([])
 
   // In-page Environment Profile Form state
@@ -122,19 +124,8 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
   const [envScenarios, setEnvScenarios] = useState("")
   const [envFlows, setEnvFlows] = useState("")
   const [envResults, setEnvResults] = useState("")
-  const [envVarsJson, setEnvVarsJson] = useState("")
+  const [envRows, setEnvRows] = useState<EnvVarRow[]>([])
   const [isSavingEnv, setIsSavingEnv] = useState(false)
-
-  // Inline Platform Card Overrides Form state
-  const [expandedPlatformId, setExpandedPlatformId] = useState<string | null>(null)
-  const [overrideUrl, setOverrideUrl] = useState("")
-  const [overrideHealth, setOverrideHealth] = useState("")
-  const [overrideStartCmd, setOverrideStartCmd] = useState("")
-  const [overrideCwd, setOverrideCwd] = useState("")
-  const [overrideHeadless, setOverrideHeadless] = useState(false)
-  const [overrideSlowMo, setOverrideSlowMo] = useState<number | undefined>(undefined)
-  const [overrideAppId, setOverrideAppId] = useState("")
-  const [isSavingOverride, setIsSavingOverride] = useState(false)
 
   // Sync profile form when selected environment changes
   useEffect(() => {
@@ -142,24 +133,15 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
     setEnvScenarios(selectedEnvData.scenarios || config?.scenariosPath || ".e2e/scenarios")
     setEnvFlows(selectedEnvData.flows || ".e2e/flows")
     setEnvResults(selectedEnvData.results || config?.resultsPath || ".e2e/results")
-    setEnvVarsJson(
-      selectedEnvData.env
-        ? JSON.stringify(selectedEnvData.env, null, 2)
-        : `{\n  "APP_ENV": "${selectedEnvName}"\n}`,
+    setEnvRows(
+      recordToEnvRows(
+        selectedEnvData.env || { APP_ENV: selectedEnvName },
+      ),
     )
-    setExpandedPlatformId(null)
   }, [selectedEnvName, selectedEnvData, config?.scenariosPath, config?.resultsPath])
 
   const handleSaveEnvProfile = async () => {
-    let parsedVars: Record<string, string> | undefined
-    if (envVarsJson.trim()) {
-      try {
-        parsedVars = JSON.parse(envVarsJson.trim())
-      } catch {
-        toastError("Environment variables must be valid JSON object", "JSON Parse Error")
-        return
-      }
-    }
+    const parsedVars = envRowsToRecord(envRows)
 
     setIsSavingEnv(true)
     try {
@@ -179,56 +161,9 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
     }
   }
 
-  const handleToggleExpandPlatform = (p: PlatformWithEnvOverrides) => {
-    if (expandedPlatformId === p.id) {
-      setExpandedPlatformId(null)
-    } else {
-      setExpandedPlatformId(p.id)
-      setOverrideUrl(p.url || "")
-      setOverrideHealth(p.health || "")
-      setOverrideStartCmd(p.startCmd || "")
-      setOverrideCwd(p.cwd || "")
-      setOverrideHeadless(p.headless || false)
-      setOverrideSlowMo(p.slowMo)
-      setOverrideAppId(p.appId || "")
-    }
-  }
-
-  const handleSaveInlineOverride = async (p: PlatformWithEnvOverrides) => {
-    setIsSavingOverride(true)
-    try {
-      await saveEnvPlatform({
-        envName: selectedEnvName,
-        platformId: p.id,
-        enabled: p.enabled,
-        url: overrideUrl.trim() || undefined,
-        health: overrideHealth.trim() || undefined,
-        startCmd: overrideStartCmd.trim() || undefined,
-        cwd: overrideCwd.trim() || undefined,
-        headless: p.type === "web" ? overrideHeadless : undefined,
-        slowMo: p.type === "web" ? overrideSlowMo : undefined,
-        appId: p.type === "android" ? overrideAppId.trim() || undefined : undefined,
-      })
-      toastSuccess(
-        `Saved overrides for "${p.name}" in ${selectedEnvName}`,
-        "Overrides Saved",
-      )
-      await loadEnvPlatforms(selectedEnvName)
-      onConfigReload()
-      setExpandedPlatformId(null)
-    } catch (err) {
-      toastError((err as Error).message, "Failed to Save Overrides")
-    } finally {
-      setIsSavingOverride(false)
-    }
-  }
-
   const loadEnvPlatforms = async (envName: string) => {
     try {
       const data = await fetchEnvPlatforms(envName)
-      if (data.platformsWithEnv) {
-        setEnvPlatforms(data.platformsWithEnv)
-      }
       if (data.envPlatforms) {
         setAllEnvPlatforms(data.envPlatforms)
       }
@@ -243,23 +178,17 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
     }
   }, [selectedEnvName])
 
-  const handleTogglePlatform = async (p: PlatformWithEnvOverrides) => {
+  const handleTogglePlatform = async (platformId: string, currentEnabled: boolean, platformName: string) => {
     try {
       await saveEnvPlatform({
         envName: selectedEnvName,
-        platformId: p.id,
-        enabled: !p.enabled,
-        url: p.url,
-        health: p.health,
-        startCmd: p.startCmd,
-        cwd: p.cwd,
-        headless: p.headless,
-        slowMo: p.slowMo,
-        appId: p.appId,
+        platformId,
+        enabled: !currentEnabled,
       })
-      const statusTitle = !p.enabled ? "Enabled" : "Disabled"
+      const statusTitle = !currentEnabled ? "Enabled" : "Disabled"
+      const envTitle = selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)
       toastSuccess(
-        `Platform "${p.name}" ${statusTitle} in ${selectedEnvName}`,
+        `Platform "${platformName}" ${statusTitle} in ${envTitle}`,
         "Platform Status Updated",
       )
       await loadEnvPlatforms(selectedEnvName)
@@ -695,18 +624,11 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                   />
                 </FormField>
 
-                <FormField
-                  label="Environment Variables (JSON)"
-                  hint="Key-value pairs accessible in scenarios via ${env.KEY}"
-                >
-                  <TextArea
-                    rows={4}
-                    value={envVarsJson}
-                    onChange={(e) => setEnvVarsJson(e.target.value)}
-                    placeholder={`{\n  "APP_ENV": "${selectedEnvName}"\n}`}
-                    mono
-                  />
-                </FormField>
+                <EnvVariablesEditor
+                  rows={envRows}
+                  onChange={setEnvRows}
+                  disabled={isSavingEnv}
+                />
 
                 <div className="flex items-center justify-end pt-2 border-t border-border">
                   <Button
@@ -720,309 +642,6 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                   </Button>
                 </div>
               </div>
-
-              {/* Linked Platforms in this Environment */}
-              <div className="bg-sidebar border border-border rounded-xs p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-primary" />
-                    <div>
-                      <h3 className="text-xs font-bold text-fg-bright uppercase tracking-wider">
-                        Platforms in this Environment
-                      </h3>
-                      <p className="text-[11px] text-fg-muted">
-                        Platform status and environment-specific overrides for {selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)}.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="primary" size="xs">
-                      {envPlatforms.filter((p) => p.enabled).length} of {envPlatforms.length} Active
-                    </Badge>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => setIsPlatformModalOpen(true)}
-                      icon={<Plus className="w-3 h-3" />}
-                    >
-                      New Platform
-                    </Button>
-                  </div>
-                </div>
-
-                {envPlatforms.length === 0 ? (
-                  <div className="bg-editor/50 border border-dashed border-border rounded-xs p-6 text-center text-xs text-fg-muted space-y-2">
-                    <Layers className="w-6 h-6 mx-auto text-fg-muted" />
-                    <p>No platforms configured in this project yet.</p>
-                    <Button
-                      size="xs"
-                      variant="primary"
-                      onClick={() => setIsPlatformModalOpen(true)}
-                      icon={<Plus className="w-3 h-3" />}
-                    >
-                      Add Platform
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {envPlatforms.map((p) => {
-                      const isExpanded = expandedPlatformId === p.id
-
-                      return (
-                        <div
-                          key={p.id}
-                          className={`p-3.5 rounded-xs border transition-all flex flex-col justify-between gap-3 ${
-                            p.enabled
-                              ? "bg-sidebar border-border hover:border-border-light shadow-xs"
-                              : "bg-editor/30 border-border/60 opacity-70"
-                          }`}
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={`w-6 h-6 rounded-xs flex items-center justify-center ${
-                                    p.type === "web"
-                                      ? "bg-primary text-white"
-                                      : p.type === "android"
-                                        ? "bg-success text-white"
-                                        : "bg-warning text-black"
-                                  }`}
-                                >
-                                  {p.type === "web" && <Globe className="w-3.5 h-3.5" />}
-                                  {p.type === "android" && <Smartphone className="w-3.5 h-3.5" />}
-                                  {p.type === "api" && <Server className="w-3.5 h-3.5" />}
-                                </div>
-                                <div>
-                                  <span className="font-bold text-xs text-fg-bright">{p.name}</span>
-                                  <span className="text-[10px] text-fg-muted ml-1.5 uppercase font-mono">
-                                    ({p.type})
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-1.5">
-                                {p.hasOverrides && (
-                                  <Badge variant="warning" size="xs">
-                                    Customized
-                                  </Badge>
-                                )}
-                                <Badge variant={p.enabled ? "success" : "neutral"} size="xs">
-                                  {p.enabled ? "Enabled" : "Disabled"}
-                                </Badge>
-                              </div>
-                            </div>
-
-                            {/* Current Configuration Summary */}
-                            <div className="space-y-1 text-xs">
-                              {p.url && (
-                                <div className="flex items-center justify-between font-mono text-[11px] bg-editor/60 p-1.5 rounded-xs border border-border">
-                                  <span className="text-fg-muted text-[10px]">URL:</span>
-                                  <span className="text-primary truncate max-w-[220px]">{p.url}</span>
-                                </div>
-                              )}
-                              {p.startCmd && (
-                                <div className="flex items-center justify-between font-mono text-[11px] text-fg-muted">
-                                  <span>Start:</span>
-                                  <span className="truncate max-w-[200px] text-fg">{p.startCmd}</span>
-                                </div>
-                              )}
-                              {p.type === "web" && (
-                                <div className="flex items-center gap-2 text-[10px] text-fg-muted pt-0.5">
-                                  <span>Headless: {p.headless ? "Yes" : "No"}</span>
-                                  {p.slowMo !== undefined && <span>Slow-Mo: {p.slowMo}ms</span>}
-                                </div>
-                              )}
-                              {p.type === "android" && p.appId && (
-                                <div className="flex items-center justify-between font-mono text-[11px] text-fg-muted">
-                                  <span>App ID:</span>
-                                  <span className="truncate max-w-[200px] text-fg">{p.appId}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Inline Card Overrides Form Expansion */}
-                          {isExpanded && (
-                            <div className="pt-3 border-t border-border space-y-3 bg-editor/40 -mx-3.5 -mb-1 p-3.5 rounded-b-xs">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
-                                  <Settings2 className="w-3.5 h-3.5 text-primary" />
-                                  Overrides for {selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)}
-                                </span>
-                                {p.hasOverrides && (
-                                  <Badge variant="warning" size="xs">
-                                    Active
-                                  </Badge>
-                                )}
-                              </div>
-
-                              {p.type === "web" && (
-                                <div className="space-y-3">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <FormField label="Target Base URL" hint="Leave empty for default">
-                                      <Input
-                                        value={overrideUrl}
-                                        onChange={(e) => setOverrideUrl(e.target.value)}
-                                        placeholder={p.url || "http://localhost:5173"}
-                                        mono
-                                      />
-                                    </FormField>
-                                    <FormField label="Health Check Path" hint="e.g. /health">
-                                      <Input
-                                        value={overrideHealth}
-                                        onChange={(e) => setOverrideHealth(e.target.value)}
-                                        placeholder="/health"
-                                        mono
-                                      />
-                                    </FormField>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <FormField label="Start Command" hint="Optional launch cmd">
-                                      <Input
-                                        value={overrideStartCmd}
-                                        onChange={(e) => setOverrideStartCmd(e.target.value)}
-                                        placeholder="e.g. pnpm run dev"
-                                        mono
-                                      />
-                                    </FormField>
-                                    <FormField label="Working Directory (CWD)" hint="Folder for startCmd">
-                                      <Input
-                                        value={overrideCwd}
-                                        onChange={(e) => setOverrideCwd(e.target.value)}
-                                        placeholder="e.g. apps/frontend"
-                                        mono
-                                      />
-                                    </FormField>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                                    <label className="flex items-center gap-2 text-xs text-fg-bright cursor-pointer select-none">
-                                      <input
-                                        type="checkbox"
-                                        checked={overrideHeadless}
-                                        onChange={(e) => setOverrideHeadless(e.target.checked)}
-                                        className="rounded-xs border-border bg-input text-primary focus:ring-0"
-                                      />
-                                      <span>Run Headless</span>
-                                    </label>
-                                    <FormField label="Slow-Mo Delay (ms)">
-                                      <NumberInput
-                                        value={overrideSlowMo}
-                                        onChange={(val) => setOverrideSlowMo(val)}
-                                        min={0}
-                                        step={25}
-                                        suffix="ms"
-                                      />
-                                    </FormField>
-                                  </div>
-                                </div>
-                              )}
-
-                              {p.type === "api" && (
-                                <div className="space-y-3">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <FormField label="API Base URL" hint="Leave empty for default">
-                                      <Input
-                                        value={overrideUrl}
-                                        onChange={(e) => setOverrideUrl(e.target.value)}
-                                        placeholder={p.url || "http://localhost:3000"}
-                                        mono
-                                      />
-                                    </FormField>
-                                    <FormField label="Health Check Path" hint="e.g. /health">
-                                      <Input
-                                        value={overrideHealth}
-                                        onChange={(e) => setOverrideHealth(e.target.value)}
-                                        placeholder="/health"
-                                        mono
-                                      />
-                                    </FormField>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <FormField label="Start Command" hint="Optional launch cmd">
-                                      <Input
-                                        value={overrideStartCmd}
-                                        onChange={(e) => setOverrideStartCmd(e.target.value)}
-                                        placeholder="e.g. pnpm run dev"
-                                        mono
-                                      />
-                                    </FormField>
-                                    <FormField label="Working Directory (CWD)" hint="Folder for startCmd">
-                                      <Input
-                                        value={overrideCwd}
-                                        onChange={(e) => setOverrideCwd(e.target.value)}
-                                        placeholder="e.g. apps/api"
-                                        mono
-                                      />
-                                    </FormField>
-                                  </div>
-                                </div>
-                              )}
-
-                              {p.type === "android" && (
-                                <div className="space-y-3">
-                                  <FormField label="Application ID / Package" hint="Android package identifier">
-                                    <Input
-                                      value={overrideAppId}
-                                      onChange={(e) => setOverrideAppId(e.target.value)}
-                                      placeholder="e.g. com.example.app"
-                                      mono
-                                    />
-                                  </FormField>
-                                </div>
-                              )}
-
-                              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-                                <Button
-                                  size="xs"
-                                  variant="ghost"
-                                  onClick={() => setExpandedPlatformId(null)}
-                                  disabled={isSavingOverride}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  size="xs"
-                                  variant="primary"
-                                  onClick={() => handleSaveInlineOverride(p)}
-                                  isLoading={isSavingOverride}
-                                  icon={<Check className="w-3 h-3" />}
-                                >
-                                  Save Overrides
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex items-center justify-between pt-2 border-t border-border">
-                            <Button
-                              size="xs"
-                              variant={p.enabled ? "ghost" : "secondary"}
-                              onClick={() => handleTogglePlatform(p)}
-                            >
-                              {p.enabled ? "Disable in this Env" : "Enable in this Env"}
-                            </Button>
-                            <Button
-                              size="xs"
-                              variant={isExpanded ? "primary" : "secondary"}
-                              onClick={() => handleToggleExpandPlatform(p)}
-                              icon={
-                                isExpanded ? (
-                                  <ChevronUp className="w-3 h-3" />
-                                ) : (
-                                  <ChevronDown className="w-3 h-3" />
-                                )
-                              }
-                            >
-                              {isExpanded ? "Close Overrides" : "Configure Overrides"}
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         )}
@@ -1030,7 +649,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
         {/* SUB-TAB 2: PLATFORMS */}
         {activeSection === "platforms" && (
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-border">
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border">
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-bold text-fg-bright uppercase tracking-wider flex items-center gap-1.5">
@@ -1051,6 +670,56 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
               >
                 Add Platform
               </Button>
+            </div>
+
+            {/* Environment Selector Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-sidebar p-3 rounded-xs border border-border shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-fg-bright">
+                  <Globe className="w-4 h-4 text-primary" />
+                  <span>Target Environment:</span>
+                </div>
+                <div className="inline-flex items-center p-0.5 rounded-sm bg-activity border border-border">
+                  {envKeys.map((envName) => {
+                    const isSelected = envName === selectedEnvName
+                    const isActive = envName === activeEnvName
+                    const capitalized = envName.charAt(0).toUpperCase() + envName.slice(1)
+                    return (
+                      <TabButton
+                        key={envName}
+                        variant="pills"
+                        active={isSelected}
+                        onClick={() => setUrlEnv(envName)}
+                        badge={
+                          isActive ? (
+                            <Badge variant="success" size="xs">
+                              Active
+                            </Badge>
+                          ) : undefined
+                        }
+                      >
+                        {capitalized}
+                      </TabButton>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-fg-muted">
+                <span>Selected Environment:</span>
+                <span className="font-mono text-fg-bright font-bold">
+                  {selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)}
+                </span>
+                {selectedEnvName === activeEnvName ? (
+                  <Badge variant="success" size="xs">
+                    Active Target
+                  </Badge>
+                ) : (
+                  <Badge variant="neutral" size="xs">
+                    Profile
+                  </Badge>
+                )}
+              </div>
             </div>
 
             {platformsCount === 0 ? (
@@ -1088,11 +757,19 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                           : "driver-shell"
 
                   const service = config?.services?.[target.service]
+                  const platId = config?.platforms?.find((p) => p.name === name)?.id || `plat-${name}`
+                  const currentPivot = allEnvPlatforms.find(
+                    (ep) => ep.envName === selectedEnvName && ep.platformId === platId,
+                  )
+                  const isPlatEnabled = currentPivot ? currentPivot.enabled : true
+                  const selectedEnvCapitalized = selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)
 
                   return (
                     <div
                       key={name}
-                      className="bg-sidebar border border-border rounded-xs p-4 flex flex-col justify-between space-y-3 hover:border-border-light transition-colors shadow-xs"
+                      className={`bg-sidebar border rounded-xs p-4 flex flex-col justify-between space-y-3 transition-colors shadow-xs ${
+                        isPlatEnabled ? "border-border hover:border-border-light" : "border-border/60 opacity-75"
+                      }`}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
@@ -1102,9 +779,14 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                             {target.driver === "http" && <Server className="w-4 h-4 text-info" />}
                             <span className="font-bold text-sm text-fg-bright">{name}</span>
                           </div>
-                          <Badge variant={variant} size="xs">
-                            {driverTitle}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant={isPlatEnabled ? "success" : "neutral"} size="xs">
+                              {isPlatEnabled ? "Active" : "Disabled"}
+                            </Badge>
+                            <Badge variant={variant} size="xs">
+                              {driverTitle}
+                            </Badge>
+                          </div>
                         </div>
 
                         {/* Details */}
@@ -1198,28 +880,27 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                         </span>
                         <div className="flex flex-wrap gap-1.5">
                           {envKeys.map((eName) => {
-                            const platId = config?.platforms?.find((p) => p.name === name)?.id || `plat-${name}`
                             const pivot = allEnvPlatforms.find(
                               (ep) => ep.envName === eName && ep.platformId === platId,
                             )
-                            const isPlatEnabled = pivot ? pivot.enabled : true
+                            const isEnvPlatEnabled = pivot ? pivot.enabled : true
+                            const isSelected = eName === selectedEnvName
                             const capitalized = eName.charAt(0).toUpperCase() + eName.slice(1)
                             return (
                               <button
                                 type="button"
                                 key={eName}
-                                onClick={() => {
-                                  setActiveSection("environments")
-                                  setUrlEnv(eName)
-                                }}
-                                className="cursor-pointer transition-transform hover:scale-105"
-                                title={`Click to view and configure ${name} in ${capitalized}`}
+                                onClick={() => setUrlEnv(eName)}
+                                className={`cursor-pointer transition-transform hover:scale-105 ${
+                                  isSelected ? "ring-2 ring-primary rounded-xs" : ""
+                                }`}
+                                title={`Switch to ${capitalized} environment`}
                               >
                                 <Badge
-                                  variant={isPlatEnabled ? "success" : "neutral"}
+                                  variant={isEnvPlatEnabled ? "success" : "neutral"}
                                   size="xs"
                                 >
-                                  {capitalized}: {isPlatEnabled ? "Active" : "Disabled"}
+                                  {capitalized}: {isEnvPlatEnabled ? "Active" : "Disabled"}
                                 </Badge>
                               </button>
                             )
@@ -1227,7 +908,16 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-border flex items-center justify-end">
+                      <div className="pt-2 border-t border-border flex items-center justify-between">
+                        <Button
+                          size="xs"
+                          variant={isPlatEnabled ? "ghost" : "secondary"}
+                          onClick={() => handleTogglePlatform(platId, isPlatEnabled, name)}
+                        >
+                          {isPlatEnabled
+                            ? `Disable in ${selectedEnvCapitalized}`
+                            : `Enable in ${selectedEnvCapitalized}`}
+                        </Button>
                         <Button
                           size="xs"
                           variant="ghost"

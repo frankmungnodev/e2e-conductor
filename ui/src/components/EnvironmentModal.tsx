@@ -4,7 +4,13 @@ import { saveEnvironment, setActiveEnvironment } from "../api.ts"
 import type { EnvironmentMeta } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
-import { FormField, Input, TextArea } from "./FormControls.tsx"
+import {
+  EnvVariablesEditor,
+  type EnvVarRow,
+  envRowsToRecord,
+  recordToEnvRows,
+} from "./EnvVariablesEditor.tsx"
+import { FormField, Input } from "./FormControls.tsx"
 import { Modal } from "./Modal.tsx"
 import { useToast } from "./Toast.tsx"
 
@@ -52,11 +58,7 @@ export function EnvironmentModal({
   )
   const [flows, setFlows] = useState(initialData?.flows || ".e2e/flows")
   const [results, setResults] = useState(initialData?.results || ".e2e/results")
-  const [envVarsJson, setEnvVarsJson] = useState(
-    initialData?.env
-      ? JSON.stringify(initialData.env, null, 2)
-      : '{\n  "APP_ENV": "dev"\n}',
-  )
+  const [envRows, setEnvRows] = useState<EnvVarRow[]>([])
   const [isSaving, setIsSaving] = useState(false)
 
   const { error: toastError, success: toastSuccess } = useToast()
@@ -69,16 +71,14 @@ export function EnvironmentModal({
       setScenarios(initialData?.scenarios || ".e2e/scenarios")
       setFlows(initialData?.flows || ".e2e/flows")
       setResults(initialData?.results || ".e2e/results")
-      setEnvVarsJson(
-        initialData?.env ? JSON.stringify(initialData.env, null, 2) : "{}",
-      )
+      setEnvRows(recordToEnvRows(initialData?.env))
     } else {
       setName("dev")
       setDescription("Local development baseline")
       setScenarios(".e2e/scenarios")
       setFlows(".e2e/flows")
       setResults(".e2e/results")
-      setEnvVarsJson('{\n  "APP_ENV": "dev"\n}')
+      setEnvRows(recordToEnvRows({ APP_ENV: "dev" }))
       setPreset("dev")
     }
   }, [isOpen, initialEnvName, initialData])
@@ -88,19 +88,19 @@ export function EnvironmentModal({
     if (p === "dev") {
       setName("dev")
       setDescription("Local development baseline")
-      setEnvVarsJson('{\n  "APP_ENV": "dev"\n}')
+      setEnvRows(recordToEnvRows({ APP_ENV: "dev" }))
     } else if (p === "staging") {
       setName("staging")
       setDescription("Staging & pre-release verification")
-      setEnvVarsJson('{\n  "APP_ENV": "staging"\n}')
+      setEnvRows(recordToEnvRows({ APP_ENV: "staging" }))
     } else if (p === "prod") {
       setName("prod")
       setDescription("Production sanity verification")
-      setEnvVarsJson('{\n  "APP_ENV": "prod"\n}')
+      setEnvRows(recordToEnvRows({ APP_ENV: "prod" }))
     } else {
       setName("custom")
       setDescription("Custom target environment")
-      setEnvVarsJson('{\n  "APP_ENV": "custom"\n}')
+      setEnvRows(recordToEnvRows({ APP_ENV: "custom" }))
     }
   }
 
@@ -111,18 +111,7 @@ export function EnvironmentModal({
       return
     }
 
-    let parsedVars: Record<string, string> | undefined
-    if (envVarsJson.trim()) {
-      try {
-        parsedVars = JSON.parse(envVarsJson.trim())
-      } catch {
-        toastError(
-          "Environment variables must be valid JSON object",
-          "JSON Parse Error",
-        )
-        return
-      }
-    }
+    const parsedVars = envRowsToRecord(envRows)
 
     setIsSaving(true)
     try {
@@ -372,18 +361,11 @@ export function EnvironmentModal({
         </FormField>
 
         {/* Environment Variables (Full width) */}
-        <FormField
-          label="Environment Variables (JSON)"
-          hint="Key-value pairs accessible as ${env.KEY} in scenarios"
-        >
-          <TextArea
-            rows={5}
-            value={envVarsJson}
-            onChange={(e) => setEnvVarsJson(e.target.value)}
-            placeholder={`{\n  "APP_ENV": "main"\n}`}
-            mono
-          />
-        </FormField>
+        <EnvVariablesEditor
+          rows={envRows}
+          onChange={setEnvRows}
+          disabled={isSaving}
+        />
       </div>
     </Modal>
   )
