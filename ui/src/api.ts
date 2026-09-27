@@ -6,6 +6,7 @@ import type {
   RunHistoryItem,
   RunSummary,
   ScenarioItem,
+  StepRunItem,
 } from "./types.ts"
 
 const API_BASE = ""
@@ -349,3 +350,21 @@ export async function runFixtureTest(
   }
   return json
 }
+
+export async function fetchStepRuns(params?: {
+  scenarioId?: string
+  stepId?: string
+  runId?: string
+  limit?: number
+}): Promise<StepRunItem[]> {
+  const searchParams = new URLSearchParams()
+  if (params?.scenarioId) searchParams.set("scenarioId", params.scenarioId)
+  if (params?.stepId) searchParams.set("stepId", params.stepId)
+  if (params?.runId) searchParams.set("runId", params.runId)
+  if (params?.limit) searchParams.set("limit", String(params.limit))
+  const query = searchParams.toString() ? `?${searchParams.toString()}` : ""
+  const res = await fetch(`${API_BASE}/api/step-runs${query}`)
+  if (!res.ok) throw new Error("Failed to load step runs")
+  return res.json()
+}
+

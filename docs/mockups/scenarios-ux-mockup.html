@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scenario & Step Runs UX Mockup - e2e-orchestrator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            editor: '#1e1e1e',
+            sidebar: '#252526',
+            activity: '#181818',
+            titlebar: '#1f1f1f',
+            input: '#313131',
+            hover: '#2a2d2e',
+            active: '#37373d',
+            selection: '#264f78',
+            border: '#2d2d2d',
+            'border-light': '#3c3c3c',
+            'border-focus': '#007acc',
+            primary: '#007acc',
+            'primary-hover': '#1177bb',
+            fg: '#cccccc',
+            'fg-bright': '#ffffff',
+            'fg-muted': '#858585',
+            success: '#4ec9b0',
+            'success-bg': '#142a22',
+            'success-border': '#1f503e',
+            warning: '#dcdcaa',
+            'warning-bg': '#302611',
+            'warning-border': '#59471d',
+            error: '#f14c4c',
+            'error-bg': '#321618',
+            'error-border': '#632226',
+            info: '#75beff',
+            'info-bg': '#162a3f',
+            'info-border': '#244970',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* WCAG compliant minimum font size 12px */
+    body {
+      font-size: 12px;
+      line-height: 1.4;
+      background-color: #1e1e1e;
+      color: #cccccc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(121, 121, 121, 0.4);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none bg-editor text-fg">
+
+  <!-- Mockup Switcher & Demonstration Bar -->
+  <header class="bg-activity border-b border-border px-4 py-2 flex items-center justify-between z-50 shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-6 h-6 rounded bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-bold text-xs">
+        ⚡
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <span class="font-semibold text-fg-bright text-xs">UX Concept: Scenario & Step Runs Hierarchy</span>
+        <span class="text-xs text-fg-muted">Scenario (1) &rarr; Steps (N) &rarr; Step Runs (M)</span>
+      </div>
+    </div>
+
+    <!-- Layout Mode Switcher -->
+    <div class="flex items-center gap-2 bg-editor p-1 rounded border border-border">
+      <span class="text-xs text-fg-muted px-2 font-medium">Select UX Concept:</span>
+      <button id="btn-layout-a" onclick="switchLayout('a')" class="px-3 py-1 rounded text-xs font-medium transition cursor-pointer bg-primary text-white">
+        Concept A: 3-Column Studio (Explorer &rarr; Steps &rarr; Inspector)
+      </button>
+      <button id="btn-layout-b" onclick="switchLayout('b')" class="px-3 py-1 rounded text-xs font-medium transition cursor-pointer text-fg-muted hover:text-fg hover:bg-hover">
+        Concept B: 2-Column Split (Linear Stepper + Matrix)
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- CONCEPT A: 3-COLUMN STUDIO (EXPLORER -> STEP SEQUENCE -> STEP INSPECTOR) -->
+  <!-- ========================================================================= -->
+  <main id="layout-a" class="flex-1 flex overflow-hidden">
+    <!-- Col 1: Scenarios Explorer (260px) -->
+    <section class="w-64 border-r border-border bg-sidebar flex flex-col shrink-0">
+      <div class="p-3 border-b border-border flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-xs font-semibold text-fg-bright">Test Scenarios</span>
+            <span class="text-xs text-fg-muted">Select to view steps</span>
+          </div>
+          <button class="px-2 py-1 rounded bg-primary/15 text-primary border border-primary/30 text-xs font-medium hover:bg-primary/25 cursor-pointer">
+            + New
+          </button>
+        </div>
+        <input type="text" placeholder="Filter scenarios..." class="w-full px-2.5 py-1 text-xs rounded bg-input border border-border text-fg focus:outline-none focus:border-border-focus" value="checkout">
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-2 space-y-1">
+        <!-- Scenario Item Active -->
+        <div class="p-2.5 rounded bg-editor border-l-2 border-primary text-fg-bright flex flex-col gap-1 cursor-pointer">
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-xs truncate">02-checkout-flow</span>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-error-bg text-error border border-error-border">
+              Failed
+            </span>
+          </div>
+          <span class="text-xs text-fg-muted">4 Steps &bull; Last run 8m ago</span>
+        </div>
+
+        <!-- Scenario Item 2 -->
+        <div class="p-2.5 rounded hover:bg-hover text-fg flex flex-col gap-1 cursor-pointer">
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-xs truncate">01-user-auth</span>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
+              Passed
+            </span>
+          </div>
+          <span class="text-xs text-fg-muted">3 Steps &bull; Last run 25m ago</span>
+        </div>
+
+        <!-- Scenario Item 3 -->
+        <div class="p-2.5 rounded hover:bg-hover text-fg flex flex-col gap-1 cursor-pointer">
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-xs truncate">03-payment-webhook</span>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
+              Passed
+            </span>
+          </div>
+          <span class="text-xs text-fg-muted">2 Steps &bull; Last run 1h ago</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Col 2: Step Sequence / Stepper (340px) -->
+    <section class="w-80 border-r border-border bg-sidebar/50 flex flex-col shrink-0">
+      <!-- Scenario Header & Controls -->
+      <div class="p-3 border-b border-border bg-titlebar flex flex-col gap-2">
+        <div class="flex items-start justify-between">
+          <div class="flex flex-col gap-0.5 min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="font-bold text-fg-bright text-xs truncate">02-checkout-flow</span>
+              <span class="text-xs font-mono text-fg-muted bg-input px-1.5 py-0.5 rounded border border-border">.json</span>
+            </div>
+            <span class="text-xs text-fg-muted">End-to-end multi-platform cart checkout</span>
+          </div>
+          <button class="px-2.5 py-1 rounded bg-success/20 text-success border border-success/40 text-xs font-semibold hover:bg-success/30 cursor-pointer flex items-center gap-1">
+            <span>&#9654;</span> Run
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between pt-1 border-t border-border/60">
+          <span class="text-xs text-fg-muted font-medium">Steps Sequence (4)</span>
+          <button class="text-xs text-primary hover:underline cursor-pointer font-medium">+ Add Step</button>
+        </div>
+      </div>
+
+      <!-- Stepper List -->
+      <div class="flex-1 overflow-y-auto p-2 space-y-2">
+        <!-- Step 1 (Passed) -->
+        <div onclick="selectStep(1)" id="step-card-1" class="step-card p-2.5 rounded border border-border bg-editor/50 hover:bg-hover cursor-pointer transition flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-input flex items-center justify-center font-mono text-xs font-semibold text-fg-muted">1</span>
+              <span class="font-medium text-xs text-fg-bright">Authenticate Session</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">Passed</span>
+          </div>
+          <div class="flex items-center justify-between text-xs text-fg-muted pl-7">
+            <span class="px-1.5 py-0.5 rounded bg-info-bg text-info border border-info-border text-xs font-mono">POST /api/login</span>
+            <span>142ms</span>
+          </div>
+        </div>
+
+        <!-- Step 2 (Passed) -->
+        <div onclick="selectStep(2)" id="step-card-2" class="step-card p-2.5 rounded border border-border bg-editor/50 hover:bg-hover cursor-pointer transition flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-input flex items-center justify-center font-mono text-xs font-semibold text-fg-muted">2</span>
+              <span class="font-medium text-xs text-fg-bright">Seed Product Inventory</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">Passed</span>
+          </div>
+          <div class="flex items-center justify-between text-xs text-fg-muted pl-7">
+            <span class="px-1.5 py-0.5 rounded bg-warning-bg text-warning border border-warning-border text-xs font-mono">Shell: seed-stock.sh</span>
+            <span>310ms</span>
+          </div>
+        </div>
+
+        <!-- Step 3 (Failed on retry) - CURRENTLY ACTIVE -->
+        <div onclick="selectStep(3)" id="step-card-3" class="step-card p-2.5 rounded border-2 border-primary bg-editor shadow-md cursor-pointer transition flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-primary text-white flex items-center justify-center font-mono text-xs font-bold">3</span>
+              <span class="font-bold text-xs text-fg-bright">Submit Payment Order</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-error-bg text-error border border-error-border">Failed</span>
+          </div>
+          <div class="flex items-center justify-between text-xs pl-7">
+            <span class="px-1.5 py-0.5 rounded bg-info-bg text-info border border-info-border text-xs font-mono">POST /v1/orders</span>
+            <span class="text-error font-medium">Attempt 2 (402)</span>
+          </div>
+        </div>
+
+        <!-- Step 4 (Skipped) -->
+        <div onclick="selectStep(4)" id="step-card-4" class="step-card p-2.5 rounded border border-border bg-editor/30 hover:bg-hover cursor-pointer transition flex flex-col gap-1.5 opacity-60">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-input flex items-center justify-center font-mono text-xs font-semibold text-fg-muted">4</span>
+              <span class="font-medium text-xs text-fg-muted">Verify Confirmation Webhook</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-input text-fg-muted border border-border">Idle</span>
+          </div>
+          <div class="flex items-center justify-between text-xs text-fg-muted pl-7">
+            <span class="px-1.5 py-0.5 rounded bg-input text-fg-muted border border-border text-xs font-mono">GET /v1/webhooks</span>
+            <span>Skipped</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Col 3: Step Inspector & Execution Telemetry (Flex-1) -->
+    <section class="flex-1 flex flex-col bg-editor overflow-hidden">
+      <!-- Step Inspector Header -->
+      <div class="p-3 border-b border-border bg-titlebar flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/40 text-xs font-mono font-semibold">
+            Step 3 of 4
+          </span>
+          <div class="flex flex-col gap-0.5">
+            <span class="font-bold text-fg-bright text-xs">Submit Payment Order</span>
+            <span class="text-xs text-fg-muted">Target: Platform: API &bull; Driver: HTTP</span>
+          </div>
+        </div>
+
+        <!-- Pill Tabs for Step Navigation -->
+        <div class="flex items-center bg-sidebar p-0.5 rounded border border-border">
+          <button id="tab-btn-runs" onclick="switchStepTab('runs')" class="px-3 py-1 rounded text-xs font-medium transition cursor-pointer bg-primary text-white">
+            Step Runs (5 Runs)
+          </button>
+          <button id="tab-btn-config" onclick="switchStepTab('config')" class="px-3 py-1 rounded text-xs font-medium transition cursor-pointer text-fg-muted hover:text-fg hover:bg-hover">
+            Configuration
+          </button>
+          <button id="tab-btn-json" onclick="switchStepTab('json')" class="px-3 py-1 rounded text-xs font-medium transition cursor-pointer text-fg-muted hover:text-fg hover:bg-hover">
+            Raw JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 overflow-y-auto p-4 select-text">
+        <!-- Sub-View: STEP RUNS & TELEMETRY -->
+        <div id="step-view-runs" class="space-y-4 max-w-4xl mx-auto">
+          <!-- Summary Banner -->
+          <div class="p-3 rounded border border-error-border bg-error-bg/40 flex items-center justify-between">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs font-bold text-error flex items-center gap-1.5">
+                <span>&#9888;</span> Flakiness Detected in Recent Runs
+              </span>
+              <span class="text-xs text-fg">
+                This step failed in the most recent run (HTTP 402 Insufficient Funds) after 2 retry attempts.
+              </span>
+            </div>
+            <button class="px-2.5 py-1 rounded bg-primary text-white text-xs font-medium hover:bg-primary-hover cursor-pointer shrink-0">
+              Run Single Step
+            </button>
+          </div>
+
+          <!-- Step Runs Table -->
+          <div class="border border-border rounded overflow-hidden bg-sidebar">
+            <div class="px-3 py-2 border-b border-border bg-titlebar flex items-center justify-between">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-xs font-semibold text-fg-bright">Execution History for Step 3</span>
+                <span class="text-xs text-fg-muted">Chronological attempts across test runs</span>
+              </div>
+              <span class="text-xs text-fg-muted">Showing 5 most recent runs</span>
+            </div>
+
+            <table class="w-full text-left text-xs">
+              <thead class="bg-input/60 text-fg-muted border-b border-border text-xs uppercase font-semibold">
+                <tr>
+                  <th class="p-2.5">Run ID & Timestamp</th>
+                  <th class="p-2.5">Attempt</th>
+                  <th class="p-2.5">Status</th>
+                  <th class="p-2.5">Duration</th>
+                  <th class="p-2.5">HTTP Code / Result</th>
+                  <th class="p-2.5 text-right">Details</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                <!-- Attempt 2 (Failed) -->
+                <tr class="hover:bg-hover/60 bg-error-bg/15">
+                  <td class="p-2.5 font-mono text-fg-bright">
+                    run_20260927_210012
+                    <span class="block text-xs text-fg-muted font-sans">Today, 21:00:14</span>
+                  </td>
+                  <td class="p-2.5 font-mono">Attempt 2 (Retry)</td>
+                  <td class="p-2.5">
+                    <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-error-bg text-error border border-error-border">Failed</span>
+                  </td>
+                  <td class="p-2.5 font-mono">1,240ms</td>
+                  <td class="p-2.5 font-mono text-error">402 Payment Required</td>
+                  <td class="p-2.5 text-right">
+                    <button class="text-xs text-primary hover:underline cursor-pointer font-medium">Inspect Trace</button>
+                  </td>
+                </tr>
+
+                <!-- Attempt 1 (Failed) -->
+                <tr class="hover:bg-hover/60 bg-error-bg/15">
+                  <td class="p-2.5 font-mono text-fg-bright">
+                    run_20260927_210012
+                    <span class="block text-xs text-fg-muted font-sans">Today, 21:00:12</span>
+                  </td>
+                  <td class="p-2.5 font-mono">Attempt 1</td>
+                  <td class="p-2.5">
+                    <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-error-bg text-error border border-error-border">Failed</span>
+                  </td>
+                  <td class="p-2.5 font-mono">850ms</td>
+                  <td class="p-2.5 font-mono text-error">504 Gateway Timeout</td>
+                  <td class="p-2.5 text-right">
+                    <button class="text-xs text-primary hover:underline cursor-pointer font-medium">Inspect Trace</button>
+                  </td>
+                </tr>
+
+                <!-- Run 2 (Passed) -->
+                <tr class="hover:bg-hover/60">
+                  <td class="p-2.5 font-mono text-fg-bright">
+                    run_20260927_193000
+                    <span class="block text-xs text-fg-muted font-sans">Today, 19:30:05</span>
+                  </td>
+                  <td class="p-2.5 font-mono">Attempt 1</td>
+                  <td class="p-2.5">
+                    <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">Passed</span>
+                  </td>
+                  <td class="p-2.5 font-mono">312ms</td>
+                  <td class="p-2.5 font-mono text-success">200 OK</td>
+                  <td class="p-2.5 text-right">
+                    <button class="text-xs text-fg-muted hover:underline cursor-pointer font-medium">Inspect Trace</button>
+                  </td>
+                </tr>
+
+                <!-- Run 3 (Passed) -->
+                <tr class="hover:bg-hover/60">
+                  <td class="p-2.5 font-mono text-fg-bright">
+                    run_20260927_181522
+                    <span class="block text-xs text-fg-muted font-sans">Today, 18:15:24</span>
+                  </td>
+                  <td class="p-2.5 font-mono">Attempt 1</td>
+                  <td class="p-2.5">
+                    <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">Passed</span>
+                  </td>
+                  <td class="p-2.5 font-mono">290ms</td>
+                  <td class="p-2.5 font-mono text-success">200 OK</td>
+                  <td class="p-2.5 text-right">
+                    <button class="text-xs text-fg-muted hover:underline cursor-pointer font-medium">Inspect Trace</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Diagnostic Telemetry Card -->
+          <div class="p-3 rounded border border-border bg-sidebar flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
+              <span class="text-xs font-semibold text-fg-bright">Latest Failure Diagnosis (Attempt 2)</span>
+              <span class="text-xs text-fg-muted">Assertion expected status 200, received 402</span>
+            </div>
+            <pre class="p-2.5 rounded bg-editor border border-border text-error font-mono text-xs overflow-x-auto whitespace-pre-wrap">Error: Assertion Failed for Step 3:
+  Expected: { "status": 200 }
+  Received: {
+    "status": 402,
+    "body": {
+      "error": "insufficient_balance",
+      "message": "Payment method balance is below required total"
+    }
+  }</pre>
+          </div>
+        </div>
+
+        <!-- Sub-View: STEP CONFIGURATION (Editor) -->
+        <div id="step-view-config" class="space-y-4 max-w-4xl mx-auto hidden">
+          <div class="p-3 rounded border border-border bg-sidebar flex flex-col gap-3">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-xs font-semibold text-fg-bright">Step Name & Target</label>
+              <span class="text-xs text-fg-muted">Human-readable label and destination platform driver</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <input type="text" value="Submit Payment Order" class="w-full px-2.5 py-1.5 text-xs rounded bg-input border border-border text-fg-bright">
+              <select class="w-full px-2.5 py-1.5 text-xs rounded bg-input border border-border text-fg-bright">
+                <option selected>Platform: API (HTTP)</option>
+                <option>Platform: Web (Browser)</option>
+                <option>Platform: Mobile (App)</option>
+                <option>Platform: Shell (Command)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="p-3 rounded border border-border bg-sidebar flex flex-col gap-3">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-xs font-semibold text-fg-bright">HTTP Request Endpoint</label>
+              <span class="text-xs text-fg-muted">Method and relative request path</span>
+            </div>
+            <div class="flex gap-2">
+              <select class="w-28 px-2 py-1 text-xs rounded bg-input border border-border text-info font-bold">
+                <option>GET</option>
+                <option selected>POST</option>
+                <option>PUT</option>
+                <option>DELETE</option>
+              </select>
+              <input type="text" value="/v1/orders" class="flex-1 px-2.5 py-1 text-xs rounded bg-input border border-border font-mono text-fg-bright">
+            </div>
+
+            <div class="flex flex-col gap-1 pt-2 border-t border-border">
+              <label class="text-xs font-semibold text-fg-bright">Request Payload (JSON)</label>
+              <textarea rows="3" class="w-full p-2 text-xs rounded bg-input border border-border font-mono text-fg">{
+  "amount": 2999,
+  "currency": "USD",
+  "customer_id": "${extract.customer_id}"
+}</textarea>
+            </div>
+          </div>
+
+          <div class="p-3 rounded border border-border bg-sidebar flex flex-col gap-3">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-xs font-semibold text-fg-bright">Execution & Retry Policy</label>
+              <span class="text-xs text-fg-muted">Timeout threshold and automatic retry behavior</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div class="flex flex-col gap-1">
+                <span class="text-xs text-fg-muted">Timeout (ms)</span>
+                <input type="number" value="5000" class="px-2 py-1 text-xs rounded bg-input border border-border text-fg">
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-xs text-fg-muted">Max Retries</span>
+                <input type="number" value="2" class="px-2 py-1 text-xs rounded bg-input border border-border text-fg">
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-xs text-fg-muted">Retry Delay (ms)</span>
+                <input type="number" value="1000" class="px-2 py-1 text-xs rounded bg-input border border-border text-fg">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-View: RAW JSON -->
+        <div id="step-view-json" class="max-w-4xl mx-auto hidden">
+          <pre class="p-3 rounded border border-border bg-sidebar font-mono text-xs text-fg overflow-x-auto">{
+  "name": "Submit Payment Order",
+  "target": "api",
+  "method": "POST",
+  "url": "/v1/orders",
+  "timeout": 5000,
+  "retry": {
+    "times": 2,
+    "delayMs": 1000
+  },
+  "assert": {
+    "status": 200
+  }
+}</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- CONCEPT B: 2-COLUMN SPLIT (LINEAR STEPPER + EMBEDDED RUN MATRIX)          -->
+  <!-- ========================================================================= -->
+  <main id="layout-b" class="flex-1 flex overflow-hidden hidden">
+    <!-- Col 1: Scenarios Sidebar -->
+    <section class="w-64 border-r border-border bg-sidebar flex flex-col shrink-0">
+      <div class="p-3 border-b border-border flex flex-col gap-1">
+        <span class="text-xs font-semibold text-fg-bright">Scenarios</span>
+        <span class="text-xs text-fg-muted">Pick a scenario to inspect runs</span>
+      </div>
+      <div class="p-2 space-y-1">
+        <div class="p-2.5 rounded bg-editor border-l-2 border-primary text-fg-bright flex flex-col gap-0.5">
+          <span class="text-xs font-semibold">02-checkout-flow</span>
+          <span class="text-xs text-fg-muted">4 Steps &bull; Flaky (Failed)</span>
+        </div>
+        <div class="p-2.5 rounded hover:bg-hover text-fg flex flex-col gap-0.5">
+          <span class="text-xs font-medium">01-user-auth</span>
+          <span class="text-xs text-fg-muted">3 Steps &bull; Stable (Passed)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Col 2: Scenario Stepper with Embedded Run Matrix -->
+    <section class="flex-1 flex flex-col bg-editor overflow-hidden">
+      <!-- Scenario Header with Top Tabs -->
+      <div class="px-4 py-3 border-b border-border bg-titlebar flex items-center justify-between">
+        <div class="flex flex-col gap-0.5">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-fg-bright text-xs">Scenario: 02-checkout-flow</span>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-error-bg text-error border border-error-border">Failed</span>
+          </div>
+          <span class="text-xs text-fg-muted">Sequential steps with inline execution matrix across runs</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <div class="flex items-center bg-sidebar p-0.5 rounded border border-border">
+            <button class="px-3 py-1 rounded text-xs font-medium bg-primary text-white">Step Matrix View</button>
+            <button class="px-3 py-1 rounded text-xs font-medium text-fg-muted hover:text-fg">Setup & Fixtures</button>
+            <button class="px-3 py-1 rounded text-xs font-medium text-fg-muted hover:text-fg">Run History (Overall)</button>
+          </div>
+          <button class="px-3 py-1 rounded bg-success/20 text-success border border-success/40 text-xs font-semibold hover:bg-success/30 cursor-pointer">
+            &#9654; Run Scenario
+          </button>
+        </div>
+      </div>
+
+      <!-- Stepper Matrix Canvas -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-3 max-w-4xl mx-auto">
+        <!-- Step 1 Card -->
+        <div class="border border-border rounded bg-sidebar p-3 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-input text-xs font-bold flex items-center justify-center text-fg-muted">1</span>
+              <div class="flex flex-col gap-0.5">
+                <span class="text-xs font-semibold text-fg-bright">Authenticate Session</span>
+                <span class="text-xs text-fg-muted font-mono">POST /api/login &bull; Driver: HTTP</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-fg-muted font-mono">142ms</span>
+              <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">Passed</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 Card -->
+        <div class="border border-border rounded bg-sidebar p-3 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-input text-xs font-bold flex items-center justify-center text-fg-muted">2</span>
+              <div class="flex flex-col gap-0.5">
+                <span class="text-xs font-semibold text-fg-bright">Seed Product Inventory</span>
+                <span class="text-xs text-fg-muted font-mono">Shell: seed-stock.sh &bull; Driver: Shell</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-fg-muted font-mono">310ms</span>
+              <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">Passed</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 Card - EXPANDED WITH STEP RUNS TIMELINE -->
+        <div class="border-2 border-primary rounded bg-sidebar p-3 flex flex-col gap-3 shadow-md">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-primary text-white text-xs font-bold flex items-center justify-center">3</span>
+              <div class="flex flex-col gap-0.5">
+                <span class="text-xs font-bold text-fg-bright">Submit Payment Order</span>
+                <span class="text-xs text-fg-muted font-mono">POST /v1/orders &bull; Driver: HTTP</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-error font-medium">Attempt 2 (Failed)</span>
+              <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-error-bg text-error border border-error-border">Failed</span>
+            </div>
+          </div>
+
+          <!-- Inline Execution Runs Timeline for this step -->
+          <div class="pt-2 border-t border-border flex flex-col gap-2 bg-editor/50 p-2.5 rounded">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-fg-bright">Step 3 Runs & Retries:</span>
+              <span class="text-xs text-fg-muted">2 attempts in latest run</span>
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="p-2 rounded bg-input/70 border border-border flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-error"></span>
+                  <span class="text-xs font-medium text-fg-bright">Attempt 1</span>
+                  <span class="text-xs text-fg-muted font-mono">(504 Timeout)</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-fg-muted font-mono">850ms</span>
+                  <span class="text-xs text-error font-medium">Failed</span>
+                </div>
+              </div>
+
+              <div class="p-2 rounded bg-input/70 border border-error-border/60 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-error"></span>
+                  <span class="text-xs font-medium text-fg-bright">Attempt 2 (Retry)</span>
+                  <span class="text-xs text-fg-muted font-mono">(402 Insufficient Balance)</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-fg-muted font-mono">1,240ms</span>
+                  <span class="text-xs text-error font-medium">Failed</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4 Card -->
+        <div class="border border-border rounded bg-sidebar p-3 flex flex-col gap-2 opacity-50">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-input text-xs font-bold flex items-center justify-center text-fg-muted">4</span>
+              <div class="flex flex-col gap-0.5">
+                <span class="text-xs font-semibold text-fg-muted">Verify Confirmation Webhook</span>
+                <span class="text-xs text-fg-muted font-mono">GET /v1/webhooks &bull; Driver: HTTP</span>
+              </div>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-input text-fg-muted border border-border">Skipped</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Interactive JavaScript logic for mockup -->
+  <script>
+    function switchLayout(layout) {
+      const layoutA = document.getElementById('layout-a');
+      const layoutB = document.getElementById('layout-b');
+      const btnA = document.getElementById('btn-layout-a');
+      const btnB = document.getElementById('btn-layout-b');
+
+      if (layout === 'a') {
+        layoutA.classList.remove('hidden');
+        layoutB.classList.add('hidden');
+        btnA.className = 'px-3 py-1 rounded text-xs font-medium transition cursor-pointer bg-primary text-white';
+        btnB.className = 'px-3 py-1 rounded text-xs font-medium transition cursor-pointer text-fg-muted hover:text-fg hover:bg-hover';
+      } else {
+        layoutA.classList.add('hidden');
+        layoutB.classList.remove('hidden');
+        btnB.className = 'px-3 py-1 rounded text-xs font-medium transition cursor-pointer bg-primary text-white';
+        btnA.className = 'px-3 py-1 rounded text-xs font-medium transition cursor-pointer text-fg-muted hover:text-fg hover:bg-hover';
+      }
+    }
+
+    function switchStepTab(tab) {
+      const runsView = document.getElementById('step-view-runs');
+      const configView = document.getElementById('step-view-config');
+      const jsonView = document.getElementById('step-view-json');
+      const btnRuns = document.getElementById('tab-btn-runs');
+      const btnConfig = document.getElementById('tab-btn-config');
+      const btnJson = document.getElementById('tab-btn-json');
+
+      const tabs = [
+        { id: 'runs', el: runsView, btn: btnRuns },
+        { id: 'config', el: configView, btn: btnConfig },
+        { id: 'json', el: jsonView, btn: btnJson },
+      ];
+
+      tabs.forEach(t => {
+        if (t.id === tab) {
+          t.el.classList.remove('hidden');
+          t.btn.className = 'px-3 py-1 rounded text-xs font-medium transition cursor-pointer bg-primary text-white';
+        } else {
+          t.el.classList.add('hidden');
+          t.btn.className = 'px-3 py-1 rounded text-xs font-medium transition cursor-pointer text-fg-muted hover:text-fg hover:bg-hover';
+        }
+      });
+    }
+
+    function selectStep(stepIndex) {
+      document.querySelectorAll('.step-card').forEach((card, idx) => {
+        if (idx + 1 === stepIndex) {
+          card.classList.add('border-2', 'border-primary', 'bg-editor', 'shadow-md');
+          card.classList.remove('border-border', 'bg-editor/50');
+        } else {
+          card.classList.remove('border-2', 'border-primary', 'bg-editor', 'shadow-md');
+          card.classList.add('border-border', 'bg-editor/50');
+        }
+      });
+    }
+  </script>
+</body>
+</html>

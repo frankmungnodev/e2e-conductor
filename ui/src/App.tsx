@@ -25,10 +25,10 @@ import { useUrlTab } from "./components/Tabs.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 
-const VALID_MAIN_TABS = ["runner", "artifacts", "scenarios", "preflight", "config"] as const
+const VALID_MAIN_TABS = ["scenarios", "runner", "artifacts", "preflight", "config"] as const
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useUrlTab<TabType>("tab", "runner", VALID_MAIN_TABS)
+  const [activeTab, setActiveTab] = useUrlTab<TabType>("tab", "scenarios", VALID_MAIN_TABS)
   const [config, setConfig] = useState<ConfigMeta | null>(null)
   const [scenarios, setScenarios] = useState<ScenarioItem[]>([])
   const [flows, setFlows] = useState<FlowItem[]>([])
@@ -272,6 +272,8 @@ function AppContent() {
             scenarios={scenarios}
             flows={flows}
             config={config ?? undefined}
+            isRunning={isRunning}
+            onStartRun={handleStartRun}
             onSaveScenario={handleSaveScenario}
             onDeleteScenario={handleDeleteScenario}
             onSaveFlow={handleSaveFlow}

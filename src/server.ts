@@ -1198,6 +1198,25 @@ export function startServer(
             })
           }
 
+          // GET /api/step-runs
+          if (pathname === "/api/step-runs" && req.method === "GET") {
+            const urlObj = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`)
+            const scenarioId = urlObj.searchParams.get("scenarioId") || undefined
+            const stepId = urlObj.searchParams.get("stepId") || undefined
+            const runId = urlObj.searchParams.get("runId") || undefined
+            const limit = urlObj.searchParams.has("limit") ? Number(urlObj.searchParams.get("limit")) : 200
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            if (existsSync(dbPath)) {
+              try {
+                const stepRuns = withDb(dbPath, (db) => getDbStepRuns(db, { scenarioId, stepId, runId, limit }))
+                return sendJson(res, 200, stepRuns)
+              } catch (e) {
+                return sendJson(res, 500, { error: (e as Error).message })
+              }
+            }
+            return sendJson(res, 200, [])
+          }
+
           // GET /api/steps/:stepId/runs
           if (pathname.startsWith("/api/steps/") && pathname.endsWith("/runs") && req.method === "GET") {
             const stepId = decodeURIComponent(pathname.replace("/api/steps/", "").replace("/runs", ""))

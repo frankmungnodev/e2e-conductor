@@ -85,20 +85,26 @@ The orchestrator provides unified access to both database-backed telemetry and f
 |---|---|---|
 | `/api/runs` | `GET` | Returns execution history sorted by `started_at DESC`, merging SQLite records with filesystem summary metadata. |
 | `/api/runs/:runId` | `GET` | Returns full run metadata, scenario-level artifact listings, captured screenshots, and the array of all associated `stepRuns`. |
+| `/api/step-runs` | `GET` | Queries step execution telemetry filtered by `scenarioId`, `stepId`, or `runId`. |
 | `/api/steps/:stepId/runs` | `GET` | Queries historical execution records for a specific step across all runs, enabling flakiness detection and performance tracking. |
 
 ---
 
 ## 4. UI Representation
 
-In the Web GUI (`ArtifactsView.tsx`):
+In the Web GUI:
 
-- **Run History Sidebar**: Displays run timestamp, environment, duration, and status badge.
-- **Run Details View**:
-  - **Screenshots Tab**: Grid of screenshots captured during failures or explicit visual check steps.
-  - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, and diagnostic error message or status code.
-  - **Run Log Tab**: Full terminal stream and execution log (`run.log`).
-- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`).
+- **Scenarios Studio View (`ScenarioBuilder.tsx`)**:
+  - **Explorer Column**: Scenarios list with step count, validation status, and recent health indicators.
+  - **Steps Stepper Column**: Compact step sequence showing step index, target driver badge, and latest run outcome pill (`Passed`, `Failed`, `Running`, or `Idle`) with execution timing.
+  - **Step Inspector Column**: Deep inspection tabs including **Step Runs & Telemetry** (chronological attempts, status code, duration, and error trace diagnostics), **Configuration** (driver properties, assertions, extractions, timeouts, and retries), and **Raw JSON**.
+- **Reports & Artifacts View (`ArtifactsView.tsx`)**:
+  - **Run History Sidebar**: Displays run timestamp, environment, duration, and status badge.
+  - **Run Details View**:
+    - **Screenshots Tab**: Grid of screenshots captured during failures or explicit visual check steps.
+    - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, and diagnostic error message or status code.
+    - **Run Log Tab**: Full terminal stream and execution log (`run.log`).
+- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Idle`).
 
 ---
 

@@ -278,6 +278,12 @@ describe("startServer", () => {
       const delPlatformData = (await delPlatformRes.json()) as any
       assert.equal(delPlatformData.ok, true)
       assert.ok(!delPlatformData.targets.web_admin)
+
+      // 24. GET /api/step-runs
+      const stepRunsRes = await fetch(`${url}/api/step-runs?scenarioId=test-scenario`)
+      assert.equal(stepRunsRes.status, 200)
+      const stepRunsData = (await stepRunsRes.json()) as any[]
+      assert.ok(Array.isArray(stepRunsData))
     } finally {
       await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
     }

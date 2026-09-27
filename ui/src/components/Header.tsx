@@ -3,7 +3,7 @@ import type React from "react"
 import { Badge } from "./Badge.tsx"
 import { TabButton } from "./Tabs.tsx"
 
-export type TabType = "runner" | "artifacts" | "scenarios" | "preflight" | "config"
+export type TabType = "scenarios" | "runner" | "artifacts" | "preflight" | "config"
 
 type HeaderProps = {
   activeTab: TabType
@@ -23,9 +23,9 @@ export function Header({
   isConnected = true,
 }: HeaderProps) {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
+    { id: "scenarios", label: "Scenarios", icon: <FileCode className="w-3.5 h-3.5" /> },
     { id: "runner", label: "Runner", icon: <Play className="w-3.5 h-3.5" /> },
     { id: "artifacts", label: "Reports", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-    { id: "scenarios", label: "Scenarios", icon: <FileCode className="w-3.5 h-3.5" /> },
     { id: "preflight", label: "Health", icon: <Server className="w-3.5 h-3.5" /> },
     { id: "config", label: "Config", icon: <Sliders className="w-3.5 h-3.5" /> },
   ]
@@ -41,7 +41,7 @@ export function Header({
           <span className="font-semibold text-fg-bright text-xs tracking-tight">
             e2e-orchestrator
           </span>
-          <span className="text-[10px] font-mono px-1 rounded-xs bg-sidebar text-fg-muted border border-border">
+          <span className="text-xs font-mono px-1.5 py-0.2 rounded-xs bg-sidebar text-fg-muted border border-border">
             v0.2.0
           </span>
         </div>
@@ -86,7 +86,7 @@ export function Header({
           </Badge>
         )}
 
-        <span className="text-[11px] text-fg-muted">
+        <span className="text-xs text-fg-muted">
           {scenariosCount} scenario{scenariosCount === 1 ? "" : "s"}
         </span>
       </div>
