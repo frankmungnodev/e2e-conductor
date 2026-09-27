@@ -111,7 +111,7 @@ describe("loadScenarios", () => {
       }),
     )
     assert.match(problems, /http step needs "url"/)
-    assert.match(problems, /mobile step needs "action", "flow", or "launch"/)
+    assert.match(problems, /mobile step needs "actions", "action", "flow", or "launch"/)
   })
 
   it("checks each named flow once", () => {
@@ -128,4 +128,39 @@ describe("loadScenarios", () => {
     assert.equal(problems.match(/flow bad\.yaml:/g)?.length, 1)
     assert.match(problems, /y\.json: steps\[0\] "s": flow not found: .*missing\.yaml/)
   })
+
+  it("accepts valid composite step actions for web and mobile", () => {
+    const config = project({
+      "composite.json": {
+        name: "Composite Scenario",
+        steps: [
+          {
+            name: "Web Checkout Steps",
+            target: "web",
+            actions: [
+              { action: "navigate", url: "/login" },
+              { action: "fill", selector: "#user", value: "alice" },
+              { action: "click", selector: "#submit" },
+            ],
+          },
+          {
+            name: "Mobile Onboarding Steps",
+            target: "app",
+            actions: [
+              { action: "tap", selector: "Get Started" },
+              { action: "type", value: "alice@example.com" },
+              { action: "press", key: "ENTER" },
+            ],
+          },
+        ],
+      },
+    })
+    config.targets.web = { driver: "web", service: "api", modules: "modules" }
+    const loaded = loadScenarios(config)
+    assert.equal(loaded.length, 1)
+    assert.equal(loaded[0].name, "Composite Scenario")
+    assert.equal(loaded[0].steps[0].actions?.length, 3)
+    assert.equal(loaded[0].steps[1].actions?.length, 3)
+  })
 })
+

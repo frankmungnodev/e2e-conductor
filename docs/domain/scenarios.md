@@ -37,6 +37,16 @@ CREATE TABLE IF NOT EXISTS scenario_steps (
   updated_at INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS step_presets (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  target TEXT NOT NULL,            -- Platform target identifier ("web", "mobile", etc.)
+  step TEXT NOT NULL,              -- Serialized JSON object: Step (with actions)
+  created_at INTEGER,
+  updated_at INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS step_groups (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -52,51 +62,56 @@ CREATE INDEX IF NOT EXISTS idx_scenario_steps_scenario ON scenario_steps(scenari
 
 ---
 
-## 2. Step Fields & Declarative Actions
+## 2. Step Fields & Composite Actions
 
-Each scenario step consists of common orchestration fields and target-specific driver configurations. The orchestrator employs a **Zero-Code Declarative Model** where standard browser and mobile interactions execute natively without requiring helper files.
+Each scenario step represents a milestone or phase (e.g., *Admin Login*, *Add to Cart*, *Verify Order*). The orchestrator employs a **Zero-Code Composite Step Architecture** where each step contains an ordered array of execution actions (`actions: StepAction[]`):
 
-### Common Fields
+### Common Step Fields
 - `id`: Optional unique identifier for the step (auto-generated if omitted upon persistence).
-- `name`: Human-readable label displayed in test execution runners and logs.
+- `name`: Human-readable milestone label displayed in test execution runners and logs.
 - `target`: The platform or driver to execute against (e.g. `web`, `http`, `shell`, `android`). Must match a compiled target in configuration.
+- `actions`: An ordered array of declarative execution actions (`StepAction[]`).
 - `timeout_ms`: Maximum step duration in milliseconds.
 - `retry`: Retry policy specifying `times` and `delay_ms`.
 - `assert`: Assertions to evaluate against the driver outcome (`assert_json`).
 - `extract`: Map of variable names to JSON path expressions extracted from step results into the execution context (`extract_json`).
 
-### Target Driver Fields (`driver_config`)
-- **Web driver (`target: "web"`)**:
-  - `action`: Declarative action (`navigate`, `click`, `fill`, `press`, `wait_for`, `assert_visible`, `assert_text`, `hover`, `select`, `check`, `uncheck`, `screenshot`, `eval`).
-  - `url`: Destination URL or relative path for `navigate`.
-  - `selector`: CSS selector or locator for target DOM elements.
-  - `value`: Input text for `fill`, expected text for `assert_text`, or JavaScript code for `eval`.
-  - `key`: Keyboard key for `press` (e.g. `Enter`, `Tab`, `Escape`).
-  - `ms`: Delay duration in milliseconds for `wait_for`.
-  - *Escape Hatch (`run`)*: Optional TypeScript module name in `.e2e/modules` for complex script execution.
-- **Mobile driver (`target: "mobile"`)**:
-  - `action`: Declarative action (`tap`, `type`, `press`, `swipe`, `assert_visible`, `assert_not_visible`, `wait`, `back`, `hidekeyboard`, `launch`).
-  - `selector`: Target element text, accessibility label, or resource ID.
-  - `value`: Text input content for `type`.
-  - `key`: Key name for `press` (`BACK`, `ENTER`, `HOME`, `TAB`) or swipe direction (`RIGHT`, `LEFT`, `UP`, `DOWN`).
-  - `ms`: Delay duration in milliseconds.
-  - `launch`: App lifecycle behavior (`restart` or `fresh` to wipe state).
-  - *Legacy Fallback (`flow`)*: Optional YAML flow file in `.e2e/flows`.
-- **HTTP driver (`target: "http"`)**: `url`, `method`, `headers`, `body`.
-- **Shell driver (`target: "shell"`)**: `command`, `cwd`.
+### StepAction Structure
+Each action in `step.actions` executes sequentially within the step's driver session:
+- `id`: Optional client-side action ID.
+- `name`: Human-readable label for this specific action.
+- `action`: Specific driver action keyword:
+  - **Web**: `navigate`, `click`, `fill`, `press`, `wait_for`, `assert_visible`, `assert_text`, `hover`, `select`, `check`, `uncheck`, `screenshot`, `eval`.
+  - **Mobile**: `tap`, `type`, `press`, `swipe`, `assert_visible`, `assert_not_visible`, `wait_for`, `back`, `hidekeyboard`, `launch`, `stop`.
+- `selector`: CSS selector, XPath, or mobile element label/resource ID.
+- `value`: Text input value, expected assertion text, or script content.
+- `url`: Destination URL for web navigation.
+- `key`: Keyboard key (`Enter`, `Tab`, `Escape`, `BACK`, `HOME`) or swipe direction (`RIGHT`, `LEFT`, `UP`, `DOWN`).
+- `ms`: Delay duration or timeout in milliseconds.
+
+### Single-Action Backwards Compatibility
+For backwards compatibility, drivers support legacy single-action fields directly on the step (`step.action`, `step.selector`, `step.value`, etc.), automatically wrapping them into a single-action execution.
+
+### Target Driver Escape Hatches
+- **Web driver**: `run` - optional TypeScript module name in `.e2e/modules` for custom script execution.
+- **Mobile driver**: `flow` - optional YAML flow file in `.e2e/flows`.
+- **HTTP driver**: `url`, `method`, `headers`, `body`.
+- **Shell driver**: `command`, `cwd`.
 
 ---
 
-## 3. Reusable Step Presets (`step_groups`)
+## 3. Reusable Step Presets (`step_presets`)
 
-The `step_groups` table stores modular, reusable step sequences (e.g., *Admin Login*, *Seed Test Database*, *Verify Cart Total*).
-- Presets can be inserted directly into any scenario at any position from the Scenario Studio UI.
-- Test authors can save any scenario's step sequence as a new reusable preset in SQLite.
-- Presets eliminate boilerplate repetition across test suites without needing code-based helper functions.
+A **Preset** is a reusable **Step** template (storing target platform and pre-configured `actions`).
+- Stored directly in SQLite (`step_presets` table).
+- Dual-written to `.e2e/presets/<id>.json` on disk for Git versioning and export/import portability.
+- If the SQLite `step_presets` table is empty on startup, presets are automatically seeded from `.e2e/presets/*.json`.
+- Authors can save any configured step as a preset with one click from the Step Inspector header.
+- Authors can insert a pre-configured step directly into any scenario from the Stepper header (`+ Add Step from Preset`).
 
 ---
 
-## 3. Storage Synchronization & Dual-Write
+## 4. Storage Synchronization & Dual-Write
 
 To preserve Git-based version control compatibility alongside relational SQLite querying:
 
@@ -107,7 +122,7 @@ To preserve Git-based version control compatibility alongside relational SQLite 
 
 ---
 
-## 4. Execution Lifecycle
+## 5. Execution Lifecycle
 
 During test execution (`src/runner.ts`):
 
@@ -120,7 +135,7 @@ During test execution (`src/runner.ts`):
 
 ---
 
-## 5. Core Invariants
+## 6. Core Invariants
 
 1. **Unique Scenario ID**: Scenario IDs are unique alphanumeric identifiers (e.g. `01-smoke`, `02-checkout`).
 2. **Cascading Deletion**: Deleting a scenario immediately cascades and removes all associated `scenario_steps`.

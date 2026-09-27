@@ -5,10 +5,22 @@ export type StepAssert = {
   json_match?: Record<string, unknown>
 }
 
+export type StepAction = {
+  id?: string
+  name?: string
+  action: string
+  selector?: string
+  value?: string
+  url?: string
+  key?: string
+  ms?: number
+}
+
 export type ScenarioStep = {
   id?: string
   name: string
   target: string
+  actions?: StepAction[]
   extract?: Record<string, string>
   assert?: StepAssert
   timeout_ms?: number
@@ -28,6 +40,16 @@ export type ScenarioStep = {
   params?: Record<string, unknown>
   command?: string
   cwd?: string
+}
+
+export type StepPreset = {
+  id: string
+  name: string
+  description?: string
+  target: string
+  step: ScenarioStep
+  createdAt?: number
+  updatedAt?: number
 }
 
 export type StepGroup = {

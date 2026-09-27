@@ -10,6 +10,7 @@ import {
   deletePlatform,
   deleteScenario,
   deleteStepGroup,
+  deleteStepPreset,
   getActiveEnvironment,
   getDefaultEnvironment,
   getEnvironments,
@@ -23,6 +24,8 @@ import {
   getScenarios,
   getStepGroup,
   getStepGroups,
+  getStepPreset,
+  getStepPresets,
   getStepRuns,
   openDatabase,
   type PlatformRecord,
@@ -36,6 +39,7 @@ import {
   saveRun,
   saveScenario,
   saveStepGroup,
+  saveStepPreset,
   saveStepRun,
   setActiveEnvironment,
   setDefaultEnvironment,
@@ -551,6 +555,82 @@ describe("sqlite db configuration storage", () => {
     deleteStepGroup(db, "preset-login")
     assert.equal(getStepGroups(db).length, 0)
     assert.equal(getStepGroup(db, "preset-login"), undefined)
+
+    db.close()
+  })
+
+  it("manages composite step actions and reusable single-step presets in the database", () => {
+    const dbPath = join(dir, "composite-presets.db")
+    const db = openDatabase(dbPath)
+
+    // 1. Scenario with composite actions
+    saveScenario(db, {
+      id: "web-checkout",
+      name: "Web Checkout Scenario",
+      steps: [
+        {
+          id: "step-auth",
+          name: "Authenticate User",
+          target: "web",
+          actions: [
+            { id: "act-1", action: "navigate", url: "/login" },
+            { id: "act-2", action: "fill", selector: "#user", value: "alice" },
+            { id: "act-3", action: "fill", selector: "#pass", value: "secret" },
+            { id: "act-4", action: "click", selector: "button[type='submit']" },
+          ],
+        },
+      ],
+    })
+
+    const scenarios = getScenarios(db)
+    assert.equal(scenarios.length, 1)
+    assert.equal(scenarios[0].steps.length, 1)
+    const step = scenarios[0].steps[0]
+    assert.equal(step.name, "Authenticate User")
+    assert.equal(step.actions?.length, 4)
+    assert.equal(step.actions[0].action, "navigate")
+    assert.equal(step.actions[0].url, "/login")
+    assert.equal(step.actions[1].action, "fill")
+    assert.equal(step.actions[1].selector, "#user")
+    assert.equal(step.actions[1].value, "alice")
+
+    // 2. Step presets CRUD
+    assert.equal(getStepPresets(db).length, 0)
+
+    saveStepPreset(db, {
+      id: "preset-web-login",
+      name: "Admin Web Login Preset",
+      description: "Standard admin login steps",
+      target: "web",
+      step: {
+        name: "Admin Web Login",
+        target: "web",
+        actions: [
+          { action: "navigate", url: "/admin/login" },
+          { action: "fill", selector: "#admin-email", value: "admin@example.com" },
+          { action: "click", selector: "#login-btn" },
+        ],
+      },
+    })
+
+    let presets = getStepPresets(db)
+    assert.equal(presets.length, 1)
+    assert.equal(presets[0].id, "preset-web-login")
+    assert.equal(presets[0].name, "Admin Web Login Preset")
+    assert.equal(presets[0].target, "web")
+    assert.equal(presets[0].step.actions?.length, 3)
+    assert.equal(presets[0].step.actions?.[0].action, "navigate")
+
+    // Get specific preset
+    const preset = getStepPreset(db, "preset-web-login")
+    assert.ok(preset)
+    assert.equal(preset.name, "Admin Web Login Preset")
+
+    // Delete preset
+    deleteStepPreset(db, "preset-web-login")
+    presets = getStepPresets(db)
+    assert.equal(presets.length, 0)
+    assert.equal(getStepPreset(db, "preset-web-login"), undefined)
 
     db.close()
   })

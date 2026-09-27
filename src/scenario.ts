@@ -4,22 +4,25 @@ import { type LoadedConfig, type MobileTarget, resolveFromConfig, SHELL_TARGET }
 import {
   type Assert,
   getScenarios,
+  getStepPresets,
   openDatabase,
   resolveDbPath,
   type Scenario,
   type Step,
+  type StepPreset,
   saveScenario,
+  saveStepPreset,
 } from "./db.ts"
 import { checkFlow } from "./flow.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 
-export type { Assert, Scenario, Step }
+export type { Assert, Scenario, Step, StepPreset }
 
 /** Fields each driver accepts on top of the common step fields. */
 const DRIVER_FIELDS: Record<string, string[]> = {
   http: ["method", "url", "headers", "body"],
-  web: ["action", "selector", "value", "key", "url", "ms", "run", "params"],
-  mobile: ["action", "selector", "value", "key", "ms", "flow", "launch", "params"],
+  web: ["actions", "action", "selector", "value", "key", "url", "ms", "run", "params"],
+  mobile: ["actions", "action", "selector", "value", "key", "ms", "flow", "launch", "params"],
   shell: ["command", "cwd"],
 }
 const REQUIRED: Record<string, string> = { http: "url", web: "run", mobile: "flow", shell: "command" }
@@ -66,15 +69,15 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlow
     }
     const hasRequired =
       driver === "web"
-        ? step.action !== undefined || step.run !== undefined
+        ? (step.actions !== undefined && step.actions.length > 0) || step.action !== undefined || step.run !== undefined
         : driver === "mobile"
-          ? step.action !== undefined || step.flow !== undefined || step.launch !== undefined
+          ? (step.actions !== undefined && step.actions.length > 0) || step.action !== undefined || step.flow !== undefined || step.launch !== undefined
           : step[REQUIRED[driver] as keyof Step] !== undefined
     if (!hasRequired) {
       if (driver === "web") {
-        errors.push(`${where}: web step needs "action" or "run"`)
+        errors.push(`${where}: web step needs "actions", "action", or "run"`)
       } else if (driver === "mobile") {
-        errors.push(`${where}: mobile step needs "action", "flow", or "launch"`)
+        errors.push(`${where}: mobile step needs "actions", "action", "flow", or "launch"`)
       } else {
         errors.push(`${where}: ${driver} step needs "${REQUIRED[driver]}"`)
       }
@@ -173,4 +176,70 @@ export function loadScenarios(config: LoadedConfig, filters: string[] = []): Sce
 
 export function targetsUsed(scenarios: Scenario[]): Set<string> {
   return new Set(scenarios.flatMap((scenario) => scenario.steps.map((step) => step.target)))
+}
+
+/**
+ * Loads step presets from SQLite database. If the database exists but contains no
+ * presets, seeds them by importing valid JSON presets from the filesystem (.e2e/presets/*.json).
+ * Falls back to reading directly from filesystem if database does not exist.
+ */
+export function getOrSeedPresets(config: LoadedConfig): StepPreset[] {
+  const dbPath = resolveDbPath(config.configDir)
+  const presetsDir = join(config.configDir, "presets")
+
+  if (existsSync(dbPath)) {
+    try {
+      const db = openDatabase(dbPath)
+      try {
+        let presets = getStepPresets(db)
+        if (presets.length === 0 && existsSync(presetsDir)) {
+          const files = readdirSync(presetsDir).filter((file) => file.endsWith(".json")).sort()
+          for (const file of files) {
+            try {
+              const raw = JSON.parse(readFileSync(join(presetsDir, file), "utf8"))
+              const id = raw.id || basename(file, ".json")
+              const preset: StepPreset = {
+                id,
+                name: raw.name || id,
+                description: raw.description,
+                target: raw.target || raw.step?.target || "web",
+                step: raw.step || { name: raw.name || id, target: raw.target || "web", actions: raw.actions },
+              }
+              saveStepPreset(db, preset)
+            } catch {
+              // ignore preset seed errors
+            }
+          }
+          presets = getStepPresets(db)
+        }
+        if (presets.length > 0) {
+          return presets
+        }
+      } finally {
+        db.close()
+      }
+    } catch {
+      // fallback to disk
+    }
+  }
+
+  if (!existsSync(presetsDir)) return []
+  const files = readdirSync(presetsDir).filter((file) => file.endsWith(".json")).sort()
+  const list: StepPreset[] = []
+  for (const file of files) {
+    try {
+      const raw = JSON.parse(readFileSync(join(presetsDir, file), "utf8"))
+      const id = raw.id || basename(file, ".json")
+      list.push({
+        id,
+        name: raw.name || id,
+        description: raw.description,
+        target: raw.target || raw.step?.target || "web",
+        step: raw.step || { name: raw.name || id, target: raw.target || "web", actions: raw.actions },
+      })
+    } catch {
+      // ignore
+    }
+  }
+  return list
 }

@@ -93,8 +93,31 @@
           "type": "object",
           "description": "web: passed to the module; mobile: replaces ${NAME} in the flow"
         },
+        "actions": {
+          "type": "array",
+          "description": "web or mobile: ordered list of execution actions",
+          "items": { "$ref": "#/definitions/StepAction" }
+        },
         "command": { "type": "string", "description": "shell: command run with sh -c" },
         "cwd": { "type": "string", "description": "shell: working directory, relative to the config file" }
+      }
+    },
+    "StepAction": {
+      "type": "object",
+      "required": ["action"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "action": {
+          "type": "string",
+          "description": "Action name (e.g. navigate, click, fill, press, wait_for, tap, type, swipe, launch)"
+        },
+        "selector": { "type": "string" },
+        "value": {},
+        "url": { "type": "string" },
+        "key": { "type": "string" },
+        "ms": { "type": "integer" }
       }
     },
     "Assert": {

@@ -12,6 +12,7 @@ import {
   deletePlatform as deleteDbPlatform,
   deleteScenario as deleteDbScenario,
   deleteStepGroup as deleteDbStepGroup,
+  deleteStepPreset as deleteDbStepPreset,
   type EnvPlatformRecord,
   getActiveEnvironment as getDbActiveEnvironment,
   getDefaultEnvironment as getDbDefaultEnvironment,
@@ -30,12 +31,14 @@ import {
   platformsToTargetsAndServices,
   resolveDbPath,
   type StepGroup,
+  type StepPreset,
   saveEnvironment as saveDbEnvironment,
   saveEnvPlatform as saveDbEnvPlatform,
   saveFixture as saveDbFixture,
   savePlatform as saveDbPlatform,
   saveScenario as saveDbScenario,
   saveStepGroup as saveDbStepGroup,
+  saveStepPreset as saveDbStepPreset,
   setActiveEnvironment as setDbActiveEnvironment,
   withDb,
   writeDbPointer,
@@ -45,7 +48,7 @@ import { initProject } from "./init.ts"
 import { isUp, unfinishedGitOperation } from "./preflight.ts"
 import { adbPath, runAdb, runShell, startBackground } from "./process.ts"
 import { type RunEvent, type RunOptions, run, type Summary } from "./runner.ts"
-import { checkSteps, getOrSeedScenarios, type Scenario, targetsUsed } from "./scenario.ts"
+import { checkSteps, getOrSeedPresets, getOrSeedScenarios, type Scenario, targetsUsed } from "./scenario.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 import {
   detectWorkspace,
@@ -891,6 +894,98 @@ export function startServer(
             } catch (error) {
               return sendJson(res, 500, { error: (error as Error).message })
             }
+          }
+
+          // GET /api/presets
+          if (pathname === "/api/presets" && req.method === "GET") {
+            try {
+              const presets = getOrSeedPresets(currentConfig)
+              return sendJson(res, 200, { presets })
+            } catch (error) {
+              return sendJson(res, 500, { error: (error as Error).message })
+            }
+          }
+
+          // POST /api/presets
+          if (pathname === "/api/presets" && req.method === "POST") {
+            const body = (await readBody(req)) as StepPreset
+            if (!body?.name || !body.step) {
+              return sendJson(res, 400, { error: "Missing required fields: name and step" })
+            }
+            const presetId =
+              body.id ||
+              `preset-${body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}`
+            const preset: StepPreset = {
+              id: presetId,
+              name: body.name.trim(),
+              description: body.description?.trim(),
+              target: body.target || body.step.target || "web",
+              step: {
+                ...body.step,
+                name: body.step.name || body.name.trim(),
+                target: body.step.target || body.target || "web",
+              },
+              createdAt: body.createdAt || Date.now(),
+              updatedAt: Date.now(),
+            }
+
+            // Save to SQLite
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            if (existsSync(dbPath)) {
+              try {
+                withDb(dbPath, (db) => saveDbStepPreset(db, preset))
+              } catch {
+                // ignore db save error
+              }
+            }
+
+            // Dual-write to filesystem: .e2e/presets/<id>.json
+            try {
+              const presetsDir = join(currentConfig.configDir, "presets")
+              mkdirSync(presetsDir, { recursive: true })
+              const filePath = join(presetsDir, `${preset.id}.json`)
+              writeFileSync(filePath, `${JSON.stringify(preset, null, 2)}\n`)
+            } catch {
+              // ignore fs error
+            }
+
+            return sendJson(res, 200, { ok: true, preset })
+          }
+
+          // DELETE /api/presets/:id
+          if (pathname.startsWith("/api/presets/") && req.method === "DELETE") {
+            const id = pathname.replace("/api/presets/", "").trim()
+            let found = false
+
+            // Delete from SQLite
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            if (existsSync(dbPath)) {
+              try {
+                withDb(dbPath, (db) => {
+                  deleteDbStepPreset(db, id)
+                  found = true
+                })
+              } catch {
+                // ignore db delete error
+              }
+            }
+
+            // Delete from filesystem
+            try {
+              const presetsDir = join(currentConfig.configDir, "presets")
+              const filePath = join(presetsDir, `${id}.json`)
+              if (existsSync(filePath)) {
+                rmSync(filePath)
+                found = true
+              }
+            } catch {
+              // ignore fs error
+            }
+
+            if (found) {
+              return sendJson(res, 200, { ok: true, id })
+            }
+            return sendJson(res, 404, { error: `Preset ${id} not found` })
           }
 
           // GET /api/flows

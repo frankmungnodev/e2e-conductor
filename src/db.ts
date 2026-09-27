@@ -10,10 +10,22 @@ export type Assert = {
   json_match?: Record<string, unknown>
 }
 
+export type StepAction = {
+  id?: string
+  name?: string
+  action: string
+  selector?: string
+  value?: string
+  url?: string
+  key?: string
+  ms?: number
+}
+
 export type Step = {
   id?: string
   name: string
   target: string
+  actions?: StepAction[]
   extract?: Record<string, string>
   assert?: Assert
   timeout_ms?: number
@@ -23,7 +35,7 @@ export type Step = {
   url?: string
   headers?: Record<string, string>
   body?: unknown
-  // declarative actions (web & mobile)
+  // declarative actions (web & mobile single action fallback)
   action?: string
   selector?: string
   value?: string
@@ -37,6 +49,16 @@ export type Step = {
   // shell
   command?: string
   cwd?: string
+}
+
+export type StepPreset = {
+  id: string
+  name: string
+  description?: string
+  target: string
+  step: Step
+  createdAt?: number
+  updatedAt?: number
 }
 
 export type StepGroup = {
@@ -353,6 +375,16 @@ export function openDatabase(dbPath: string): DatabaseSync {
       description TEXT,
       target TEXT,
       steps TEXT NOT NULL,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS step_presets (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      target TEXT NOT NULL,
+      step_json TEXT NOT NULL,
       created_at INTEGER,
       updated_at INTEGER
     );
@@ -1350,6 +1382,69 @@ export function saveStepGroup(db: DatabaseSync, group: StepGroup): void {
 
 export function deleteStepGroup(db: DatabaseSync, id: string): void {
   db.prepare("DELETE FROM step_groups WHERE id = ?").run(id)
+}
+
+type StepPresetRow = {
+  id: string
+  name: string
+  description?: string | null
+  target: string
+  step_json: string
+  created_at?: number | null
+  updated_at?: number | null
+}
+
+export function getStepPresets(db: DatabaseSync): StepPreset[] {
+  const rows = db.prepare("SELECT * FROM step_presets ORDER BY name ASC").all() as StepPresetRow[]
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description ?? undefined,
+    target: r.target,
+    step: safeJsonParse<Step>(r.step_json) ?? { name: r.name, target: r.target },
+    createdAt: r.created_at ?? undefined,
+    updatedAt: r.updated_at ?? undefined,
+  }))
+}
+
+export function getStepPreset(db: DatabaseSync, id: string): StepPreset | undefined {
+  const r = db.prepare("SELECT * FROM step_presets WHERE id = ?").get(id) as StepPresetRow | undefined
+  if (!r) return undefined
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description ?? undefined,
+    target: r.target,
+    step: safeJsonParse<Step>(r.step_json) ?? { name: r.name, target: r.target },
+    createdAt: r.created_at ?? undefined,
+    updatedAt: r.updated_at ?? undefined,
+  }
+}
+
+export function saveStepPreset(db: DatabaseSync, preset: StepPreset): void {
+  const now = Date.now()
+  db.prepare(`
+    INSERT INTO step_presets (id, name, description, target, step_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      description = excluded.description,
+      target = excluded.target,
+      step_json = excluded.step_json,
+      updated_at = excluded.updated_at
+  `).run(
+    preset.id,
+    preset.name,
+    preset.description || null,
+    preset.target,
+    JSON.stringify(preset.step || { name: preset.name, target: preset.target }),
+    preset.createdAt ?? now,
+    now,
+  )
+}
+
+export function deleteStepPreset(db: DatabaseSync, id: string): void {
+  db.prepare("DELETE FROM step_presets WHERE id = ?").run(id)
 }
 
 export function saveRun(db: DatabaseSync, run: RunRecord): void {
