@@ -26,7 +26,7 @@ import { useUrlTab } from "./components/Tabs.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 
-const VALID_MAIN_TABS = ["runner", "scenarios", "modules", "preflight", "artifacts", "config"] as const
+const VALID_MAIN_TABS = ["runner", "artifacts", "scenarios", "modules", "preflight", "config"] as const
 
 function AppContent() {
   const [activeTab, setActiveTab] = useUrlTab<TabType>("tab", "runner", VALID_MAIN_TABS)
@@ -259,6 +259,8 @@ function AppContent() {
           />
         )}
 
+        {activeTab === "artifacts" && <ArtifactsView />}
+
         {activeTab === "scenarios" && (
           <ScenarioBuilder
             scenarios={scenarios}
@@ -285,7 +287,6 @@ function AppContent() {
           />
         )}
 
-        {activeTab === "artifacts" && <ArtifactsView />}
         {activeTab === "config" && (
           <ConfigView config={config} onConfigReload={loadInitialData} />
         )}

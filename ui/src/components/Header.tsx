@@ -3,7 +3,7 @@ import type React from "react"
 import { Badge } from "./Badge.tsx"
 import { TabButton } from "./Tabs.tsx"
 
-export type TabType = "runner" | "scenarios" | "modules" | "preflight" | "artifacts" | "config"
+export type TabType = "runner" | "artifacts" | "scenarios" | "modules" | "preflight" | "config"
 
 type HeaderProps = {
   activeTab: TabType
@@ -24,10 +24,10 @@ export function Header({
 }: HeaderProps) {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     { id: "runner", label: "Runner", icon: <Play className="w-3.5 h-3.5" /> },
+    { id: "artifacts", label: "Reports", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
     { id: "scenarios", label: "Scenarios", icon: <FileCode className="w-3.5 h-3.5" /> },
     { id: "modules", label: "Modules", icon: <Code2 className="w-3.5 h-3.5" /> },
     { id: "preflight", label: "Health", icon: <Server className="w-3.5 h-3.5" /> },
-    { id: "artifacts", label: "Reports", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
     { id: "config", label: "Config", icon: <Sliders className="w-3.5 h-3.5" /> },
   ]
 
