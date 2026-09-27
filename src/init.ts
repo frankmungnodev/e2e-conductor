@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { stdin as input, stdout as output } from "node:process"
 import * as readline from "node:readline/promises"
-import { openDatabase, resolveDbPath, resolveProjectDir, saveEnvironment, savePlatform } from "./db.ts"
+import { openDatabase, resolveDbPath, resolveProjectDir, saveEnvironment, savePlatform, saveScenario } from "./db.ts"
 import { color } from "./logger.ts"
 import {
   detectWorkspace,
@@ -53,6 +53,11 @@ export function initProject(targetPath: string = process.cwd()): { created: stri
       url: "http://localhost:3000",
       serviceName: "api",
       health: "/",
+    })
+    saveScenario(db, {
+      id: "smoke",
+      name: SMOKE.name,
+      steps: SMOKE.steps,
     })
     db.close()
     created.push(dbPath)

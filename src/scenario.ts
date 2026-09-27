@@ -1,48 +1,19 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 import { type LoadedConfig, type MobileTarget, resolveFromConfig, SHELL_TARGET } from "./config.ts"
+import {
+  type Assert,
+  getScenarios,
+  openDatabase,
+  resolveDbPath,
+  type Scenario,
+  type Step,
+  saveScenario,
+} from "./db.ts"
 import { checkFlow } from "./flow.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 
-export type Assert = {
-  status?: number
-  exit_code?: number
-  output_contains?: string
-  json_match?: Record<string, unknown>
-}
-
-export type Step = {
-  name: string
-  target: string
-  extract?: Record<string, string>
-  assert?: Assert
-  timeout_ms?: number
-  retry?: { times: number; delay_ms?: number }
-  // http
-  method?: string
-  url?: string
-  headers?: Record<string, string>
-  body?: unknown
-  // web / mobile
-  run?: string
-  flow?: string
-  /** mobile: launch the app through adb before the flow. */
-  launch?: "fresh" | "restart"
-  params?: Record<string, unknown>
-  // shell
-  command?: string
-  cwd?: string
-}
-
-export type Scenario = {
-  name: string
-  description?: string
-  setup?: string[]
-  vars?: Record<string, unknown>
-  steps: Step[]
-  /** File name without extension. */
-  id: string
-}
+export type { Assert, Scenario, Step }
 
 /** Fields each driver accepts on top of the common step fields. */
 const DRIVER_FIELDS: Record<string, string[]> = {
@@ -52,7 +23,7 @@ const DRIVER_FIELDS: Record<string, string[]> = {
   shell: ["command", "cwd"],
 }
 const REQUIRED: Record<string, string> = { http: "url", web: "run", mobile: "flow", shell: "command" }
-const COMMON = new Set(["name", "target", "extract", "assert", "timeout_ms", "retry"])
+const COMMON = new Set(["id", "name", "target", "extract", "assert", "timeout_ms", "retry"])
 
 function driverOf(config: LoadedConfig, target: string): string {
   if (target === SHELL_TARGET) return SHELL_TARGET
@@ -105,34 +76,88 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlow
   return errors
 }
 
-export function loadScenarios(config: LoadedConfig, filters: string[] = []): Scenario[] {
-  const dir = resolveFromConfig(config, config.scenarios)
-  const files = readdirSync(dir)
-    .filter((file) => file.endsWith(".json"))
-    .sort()
-    .filter((file) => filters.length === 0 || filters.some((filter) => file.includes(filter)))
+/**
+ * Loads scenarios from the SQLite database. If the database exists but contains no
+ * scenarios, seeds them by importing valid JSON scenarios from the filesystem.
+ * Falls back to reading directly from the filesystem if the database does not exist.
+ */
+export function getOrSeedScenarios(config: LoadedConfig): Scenario[] {
+  const dbPath = resolveDbPath(config.configDir)
+  if (existsSync(dbPath)) {
+    try {
+      const db = openDatabase(dbPath)
+      try {
+        let dbScenarios = getScenarios(db)
+        if (dbScenarios.length === 0) {
+          const dir = resolveFromConfig(config, config.scenarios)
+          if (existsSync(dir)) {
+            const files = readdirSync(dir).filter((file) => file.endsWith(".json")).sort()
+            for (const file of files) {
+              try {
+                const raw = JSON.parse(readFileSync(join(dir, file), "utf8"))
+                const sc = { ...raw, id: basename(file, ".json") } as Scenario
+                if (validateScenario(raw)) {
+                  saveScenario(db, sc)
+                }
+              } catch {
+                // ignore seeding error
+              }
+            }
+            dbScenarios = getScenarios(db)
+          }
+        }
+        if (dbScenarios.length > 0) {
+          return dbScenarios
+        }
+      } finally {
+        db.close()
+      }
+    } catch {
+      // ignore db error, fall back to filesystem
+    }
+  }
 
-  if (files.length === 0) {
+  // Filesystem fallback
+  const dir = resolveFromConfig(config, config.scenarios)
+  if (!existsSync(dir)) return []
+  const files = readdirSync(dir).filter((file) => file.endsWith(".json")).sort()
+  const list: Scenario[] = []
+  for (const file of files) {
+    try {
+      const raw = JSON.parse(readFileSync(join(dir, file), "utf8"))
+      list.push({ ...raw, id: basename(file, ".json") } as Scenario)
+    } catch {
+      // ignore
+    }
+  }
+  return list
+}
+
+export function loadScenarios(config: LoadedConfig, filters: string[] = []): Scenario[] {
+  const all = getOrSeedScenarios(config)
+  const filtered = all.filter((s) => filters.length === 0 || filters.some((filter) => s.id.includes(filter)))
+
+  if (filtered.length === 0) {
+    const dir = resolveFromConfig(config, config.scenarios)
     throw new Error(`No scenarios in ${dir}${filters.length ? ` matching ${filters.join(", ")}` : ""}`)
   }
 
   const problems: string[] = []
   const checkedFlows = new Set<string>()
-  const scenarios = files.map((file) => {
-    const raw = JSON.parse(readFileSync(join(dir, file), "utf8"))
-    const scenario = { ...raw, id: basename(file, ".json") } as Scenario
-    if (!validateScenario(raw)) {
-      for (const error of describeErrors(validateScenario.errors)) problems.push(`${file}: ${error}`)
-      return scenario
+  for (const scenario of filtered) {
+    const label = `${scenario.id}.json`
+    if (!validateScenario(scenario)) {
+      for (const error of describeErrors(validateScenario.errors)) problems.push(`${label}: ${error}`)
     }
-    for (const error of checkSteps(config, scenario, checkedFlows)) problems.push(`${file}: ${error}`)
-    return scenario
-  })
+    for (const error of checkSteps(config, scenario, checkedFlows)) {
+      problems.push(`${label}: ${error}`)
+    }
+  }
 
   if (problems.length > 0) {
     throw new Error(`Invalid scenarios:\n  ${problems.join("\n  ")}`)
   }
-  return scenarios
+  return filtered
 }
 
 export function targetsUsed(scenarios: Scenario[]): Set<string> {

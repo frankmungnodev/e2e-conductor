@@ -8,6 +8,7 @@ import {
   deleteEnvPlatform,
   deleteFixture,
   deletePlatform,
+  deleteScenario,
   getActiveEnvironment,
   getDefaultEnvironment,
   getEnvironments,
@@ -15,6 +16,11 @@ import {
   getFixtures,
   getPlatforms,
   getPlatformsForEnv,
+  getRun,
+  getRuns,
+  getScenario,
+  getScenarios,
+  getStepRuns,
   openDatabase,
   type PlatformRecord,
   platformsToTargetsAndServices,
@@ -24,6 +30,9 @@ import {
   saveEnvPlatform,
   saveFixture,
   savePlatform,
+  saveRun,
+  saveScenario,
+  saveStepRun,
   setActiveEnvironment,
   setDefaultEnvironment,
   writeDbPointer,
@@ -331,5 +340,173 @@ describe("sqlite db configuration storage", () => {
 
     db.close()
   })
+
+  it("manages scenarios and steps in the database", () => {
+    const dbPath = join(dir, "scenarios-test.db")
+    const db = openDatabase(dbPath)
+
+    // Initially empty
+    assert.deepEqual(getScenarios(db), [])
+
+    // Save scenario with multiple steps across drivers
+    saveScenario(db, {
+      id: "checkout-flow",
+      name: "Checkout Flow",
+      description: "Tests shopping cart to order completion",
+      setup: ["reset-db", "seed-catalog"],
+      vars: { itemId: "item-123" },
+      steps: [
+        {
+          id: "step-1",
+          name: "Add item to cart",
+          target: "web",
+          run: "cart/add",
+          params: { id: "${ctx.itemId}" },
+        },
+        {
+          id: "step-2",
+          name: "Verify order status",
+          target: "api",
+          method: "GET",
+          url: "/api/orders/1",
+          assert: { status: 200, json_match: { status: "confirmed" } },
+          extract: { orderId: "data.id" },
+        },
+        {
+          id: "step-3",
+          name: "Check device notification",
+          target: "app",
+          flow: "verify-notification.yaml",
+          launch: "restart",
+        },
+      ],
+    })
+
+    const scenarios = getScenarios(db)
+    assert.equal(scenarios.length, 1)
+    const sc = scenarios[0]
+    assert.equal(sc.id, "checkout-flow")
+    assert.equal(sc.name, "Checkout Flow")
+    assert.deepEqual(sc.setup, ["reset-db", "seed-catalog"])
+    assert.equal(sc.vars?.itemId, "item-123")
+    assert.equal(sc.steps.length, 3)
+
+    // Verify step fields reconstruction
+    const s1 = sc.steps[0]
+    assert.equal(s1.name, "Add item to cart")
+    assert.equal(s1.target, "web")
+    assert.equal(s1.run, "cart/add")
+    assert.deepEqual(s1.params, { id: "${ctx.itemId}" })
+
+    const s2 = sc.steps[1]
+    assert.equal(s2.name, "Verify order status")
+    assert.equal(s2.target, "api")
+    assert.equal(s2.method, "GET")
+    assert.equal(s2.url, "/api/orders/1")
+    assert.equal(s2.assert?.status, 200)
+    assert.deepEqual(s2.assert?.json_match, { status: "confirmed" })
+    assert.deepEqual(s2.extract, { orderId: "data.id" })
+
+    // Query single scenario
+    const single = getScenario(db, "checkout-flow")
+    assert.ok(single)
+    assert.equal(single.name, "Checkout Flow")
+    assert.equal(single.steps.length, 3)
+
+    // Delete scenario cascades to steps
+    deleteScenario(db, "checkout-flow")
+    assert.equal(getScenarios(db).length, 0)
+    assert.equal(getScenario(db, "checkout-flow"), undefined)
+
+    db.close()
+  })
+
+  it("manages runs and step_runs in the database", () => {
+    const dbPath = join(dir, "runs-test.db")
+    const db = openDatabase(dbPath)
+
+    // Initially empty
+    assert.deepEqual(getRuns(db), [])
+
+    const runId = "2026-09-27T12-00-00-000Z"
+    saveRun(db, {
+      id: runId,
+      environmentName: "staging",
+      status: "RUNNING",
+      totalScenarios: 2,
+      passedScenarios: 0,
+      failedScenarios: 0,
+      startedAt: 1727438400000,
+    })
+
+    let runs = getRuns(db)
+    assert.equal(runs.length, 1)
+    assert.equal(runs[0].id, runId)
+    assert.equal(runs[0].status, "RUNNING")
+    assert.equal(runs[0].environmentName, "staging")
+
+    // Record step runs
+    saveStepRun(db, {
+      id: `${runId}:login:0:1`,
+      runId,
+      stepId: "step-login",
+      scenarioId: "login",
+      iteration: 1,
+      attempt: 1,
+      status: "PASSED",
+      durationMs: 145,
+      statusCode: 200,
+      resultData: { token: "abc" },
+      createdAt: 1727438401000,
+    })
+
+    saveStepRun(db, {
+      id: `${runId}:checkout:0:1`,
+      runId,
+      stepId: "step-checkout",
+      scenarioId: "checkout",
+      iteration: 1,
+      attempt: 1,
+      status: "FAILED",
+      durationMs: 320,
+      errorMessage: "Order timeout",
+      artifactsPath: ".e2e/results/artifacts/run-1",
+      createdAt: 1727438402000,
+    })
+
+    // Complete run
+    saveRun(db, {
+      id: runId,
+      environmentName: "staging",
+      status: "FAILED",
+      totalScenarios: 2,
+      passedScenarios: 1,
+      failedScenarios: 1,
+      durationMs: 465,
+      startedAt: 1727438400000,
+      completedAt: 1727438403000,
+    })
+
+    runs = getRuns(db)
+    assert.equal(runs[0].status, "FAILED")
+    assert.equal(runs[0].passedScenarios, 1)
+    assert.equal(runs[0].failedScenarios, 1)
+
+    // Query run with step runs
+    const runDetails = getRun(db, runId)
+    assert.ok(runDetails)
+    assert.equal(runDetails.stepRuns.length, 2)
+    assert.equal(runDetails.stepRuns[0].status, "PASSED")
+    assert.equal(runDetails.stepRuns[1].status, "FAILED")
+    assert.equal(runDetails.stepRuns[1].errorMessage, "Order timeout")
+
+    // Query step runs by stepId
+    const stepRuns = getStepRuns(db, { stepId: "step-checkout" })
+    assert.equal(stepRuns.length, 1)
+    assert.equal(stepRuns[0].errorMessage, "Order timeout")
+
+    db.close()
+  })
 })
+
 

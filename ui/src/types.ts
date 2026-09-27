@@ -6,6 +6,7 @@ export type StepAssert = {
 }
 
 export type ScenarioStep = {
+  id?: string
   name: string
   target: string
   extract?: Record<string, string>
@@ -182,10 +183,32 @@ export type RunSummary = {
   artifacts: string
 }
 
+export type StepRunItem = {
+  id: string
+  runId: string
+  stepId?: string
+  scenarioId: string
+  iteration: number
+  attempt: number
+  status: "PENDING" | "RUNNING" | "PASSED" | "FAILED" | "SKIPPED"
+  durationMs?: number
+  statusCode?: number
+  errorMessage?: string
+  resultData?: unknown
+  artifactsPath?: string
+  createdAt: number
+}
+
 export type RunHistoryItem = {
   runId: string
   timestamp: number
   scenarios: string[]
+  environmentName?: string
+  status?: "RUNNING" | "PASSED" | "FAILED" | "CANCELLED"
+  totalScenarios?: number
+  passedScenarios?: number
+  failedScenarios?: number
+  durationMs?: number
 }
 
 export type RunEvent =

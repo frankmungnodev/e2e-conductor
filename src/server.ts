@@ -2,7 +2,7 @@ import { spawn, spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
-import { basename, extname, join, relative, resolve } from "node:path"
+import { extname, join, relative, resolve } from "node:path"
 import { type LoadedConfig, loadConfig, type MobileTarget, resolveFromConfig } from "./config.ts"
 import {
   checkDbStatus,
@@ -10,6 +10,7 @@ import {
   deleteEnvPlatform as deleteDbEnvPlatform,
   deleteFixture as deleteDbFixture,
   deletePlatform as deleteDbPlatform,
+  deleteScenario as deleteDbScenario,
   type EnvPlatformRecord,
   getActiveEnvironment as getDbActiveEnvironment,
   getDefaultEnvironment as getDbDefaultEnvironment,
@@ -18,7 +19,10 @@ import {
   getFixtures as getDbFixtures,
   getPlatforms as getDbPlatforms,
   getPlatformsForEnv as getDbPlatformsForEnv,
-  openDatabase,
+  getRun as getDbRun,
+  getRuns as getDbRuns,
+  getScenario as getDbScenario,
+  getStepRuns as getDbStepRuns,
   type PlatformRecord,
   type PlatformWithEnvOverrides,
   platformsToTargetsAndServices,
@@ -27,7 +31,9 @@ import {
   saveEnvPlatform as saveDbEnvPlatform,
   saveFixture as saveDbFixture,
   savePlatform as saveDbPlatform,
+  saveScenario as saveDbScenario,
   setActiveEnvironment as setDbActiveEnvironment,
+  withDb,
   writeDbPointer,
 } from "./db.ts"
 import { checkFlow } from "./flow.ts"
@@ -35,7 +41,7 @@ import { initProject } from "./init.ts"
 import { isUp, unfinishedGitOperation } from "./preflight.ts"
 import { adbPath, runAdb, runShell, startBackground } from "./process.ts"
 import { type RunEvent, type RunOptions, run, type Summary } from "./runner.ts"
-import { checkSteps, type Scenario } from "./scenario.ts"
+import { checkSteps, getOrSeedScenarios, type Scenario, targetsUsed } from "./scenario.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 import {
   detectWorkspace,
@@ -137,22 +143,22 @@ export function startServer(
     const initialDbStatus = checkDbStatus(currentConfig.configDir)
     if (initialDbStatus.dbExists) {
       try {
-        const db = openDatabase(initialDbStatus.dbPath)
-        const dbEnvs = getDbEnvironments(db)
-        if (Object.keys(dbEnvs).length > 0) {
-          currentConfig.environments = dbEnvs
-          const active = getDbActiveEnvironment(db)
-          const def = getDbDefaultEnvironment(db)
-          if (active) currentConfig.activeEnvironment = active
-          if (def) currentConfig.defaultEnvironment = def
-        }
-        const dbPlats = getDbPlatforms(db)
-        if (dbPlats.length > 0) {
-          const { targets, services } = platformsToTargetsAndServices(dbPlats)
-          currentConfig.targets = { ...currentConfig.targets, ...targets }
-          currentConfig.services = { ...currentConfig.services, ...services }
-        }
-        db.close()
+        withDb(initialDbStatus.dbPath, (db) => {
+          const dbEnvs = getDbEnvironments(db)
+          if (Object.keys(dbEnvs).length > 0) {
+            currentConfig.environments = dbEnvs
+            const active = getDbActiveEnvironment(db)
+            const def = getDbDefaultEnvironment(db)
+            if (active) currentConfig.activeEnvironment = active
+            if (def) currentConfig.defaultEnvironment = def
+          }
+          const dbPlats = getDbPlatforms(db)
+          if (dbPlats.length > 0) {
+            const { targets, services } = platformsToTargetsAndServices(dbPlats)
+            currentConfig.targets = { ...currentConfig.targets, ...targets }
+            currentConfig.services = { ...currentConfig.services, ...services }
+          }
+        })
       } catch {
         // ignore load errors
       }
@@ -252,14 +258,14 @@ export function startServer(
 
             if (dbStatus.dbExists) {
               try {
-                const db = openDatabase(dbStatus.dbPath)
-                dbPlatforms = getDbPlatforms(db)
-                dbEnvPlatforms = getDbEnvPlatforms(db)
-                const targetEnv = url.searchParams.get("env") || currentConfig.activeEnvironment || currentConfig.defaultEnvironment
-                if (targetEnv) {
-                  platformsWithEnv = getDbPlatformsForEnv(db, targetEnv)
-                }
-                db.close()
+                withDb(dbStatus.dbPath, (db) => {
+                  dbPlatforms = getDbPlatforms(db)
+                  dbEnvPlatforms = getDbEnvPlatforms(db)
+                  const targetEnv = url.searchParams.get("env") || currentConfig.activeEnvironment || currentConfig.defaultEnvironment
+                  if (targetEnv) {
+                    platformsWithEnv = getDbPlatformsForEnv(db, targetEnv)
+                  }
+                })
               } catch {
                 // ignore
               }
@@ -293,12 +299,12 @@ export function startServer(
             }
             const envName = body.environment.trim()
             const targetDbPath = resolveDbPath(currentConfig.configDir)
-            try {
-              const db = openDatabase(targetDbPath)
-              setDbActiveEnvironment(db, envName)
-              db.close()
-            } catch {
-              // ignore
+            if (existsSync(targetDbPath)) {
+              try {
+                withDb(targetDbPath, (db) => setDbActiveEnvironment(db, envName))
+              } catch {
+                // ignore
+              }
             }
             try {
               currentConfig = await loadConfig(currentConfig.configDir, envName)
@@ -337,22 +343,17 @@ export function startServer(
             }
 
             try {
-              const db = openDatabase(targetDbPath)
-              saveDbEnvironment(db, envName, {
-                url: body.url?.trim() || undefined,
-                description: body.description?.trim() || undefined,
-                scenarios: body.scenarios?.trim() || undefined,
-                flows: body.flows?.trim() || undefined,
-                results: body.results?.trim() || undefined,
-                env: body.env,
+              withDb(targetDbPath, (db) => {
+                saveDbEnvironment(db, envName, {
+                  url: body.url?.trim() || undefined,
+                  description: body.description?.trim() || undefined,
+                  scenarios: body.scenarios?.trim() || undefined,
+                  flows: body.flows?.trim() || undefined,
+                  results: body.results?.trim() || undefined,
+                  env: body.env,
+                })
               })
-              currentConfig.environments = getDbEnvironments(db)
-              const active = getDbActiveEnvironment(db)
-              const def = getDbDefaultEnvironment(db)
-              if (active) currentConfig.activeEnvironment = active
-              if (def) currentConfig.defaultEnvironment = def
-              db.close()
-              currentConfig = await loadConfig(currentConfig.configDir, currentConfig.activeEnvironment)
+              currentConfig = await loadConfig(currentConfig.configDir, envName)
             } catch (err) {
               return sendJson(res, 500, { ok: false, error: `SQLite error: ${(err as Error).message}` })
             }
@@ -376,9 +377,7 @@ export function startServer(
             }
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              deleteDbEnvironment(db, nameParam)
-              db.close()
+              withDb(targetDbPath, (db) => deleteDbEnvironment(db, nameParam))
               currentConfig = await loadConfig(currentConfig.configDir, currentConfig.activeEnvironment)
             } catch (err) {
               return sendJson(res, 500, { ok: false, error: (err as Error).message })
@@ -400,32 +399,28 @@ export function startServer(
             const platName = body.name.trim()
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              saveDbPlatform(db, {
-                id: body.id || `plat-${Date.now()}`,
-                name: platName,
-                type: body.type,
-                orderNum: body.orderNum ?? 1,
-                url: body.url?.trim() || undefined,
-                serviceName: body.serviceName?.trim() || platName,
-                health: body.health?.trim() || undefined,
-                startCmd: body.startCmd?.trim() || undefined,
-                cwd: body.cwd?.trim() || undefined,
-                modules: body.modules?.trim() || undefined,
-                slowMo: body.slowMo,
-                headless: body.headless,
-                exclusive: body.exclusive,
-                appId: body.appId?.trim() || undefined,
-                flows: body.flows?.trim() || undefined,
-                installCmd: body.installCmd?.trim() || undefined,
-                grantPermissions: body.grantPermissions,
-                reversePorts: body.reversePorts,
+              withDb(targetDbPath, (db) => {
+                saveDbPlatform(db, {
+                  id: body.id || `plat-${Date.now()}`,
+                  name: platName,
+                  type: body.type,
+                  orderNum: body.orderNum ?? 1,
+                  url: body.url?.trim() || undefined,
+                  serviceName: body.serviceName?.trim() || platName,
+                  health: body.health?.trim() || undefined,
+                  startCmd: body.startCmd?.trim() || undefined,
+                  cwd: body.cwd?.trim() || undefined,
+                  modules: body.modules?.trim() || undefined,
+                  slowMo: body.slowMo,
+                  headless: body.headless,
+                  exclusive: body.exclusive,
+                  appId: body.appId?.trim() || undefined,
+                  flows: body.flows?.trim() || undefined,
+                  installCmd: body.installCmd?.trim() || undefined,
+                  grantPermissions: body.grantPermissions,
+                  reversePorts: body.reversePorts,
+                })
               })
-              const allPlatforms = getDbPlatforms(db)
-              const { targets, services } = platformsToTargetsAndServices(allPlatforms)
-              currentConfig.targets = { ...currentConfig.targets, ...targets }
-              currentConfig.services = { ...currentConfig.services, ...services }
-              db.close()
 
               if (body.scaffoldFiles) {
                 scaffoldWizardFiles(currentConfig.configDir, [body as any])
@@ -452,13 +447,8 @@ export function startServer(
             }
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              deleteDbPlatform(db, nameParam)
-              const allPlatforms = getDbPlatforms(db)
-              const { targets, services } = platformsToTargetsAndServices(allPlatforms)
-              currentConfig.targets = targets
-              currentConfig.services = services
-              db.close()
+              withDb(targetDbPath, (db) => deleteDbPlatform(db, nameParam))
+              currentConfig = await loadConfig(currentConfig.configDir, currentConfig.activeEnvironment)
 
               return sendJson(res, 200, {
                 ok: true,
@@ -476,14 +466,14 @@ export function startServer(
             const envParam = url.searchParams.get("env") || undefined
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              const envPlatforms = getDbEnvPlatforms(db, envParam)
-              const platformsWithEnv = envParam ? getDbPlatformsForEnv(db, envParam) : undefined
-              db.close()
+              const resData = withDb(targetDbPath, (db) => {
+                const envPlatforms = getDbEnvPlatforms(db, envParam)
+                const platformsWithEnv = envParam ? getDbPlatformsForEnv(db, envParam) : undefined
+                return { envPlatforms, platformsWithEnv }
+              })
               return sendJson(res, 200, {
                 ok: true,
-                envPlatforms,
-                platformsWithEnv,
+                ...resData,
               })
             } catch (err) {
               return sendJson(res, 500, { ok: false, error: (err as Error).message })
@@ -498,23 +488,25 @@ export function startServer(
             }
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              saveDbEnvPlatform(db, {
-                envName: body.envName.trim(),
-                platformId: body.platformId.trim(),
-                enabled: body.enabled !== false,
-                url: body.url !== undefined ? body.url.trim() : undefined,
-                health: body.health !== undefined ? body.health.trim() : undefined,
-                startCmd: body.startCmd !== undefined ? body.startCmd.trim() : undefined,
-                cwd: body.cwd !== undefined ? body.cwd.trim() : undefined,
-                headless: body.headless,
-                slowMo: body.slowMo,
-                appId: body.appId !== undefined ? body.appId.trim() : undefined,
-                configJson: body.configJson,
+              const { envPlatforms, platformsWithEnv } = withDb(targetDbPath, (db) => {
+                saveDbEnvPlatform(db, {
+                  envName: body.envName.trim(),
+                  platformId: body.platformId.trim(),
+                  enabled: body.enabled !== false,
+                  url: body.url !== undefined ? body.url.trim() : undefined,
+                  health: body.health !== undefined ? body.health.trim() : undefined,
+                  startCmd: body.startCmd !== undefined ? body.startCmd.trim() : undefined,
+                  cwd: body.cwd !== undefined ? body.cwd.trim() : undefined,
+                  headless: body.headless,
+                  slowMo: body.slowMo,
+                  appId: body.appId !== undefined ? body.appId.trim() : undefined,
+                  configJson: body.configJson,
+                })
+                return {
+                  envPlatforms: getDbEnvPlatforms(db, body.envName),
+                  platformsWithEnv: getDbPlatformsForEnv(db, body.envName),
+                }
               })
-
-              const envPlatforms = getDbEnvPlatforms(db, body.envName)
-              const platformsWithEnv = getDbPlatformsForEnv(db, body.envName)
 
               // If updating the active environment, sync currentConfig targets and services
               if (body.envName === currentConfig.activeEnvironment) {
@@ -522,7 +514,6 @@ export function startServer(
                 currentConfig.targets = platRes.targets
                 currentConfig.services = platRes.services
               }
-              db.close()
 
               return sendJson(res, 200, {
                 ok: true,
@@ -546,10 +537,13 @@ export function startServer(
             }
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              deleteDbEnvPlatform(db, envParam, platParam)
-              const envPlatforms = getDbEnvPlatforms(db, envParam)
-              const platformsWithEnv = getDbPlatformsForEnv(db, envParam)
+              const { envPlatforms, platformsWithEnv } = withDb(targetDbPath, (db) => {
+                deleteDbEnvPlatform(db, envParam, platParam)
+                return {
+                  envPlatforms: getDbEnvPlatforms(db, envParam),
+                  platformsWithEnv: getDbPlatformsForEnv(db, envParam),
+                }
+              })
 
               // If removing an override for the active environment, sync currentConfig
               if (envParam === currentConfig.activeEnvironment) {
@@ -557,7 +551,6 @@ export function startServer(
                 currentConfig.targets = platRes.targets
                 currentConfig.services = platRes.services
               }
-              db.close()
 
               return sendJson(res, 200, {
                 ok: true,
@@ -580,15 +573,16 @@ export function startServer(
               return sendJson(res, 400, { ok: false, error: "Fixture name and cmd are required" })
             }
             const fixName = body.name.trim()
+            const fixCmd = body.cmd.trim()
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              saveDbFixture(db, fixName, {
-                cmd: body.cmd.trim(),
-                cwd: body.cwd?.trim() || undefined,
+              const fixturesMap = withDb(targetDbPath, (db) => {
+                saveDbFixture(db, fixName, {
+                  cmd: fixCmd,
+                  cwd: body.cwd?.trim() || undefined,
+                })
+                return getDbFixtures(db)
               })
-              const fixturesMap = getDbFixtures(db)
-              db.close()
               currentConfig.fixtures = fixturesMap
 
               return sendJson(res, 200, {
@@ -610,10 +604,10 @@ export function startServer(
             }
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              deleteDbFixture(db, nameParam)
-              const fixturesMap = getDbFixtures(db)
-              db.close()
+              const fixturesMap = withDb(targetDbPath, (db) => {
+                deleteDbFixture(db, nameParam)
+                return getDbFixtures(db)
+              })
               currentConfig.fixtures = fixturesMap
 
               return sendJson(res, 200, {
@@ -705,18 +699,18 @@ export function startServer(
             const components = body.components ?? []
             const targetDbPath = resolveDbPath(currentConfig.configDir)
             try {
-              const db = openDatabase(targetDbPath)
-              saveWizardComponentsToDb(db, components, {
-                environment: body.environment,
-                environments: body.environments,
-                defaultEnvironment: body.defaultEnvironment,
-              })
-              if (body.fixtures) {
-                for (const [name, fix] of Object.entries(body.fixtures)) {
-                  saveDbFixture(db, name, fix)
+              withDb(targetDbPath, (db) => {
+                saveWizardComponentsToDb(db, components, {
+                  environment: body.environment,
+                  environments: body.environments,
+                  defaultEnvironment: body.defaultEnvironment,
+                })
+                if (body.fixtures) {
+                  for (const [name, fix] of Object.entries(body.fixtures)) {
+                    saveDbFixture(db, name, fix)
+                  }
                 }
-              }
-              db.close()
+              })
 
               let created: string[] = [targetDbPath]
               let skipped: string[] = []
@@ -746,54 +740,28 @@ export function startServer(
 
           // GET /api/scenarios
           if (pathname === "/api/scenarios" && req.method === "GET") {
-            const dir = resolveFromConfig(currentConfig, currentConfig.scenarios)
-            if (!existsSync(dir)) {
-              return sendJson(res, 200, [])
-            }
-            const files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort()
+            const scenariosList = getOrSeedScenarios(currentConfig)
             const checkedFlows = new Set<string>()
-            const scenarios = files.map((file) => {
-              const id = basename(file, ".json")
-              const filePath = join(dir, file)
-              try {
-                const raw = JSON.parse(readFileSync(filePath, "utf8"))
-                const scenario = { ...raw, id } as Scenario
-                const schemaErrors: string[] = []
-                if (!validateScenario(raw)) {
-                  for (const err of describeErrors(validateScenario.errors)) schemaErrors.push(err)
-                }
-                const stepErrors = checkSteps(currentConfig, scenario, checkedFlows)
-                const errors = [...schemaErrors, ...stepErrors]
-                return {
-                  id,
-                  file,
-                  name: scenario.name ?? id,
-                  description: scenario.description,
-                  steps: scenario.steps ?? [],
-                  setup: scenario.setup ?? [],
-                  vars: scenario.vars ?? {},
-                  raw,
-                  isValid: errors.length === 0,
-                  errors,
-                  targets: Array.from(
-                    new Set(
-                      (scenario.steps ?? [])
-                        .map((s) => s.target)
-                        .filter(Boolean),
-                    ),
-                  ),
-                }
-              } catch (err) {
-                return {
-                  id,
-                  file,
-                  name: id,
-                  raw: null,
-                  steps: [],
-                  isValid: false,
-                  errors: [(err as Error).message],
-                  targets: [],
-                }
+            const scenarios = scenariosList.map((scenario) => {
+              const id = scenario.id
+              const schemaErrors: string[] = []
+              if (!validateScenario(scenario)) {
+                for (const err of describeErrors(validateScenario.errors)) schemaErrors.push(err)
+              }
+              const stepErrors = checkSteps(currentConfig, scenario, checkedFlows)
+              const errors = [...schemaErrors, ...stepErrors]
+              return {
+                id,
+                file: `${id}.json`,
+                name: scenario.name ?? id,
+                description: scenario.description,
+                steps: scenario.steps ?? [],
+                setup: scenario.setup ?? [],
+                vars: scenario.vars ?? {},
+                raw: scenario,
+                isValid: errors.length === 0,
+                errors,
+                targets: Array.from(targetsUsed([scenario])),
               }
             })
             return sendJson(res, 200, scenarios)
@@ -805,9 +773,6 @@ export function startServer(
             if (!body?.id || !body.content) {
               return sendJson(res, 400, { error: "Missing 'id' or 'content' in payload" })
             }
-            const dir = resolveFromConfig(currentConfig, currentConfig.scenarios)
-            mkdirSync(dir, { recursive: true })
-            const filePath = join(dir, `${body.id}.json`)
             const scenario = { ...body.content, id: body.id }
             const schemaErrors: string[] = []
             if (!validateScenario(body.content)) {
@@ -815,17 +780,60 @@ export function startServer(
             }
             const stepErrors = checkSteps(currentConfig, scenario, new Set())
             const errors = [...schemaErrors, ...stepErrors]
-            writeFileSync(filePath, `${JSON.stringify(body.content, null, 2)}\n`)
+
+            // Save to SQLite
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            if (existsSync(dbPath)) {
+              try {
+                withDb(dbPath, (db) => saveDbScenario(db, scenario))
+              } catch {
+                // ignore db save error
+              }
+            }
+
+            // Sync to filesystem
+            try {
+              const dir = resolveFromConfig(currentConfig, currentConfig.scenarios)
+              mkdirSync(dir, { recursive: true })
+              const filePath = join(dir, `${body.id}.json`)
+              writeFileSync(filePath, `${JSON.stringify(body.content, null, 2)}\n`)
+            } catch {
+              // ignore fs error
+            }
+
             return sendJson(res, 200, { ok: true, id: body.id, isValid: errors.length === 0, errors })
           }
 
           // DELETE /api/scenarios/:id
           if (pathname.startsWith("/api/scenarios/") && req.method === "DELETE") {
             const id = pathname.replace("/api/scenarios/", "").trim()
+            let found = false
+
+            // Delete from SQLite
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            if (existsSync(dbPath)) {
+              try {
+                withDb(dbPath, (db) => {
+                  const existing = getDbScenario(db, id)
+                  if (existing) {
+                    deleteDbScenario(db, id)
+                    found = true
+                  }
+                })
+              } catch {
+                // ignore db delete error
+              }
+            }
+
+            // Delete from filesystem
             const dir = resolveFromConfig(currentConfig, currentConfig.scenarios)
             const filePath = join(dir, `${id}.json`)
             if (existsSync(filePath)) {
               rmSync(filePath)
+              found = true
+            }
+
+            if (found) {
               return sendJson(res, 200, { ok: true, id })
             }
             return sendJson(res, 404, { error: `Scenario ${id} not found` })
@@ -1065,11 +1073,44 @@ export function startServer(
           if (pathname === "/api/runs" && req.method === "GET") {
             const resultsDir = resolveFromConfig(currentConfig, currentConfig.results)
             const artifactsDir = join(resultsDir, "artifacts")
-            const runs: Array<{
-              runId: string
-              timestamp: number
-              scenarios: string[]
-            }> = []
+            const runsMap = new Map<
+              string,
+              {
+                runId: string
+                timestamp: number
+                scenarios: string[]
+                status?: string
+                environmentName?: string
+                totalScenarios?: number
+                passedScenarios?: number
+                failedScenarios?: number
+                durationMs?: number
+              }
+            >()
+
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            if (existsSync(dbPath)) {
+              try {
+                withDb(dbPath, (db) => {
+                  const dbRuns = getDbRuns(db, 100)
+                  for (const r of dbRuns) {
+                    runsMap.set(r.id, {
+                      runId: r.id,
+                      timestamp: r.startedAt,
+                      status: r.status,
+                      environmentName: r.environmentName,
+                      totalScenarios: r.totalScenarios,
+                      passedScenarios: r.passedScenarios,
+                      failedScenarios: r.failedScenarios,
+                      durationMs: r.durationMs,
+                      scenarios: [],
+                    })
+                  }
+                })
+              } catch {
+                // ignore
+              }
+            }
 
             if (existsSync(artifactsDir)) {
               const entries = readdirSync(artifactsDir).filter((e) => statSync(join(artifactsDir, e)).isDirectory())
@@ -1077,14 +1118,20 @@ export function startServer(
                 const dir = join(artifactsDir, entry)
                 const scenarioFolders = readdirSync(dir).filter((f) => statSync(join(dir, f)).isDirectory())
                 const stat = statSync(dir)
-                runs.push({
-                  runId: entry,
-                  timestamp: stat.mtimeMs,
-                  scenarios: scenarioFolders,
-                })
+                const existing = runsMap.get(entry)
+                if (existing) {
+                  existing.scenarios = scenarioFolders
+                } else {
+                  runsMap.set(entry, {
+                    runId: entry,
+                    timestamp: stat.mtimeMs,
+                    scenarios: scenarioFolders,
+                  })
+                }
               }
-              runs.sort((a, b) => b.timestamp - a.timestamp)
             }
+
+            const runs = Array.from(runsMap.values()).sort((a, b) => b.timestamp - a.timestamp)
 
             const latestSummaryPath = join(resultsDir, "summary.json")
             let latestSummary: Summary | undefined
@@ -1102,23 +1149,33 @@ export function startServer(
           // GET /api/runs/:runId
           if (pathname.startsWith("/api/runs/") && req.method === "GET") {
             const runId = pathname.replace("/api/runs/", "").trim()
-            const resultsDir = resolveFromConfig(currentConfig, currentConfig.results)
-            const runDir = join(resultsDir, "artifacts", runId)
-            if (!existsSync(runDir)) {
-              return sendJson(res, 404, { error: `Run ${runId} not found` })
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            let dbRun: ReturnType<typeof getDbRun> | undefined
+            if (existsSync(dbPath)) {
+              try {
+                dbRun = withDb(dbPath, (db) => getDbRun(db, runId))
+              } catch {
+                // ignore
+              }
             }
 
-            const scenariosList = readdirSync(runDir).filter((e) => statSync(join(runDir, e)).isDirectory())
+            const resultsDir = resolveFromConfig(currentConfig, currentConfig.results)
+            const runDir = join(resultsDir, "artifacts", runId)
             const scenarioArtifacts: Record<string, Array<{ name: string; url: string; isImage: boolean }>> = {}
 
-            for (const s of scenariosList) {
-              const sDir = join(runDir, s)
-              const files = readdirSync(sDir).filter((f) => statSync(join(sDir, f)).isFile())
-              scenarioArtifacts[s] = files.map((f) => ({
-                name: f,
-                url: `/api/artifacts/${runId}/${s}/${f}`,
-                isImage: [".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(extname(f).toLowerCase()),
-              }))
+            if (existsSync(runDir)) {
+              const scenariosList = readdirSync(runDir).filter((e) => statSync(join(runDir, e)).isDirectory())
+              for (const s of scenariosList) {
+                const sDir = join(runDir, s)
+                const files = readdirSync(sDir).filter((f) => statSync(join(sDir, f)).isFile())
+                scenarioArtifacts[s] = files.map((f) => ({
+                  name: f,
+                  url: `/api/artifacts/${runId}/${s}/${f}`,
+                  isImage: [".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(extname(f).toLowerCase()),
+                }))
+              }
+            } else if (!dbRun) {
+              return sendJson(res, 404, { error: `Run ${runId} not found` })
             }
 
             const runLogPath = join(resultsDir, "run.log")
@@ -1129,9 +1186,31 @@ export function startServer(
 
             return sendJson(res, 200, {
               runId,
+              status: dbRun?.status,
+              environmentName: dbRun?.environmentName,
+              durationMs: dbRun?.durationMs,
+              totalScenarios: dbRun?.totalScenarios,
+              passedScenarios: dbRun?.passedScenarios,
+              failedScenarios: dbRun?.failedScenarios,
+              stepRuns: dbRun?.stepRuns ?? [],
               scenarios: scenarioArtifacts,
               runLog,
             })
+          }
+
+          // GET /api/steps/:stepId/runs
+          if (pathname.startsWith("/api/steps/") && pathname.endsWith("/runs") && req.method === "GET") {
+            const stepId = decodeURIComponent(pathname.replace("/api/steps/", "").replace("/runs", ""))
+            const dbPath = resolveDbPath(currentConfig.configDir)
+            if (existsSync(dbPath)) {
+              try {
+                const stepRuns = withDb(dbPath, (db) => getDbStepRuns(db, { stepId, limit: 100 }))
+                return sendJson(res, 200, stepRuns)
+              } catch (e) {
+                return sendJson(res, 500, { error: (e as Error).message })
+              }
+            }
+            return sendJson(res, 200, [])
           }
 
           // GET /api/artifacts/*

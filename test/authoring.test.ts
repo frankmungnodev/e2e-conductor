@@ -4,6 +4,7 @@ import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { loadConfig } from "../src/config.ts"
 import { openDatabase, saveEnvironment, saveFixture, savePlatform } from "../src/db.ts"
+import { run } from "../src/runner.ts"
 import { startServer } from "../src/server.ts"
 import { tempDir } from "./temp-dir.ts"
 
@@ -169,7 +170,61 @@ describe("Full Test Suite Authoring via API", () => {
       assert.equal(created.vars.songTitle, "New Praise Song")
       assert.equal(created.steps.length, 3)
 
-      // 8. Delete scenario
+      // 5. Test SQLite persistence of runs and step_runs via shell step scenario
+      const shellScenario = {
+        name: "Shell execution",
+        steps: [
+          {
+            id: "step-echo",
+            name: "Echo hello",
+            target: "shell",
+            command: "echo 'hello from sqlite run'",
+            assert: { output_contains: "hello from sqlite run" },
+          },
+        ],
+      }
+      await fetch(`${url}/api/scenarios`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: "03-shell-run", content: shellScenario }),
+      })
+
+      // Run this scenario using runner
+      const runSummary = await run(config, {
+        scenarios: ["03-shell-run"],
+        repeat: 1,
+        start: false,
+        install: false,
+        checkOnly: false,
+      })
+      assert.equal(runSummary.status, "PASSED")
+      assert.equal(runSummary.passed, 1)
+
+      // Verify runs in DB via API
+      const runsApiRes = await fetch(`${url}/api/runs`)
+      assert.equal(runsApiRes.status, 200)
+      const runsApiData = (await runsApiRes.json()) as any
+      assert.ok(runsApiData.runs.length > 0)
+      const latestRunId = runsApiData.runs[0].runId
+
+      // Verify run detail with stepRuns
+      const runDetailRes = await fetch(`${url}/api/runs/${latestRunId}`)
+      assert.equal(runDetailRes.status, 200)
+      const runDetail = (await runDetailRes.json()) as any
+      assert.equal(runDetail.status, "PASSED")
+      assert.ok(runDetail.stepRuns.length > 0)
+      assert.equal(runDetail.stepRuns[0].status, "PASSED")
+      assert.equal(runDetail.stepRuns[0].stepId, "step-echo")
+
+      // Verify step runs endpoint
+      const stepRunsRes = await fetch(`${url}/api/steps/step-echo/runs`)
+      assert.equal(stepRunsRes.status, 200)
+      const stepRuns = (await stepRunsRes.json()) as any[]
+      assert.ok(stepRuns.length > 0)
+      assert.equal(stepRuns[0].stepId, "step-echo")
+      assert.equal(stepRuns[0].status, "PASSED")
+
+      // 6. Delete scenario
       const delScRes = await fetch(`${url}/api/scenarios/02-admin-publish`, { method: "DELETE" })
       assert.equal(delScRes.status, 200)
       assert.equal(existsSync(join(dir, "scenarios", "02-admin-publish.json")), false)

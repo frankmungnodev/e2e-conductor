@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   deleteScenario,
   fetchConfig,
@@ -35,6 +35,8 @@ function AppContent() {
   const [preflightData, setPreflightData] = useState<PreflightData | null>(null)
   const [isPreflightLoading, setIsPreflightLoading] = useState(false)
   const [isConnected, setIsConnected] = useState<boolean>(true)
+  const isConnectedRef = useRef(isConnected)
+  isConnectedRef.current = isConnected
 
   // Live execution state
   const [isRunning, setIsRunning] = useState(false)
@@ -141,7 +143,7 @@ function AppContent() {
 
     // Periodic retry if disconnected
     const retryInterval = setInterval(() => {
-      if (!isConnected) {
+      if (!isConnectedRef.current) {
         loadInitialData()
         runPreflightCheck()
       }
@@ -151,7 +153,7 @@ function AppContent() {
       unsubscribe()
       clearInterval(retryInterval)
     }
-  }, [isConnected])
+  }, [])
 
   const handleStartRun = async (options: {
     scenarios: string[]

@@ -3,6 +3,74 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 import { DatabaseSync } from "node:sqlite"
 import type { EnvironmentConfig, HttpTarget, MobileTarget, ServiceConfig, TargetConfig, WebTarget } from "./config.ts"
 
+export type Assert = {
+  status?: number
+  exit_code?: number
+  output_contains?: string
+  json_match?: Record<string, unknown>
+}
+
+export type Step = {
+  id?: string
+  name: string
+  target: string
+  extract?: Record<string, string>
+  assert?: Assert
+  timeout_ms?: number
+  retry?: { times: number; delay_ms?: number }
+  // http
+  method?: string
+  url?: string
+  headers?: Record<string, string>
+  body?: unknown
+  // web / mobile
+  run?: string
+  flow?: string
+  launch?: "fresh" | "restart"
+  params?: Record<string, unknown>
+  // shell
+  command?: string
+  cwd?: string
+}
+
+export type Scenario = {
+  id: string
+  name: string
+  description?: string
+  setup?: string[]
+  vars?: Record<string, unknown>
+  steps: Step[]
+}
+
+export type RunRecord = {
+  id: string
+  environmentName: string
+  status: "RUNNING" | "PASSED" | "FAILED" | "CANCELLED"
+  totalScenarios: number
+  passedScenarios: number
+  failedScenarios: number
+  durationMs?: number
+  artifactsDir?: string
+  startedAt: number
+  completedAt?: number
+}
+
+export type StepRunRecord = {
+  id: string
+  runId: string
+  stepId?: string
+  scenarioId: string
+  iteration: number
+  attempt: number
+  status: "PENDING" | "RUNNING" | "PASSED" | "FAILED" | "SKIPPED"
+  durationMs?: number
+  statusCode?: number
+  errorMessage?: string
+  resultData?: unknown
+  artifactsPath?: string
+  createdAt: number
+}
+
 export type PlatformRecord = {
   id: string
   name: string
@@ -112,6 +180,24 @@ export function writeDbPointer(configDir: string, dbPath: string): void {
   }
 }
 
+export function safeJsonParse<T>(val: string | null | undefined, fallback?: T): T | undefined {
+  if (!val) return fallback
+  try {
+    return JSON.parse(val) as T
+  } catch {
+    return fallback
+  }
+}
+
+export function withDb<T>(dbPath: string, fn: (db: DatabaseSync) => T): T {
+  const db = openDatabase(dbPath)
+  try {
+    return fn(db)
+  } finally {
+    db.close()
+  }
+}
+
 export function openDatabase(dbPath: string): DatabaseSync {
   const dir = dirname(dbPath)
   if (!existsSync(dir)) {
@@ -189,6 +275,67 @@ export function openDatabase(dbPath: string): DatabaseSync {
       created_at INTEGER,
       updated_at INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS scenarios (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      setup_fixtures TEXT,
+      vars TEXT,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS scenario_steps (
+      id TEXT PRIMARY KEY,
+      scenario_id TEXT NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+      order_num INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      target TEXT NOT NULL,
+      timeout_ms INTEGER,
+      retry_times INTEGER,
+      retry_delay_ms INTEGER,
+      assert_json TEXT,
+      extract_json TEXT,
+      driver_config TEXT,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS runs (
+      id TEXT PRIMARY KEY,
+      environment_name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      total_scenarios INTEGER DEFAULT 0,
+      passed_scenarios INTEGER DEFAULT 0,
+      failed_scenarios INTEGER DEFAULT 0,
+      duration_ms INTEGER,
+      artifacts_dir TEXT,
+      started_at INTEGER,
+      completed_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS step_runs (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+      step_id TEXT,
+      scenario_id TEXT NOT NULL,
+      iteration INTEGER DEFAULT 1,
+      attempt INTEGER DEFAULT 1,
+      status TEXT NOT NULL,
+      duration_ms INTEGER,
+      status_code INTEGER,
+      error_message TEXT,
+      result_data TEXT,
+      artifacts_path TEXT,
+      created_at INTEGER
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_scenario_steps_scenario ON scenario_steps(scenario_id, order_num);
+    CREATE INDEX IF NOT EXISTS idx_step_runs_run ON step_runs(run_id);
+    CREATE INDEX IF NOT EXISTS idx_step_runs_step ON step_runs(step_id);
+    CREATE INDEX IF NOT EXISTS idx_step_runs_scenario ON step_runs(scenario_id);
+    CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at DESC);
   `)
 
   // Backfill env_platform if it's empty but platforms and environments exist
@@ -298,14 +445,7 @@ export function getEnvironments(db: DatabaseSync): Record<string, EnvironmentCon
 
   const environments: Record<string, EnvironmentConfig> = {}
   for (const row of rows) {
-    let envObj: Record<string, string> | undefined
-    if (row.env_vars) {
-      try {
-        envObj = JSON.parse(row.env_vars)
-      } catch {
-        // ignore JSON parse error
-      }
-    }
+    const envObj = safeJsonParse<Record<string, string>>(row.env_vars)
 
     // Attach services from env_platform overrides
     let services: Record<string, ServiceConfig> | undefined
@@ -513,31 +653,9 @@ export function getPlatforms(db: DatabaseSync): PlatformRecord[] {
   }>
 
   return rows.map((r) => {
-    let grantPermissions: string[] | undefined
-    let reversePorts: number[] | undefined
-    let configJson: Record<string, unknown> | undefined
-
-    if (r.grant_permissions) {
-      try {
-        grantPermissions = JSON.parse(r.grant_permissions)
-      } catch {
-        // ignore
-      }
-    }
-    if (r.reverse_ports) {
-      try {
-        reversePorts = JSON.parse(r.reverse_ports)
-      } catch {
-        // ignore
-      }
-    }
-    if (r.config_json) {
-      try {
-        configJson = JSON.parse(r.config_json)
-      } catch {
-        // ignore
-      }
-    }
+    const grantPermissions = safeJsonParse<string[]>(r.grant_permissions)
+    const reversePorts = safeJsonParse<number[]>(r.reverse_ports)
+    const configJson = safeJsonParse<Record<string, unknown>>(r.config_json)
 
     return {
       id: r.id,
@@ -676,14 +794,7 @@ export function getEnvPlatforms(db: DatabaseSync, envName?: string): EnvPlatform
   }>
 
   return rows.map((r) => {
-    let configJson: Record<string, unknown> | undefined
-    if (r.config_json) {
-      try {
-        configJson = JSON.parse(r.config_json)
-      } catch {
-        // ignore
-      }
-    }
+    const configJson = safeJsonParse<Record<string, unknown>>(r.config_json)
     return {
       envName: r.env_name,
       platformId: r.platform_id,
@@ -750,23 +861,8 @@ export function getPlatformsForEnv(db: DatabaseSync, envName: string): PlatformW
   }>
 
   return rows.map((r) => {
-    let grantPermissions: string[] | undefined
-    let reversePorts: number[] | undefined
-
-    if (r.grant_permissions) {
-      try {
-        grantPermissions = JSON.parse(r.grant_permissions)
-      } catch {
-        // ignore
-      }
-    }
-    if (r.reverse_ports) {
-      try {
-        reversePorts = JSON.parse(r.reverse_ports)
-      } catch {
-        // ignore
-      }
-    }
+    const grantPermissions = safeJsonParse<string[]>(r.grant_permissions)
+    const reversePorts = safeJsonParse<number[]>(r.reverse_ports)
 
     const overriddenFields: string[] = []
     const isLinked = r.is_linked === 1
@@ -815,23 +911,8 @@ export function getPlatformsForEnv(db: DatabaseSync, envName: string): PlatformW
       if (r.ep_app_id !== r.app_id) overriddenFields.push("appId")
     }
 
-    let epConfigJson: Record<string, unknown> | undefined
-    if (r.ep_config_json) {
-      try {
-        epConfigJson = JSON.parse(r.ep_config_json)
-      } catch {
-        // ignore
-      }
-    }
-
-    let baseConfigJson: Record<string, unknown> | undefined
-    if (r.config_json) {
-      try {
-        baseConfigJson = JSON.parse(r.config_json)
-      } catch {
-        // ignore
-      }
-    }
+    const epConfigJson = safeJsonParse<Record<string, unknown>>(r.ep_config_json)
+    const baseConfigJson = safeJsonParse<Record<string, unknown>>(r.config_json)
 
     const configJson = epConfigJson || baseConfigJson
 
@@ -1027,4 +1108,344 @@ export function platformsToTargetsAndServices(platforms: (PlatformRecord | Platf
   }
 
   return { targets, services }
+}
+
+const STEP_COMMON_KEYS = new Set([
+  "id",
+  "name",
+  "target",
+  "extract",
+  "assert",
+  "timeout_ms",
+  "retry",
+])
+
+type ScenarioRow = {
+  id: string
+  name: string
+  description?: string | null
+  setup_fixtures?: string | null
+  vars?: string | null
+}
+
+type StepRow = {
+  id: string
+  scenario_id: string
+  order_num: number
+  name: string
+  target: string
+  timeout_ms?: number | null
+  retry_times?: number | null
+  retry_delay_ms?: number | null
+  assert_json?: string | null
+  extract_json?: string | null
+  driver_config?: string | null
+}
+
+function mapStepRow(row: StepRow): Step {
+  const assertObj = safeJsonParse<Assert>(row.assert_json)
+  const extractObj = safeJsonParse<Record<string, string>>(row.extract_json)
+  const driverConfig = safeJsonParse<Record<string, unknown>>(row.driver_config) ?? {}
+
+  return {
+    id: row.id,
+    name: row.name,
+    target: row.target,
+    timeout_ms: row.timeout_ms ?? undefined,
+    retry: row.retry_times != null ? { times: row.retry_times, delay_ms: row.retry_delay_ms ?? 1000 } : undefined,
+    assert: assertObj,
+    extract: extractObj,
+    ...driverConfig,
+  }
+}
+
+function mapScenarioRow(row: ScenarioRow, steps: Step[]): Scenario {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || undefined,
+    setup: safeJsonParse<string[]>(row.setup_fixtures),
+    vars: safeJsonParse<Record<string, unknown>>(row.vars),
+    steps,
+  }
+}
+
+export function getScenarios(db: DatabaseSync): Scenario[] {
+  const scRows = db.prepare("SELECT * FROM scenarios ORDER BY id ASC").all() as ScenarioRow[]
+  const stepRows = db.prepare("SELECT * FROM scenario_steps ORDER BY scenario_id ASC, order_num ASC").all() as StepRow[]
+
+  const stepsByScenario = new Map<string, Step[]>()
+  for (const row of stepRows) {
+    const list = stepsByScenario.get(row.scenario_id) ?? []
+    list.push(mapStepRow(row))
+    stepsByScenario.set(row.scenario_id, list)
+  }
+
+  return scRows.map((r) => mapScenarioRow(r, stepsByScenario.get(r.id) ?? []))
+}
+
+export function getScenario(db: DatabaseSync, id: string): Scenario | undefined {
+  const row = db.prepare("SELECT * FROM scenarios WHERE id = ?").get(id) as ScenarioRow | undefined
+  if (!row) return undefined
+
+  const stepRows = db.prepare("SELECT * FROM scenario_steps WHERE scenario_id = ? ORDER BY order_num ASC").all(id) as StepRow[]
+  return mapScenarioRow(row, stepRows.map(mapStepRow))
+}
+
+export function saveScenario(db: DatabaseSync, scenario: Scenario): void {
+  const now = Date.now()
+  const setupJson = scenario.setup ? JSON.stringify(scenario.setup) : null
+  const varsJson = scenario.vars ? JSON.stringify(scenario.vars) : null
+
+  db.prepare(`
+    INSERT INTO scenarios (id, name, description, setup_fixtures, vars, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      description = excluded.description,
+      setup_fixtures = excluded.setup_fixtures,
+      vars = excluded.vars,
+      updated_at = excluded.updated_at
+  `).run(
+    scenario.id,
+    scenario.name,
+    scenario.description || null,
+    setupJson,
+    varsJson,
+    now,
+    now,
+  )
+
+  db.prepare("DELETE FROM scenario_steps WHERE scenario_id = ?").run(scenario.id)
+
+  const insertStep = db.prepare(`
+    INSERT INTO scenario_steps (
+      id, scenario_id, order_num, name, target, timeout_ms, retry_times, retry_delay_ms,
+      assert_json, extract_json, driver_config, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  scenario.steps.forEach((step, idx) => {
+    const orderNum = idx + 1
+    const stepId = step.id || `${scenario.id}:step:${orderNum}`
+    step.id = stepId
+    const assertJson = step.assert ? JSON.stringify(step.assert) : null
+    const extractJson = step.extract ? JSON.stringify(step.extract) : null
+
+    const driverConfig: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(step)) {
+      if (!STEP_COMMON_KEYS.has(k) && v !== undefined) {
+        driverConfig[k] = v
+      }
+    }
+    const driverConfigJson = Object.keys(driverConfig).length > 0 ? JSON.stringify(driverConfig) : null
+
+    insertStep.run(
+      stepId,
+      scenario.id,
+      orderNum,
+      step.name,
+      step.target,
+      step.timeout_ms ?? null,
+      step.retry?.times ?? null,
+      step.retry?.delay_ms ?? null,
+      assertJson,
+      extractJson,
+      driverConfigJson,
+      now,
+      now,
+    )
+  })
+}
+
+export function deleteScenario(db: DatabaseSync, id: string): void {
+  db.prepare("DELETE FROM scenario_steps WHERE scenario_id = ?").run(id)
+  db.prepare("DELETE FROM scenarios WHERE id = ?").run(id)
+}
+
+export function saveRun(db: DatabaseSync, run: RunRecord): void {
+  db.prepare(`
+    INSERT INTO runs (
+      id, environment_name, status, total_scenarios, passed_scenarios, failed_scenarios,
+      duration_ms, artifacts_dir, started_at, completed_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      environment_name = excluded.environment_name,
+      status = excluded.status,
+      total_scenarios = excluded.total_scenarios,
+      passed_scenarios = excluded.passed_scenarios,
+      failed_scenarios = excluded.failed_scenarios,
+      duration_ms = excluded.duration_ms,
+      artifacts_dir = excluded.artifacts_dir,
+      completed_at = excluded.completed_at
+  `).run(
+    run.id,
+    run.environmentName,
+    run.status,
+    run.totalScenarios,
+    run.passedScenarios,
+    run.failedScenarios,
+    run.durationMs ?? null,
+    run.artifactsDir || null,
+    run.startedAt,
+    run.completedAt || null,
+  )
+}
+
+export function getRuns(db: DatabaseSync, limit: number = 50): RunRecord[] {
+  const rows = db.prepare("SELECT * FROM runs ORDER BY started_at DESC LIMIT ?").all(limit) as Array<{
+    id: string
+    environment_name: string
+    status: "RUNNING" | "PASSED" | "FAILED" | "CANCELLED"
+    total_scenarios: number
+    passed_scenarios: number
+    failed_scenarios: number
+    duration_ms?: number | null
+    artifacts_dir?: string | null
+    started_at: number
+    completed_at?: number | null
+  }>
+
+  return rows.map((r) => ({
+    id: r.id,
+    environmentName: r.environment_name,
+    status: r.status,
+    totalScenarios: r.total_scenarios,
+    passedScenarios: r.passed_scenarios,
+    failedScenarios: r.failed_scenarios,
+    durationMs: r.duration_ms ?? undefined,
+    artifactsDir: r.artifacts_dir || undefined,
+    startedAt: r.started_at,
+    completedAt: r.completed_at ?? undefined,
+  }))
+}
+
+type StepRunRow = {
+  id: string
+  run_id: string
+  step_id?: string | null
+  scenario_id: string
+  iteration: number
+  attempt: number
+  status: "PENDING" | "RUNNING" | "PASSED" | "FAILED" | "SKIPPED"
+  duration_ms?: number | null
+  status_code?: number | null
+  error_message?: string | null
+  result_data?: string | null
+  artifacts_path?: string | null
+  created_at: number
+}
+
+function mapStepRunRow(sr: StepRunRow): StepRunRecord {
+  return {
+    id: sr.id,
+    runId: sr.run_id,
+    stepId: sr.step_id || undefined,
+    scenarioId: sr.scenario_id,
+    iteration: sr.iteration,
+    attempt: sr.attempt,
+    status: sr.status,
+    durationMs: sr.duration_ms ?? undefined,
+    statusCode: sr.status_code ?? undefined,
+    errorMessage: sr.error_message || undefined,
+    resultData: safeJsonParse<unknown>(sr.result_data),
+    artifactsPath: sr.artifacts_path || undefined,
+    createdAt: sr.created_at,
+  }
+}
+
+export function getRun(db: DatabaseSync, id: string): (RunRecord & { stepRuns: StepRunRecord[] }) | undefined {
+  const row = db.prepare("SELECT * FROM runs WHERE id = ?").get(id) as
+    | {
+        id: string
+        environment_name: string
+        status: "RUNNING" | "PASSED" | "FAILED" | "CANCELLED"
+        total_scenarios: number
+        passed_scenarios: number
+        failed_scenarios: number
+        duration_ms?: number | null
+        artifacts_dir?: string | null
+        started_at: number
+        completed_at?: number | null
+      }
+    | undefined
+
+  if (!row) return undefined
+
+  const stepRows = db.prepare("SELECT * FROM step_runs WHERE run_id = ? ORDER BY created_at ASC, id ASC").all(id) as StepRunRow[]
+  const stepRuns = stepRows.map(mapStepRunRow)
+
+  return {
+    id: row.id,
+    environmentName: row.environment_name,
+    status: row.status,
+    totalScenarios: row.total_scenarios,
+    passedScenarios: row.passed_scenarios,
+    failedScenarios: row.failed_scenarios,
+    durationMs: row.duration_ms ?? undefined,
+    artifactsDir: row.artifacts_dir || undefined,
+    startedAt: row.started_at,
+    completedAt: row.completed_at ?? undefined,
+    stepRuns,
+  }
+}
+
+export function saveStepRun(db: DatabaseSync, stepRun: StepRunRecord): void {
+  const resultDataJson = stepRun.resultData !== undefined ? JSON.stringify(stepRun.resultData) : null
+
+  db.prepare(`
+    INSERT INTO step_runs (
+      id, run_id, step_id, scenario_id, iteration, attempt, status,
+      duration_ms, status_code, error_message, result_data, artifacts_path, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      status = excluded.status,
+      duration_ms = excluded.duration_ms,
+      status_code = excluded.status_code,
+      error_message = excluded.error_message,
+      result_data = excluded.result_data,
+      artifacts_path = excluded.artifacts_path
+  `).run(
+    stepRun.id,
+    stepRun.runId,
+    stepRun.stepId || null,
+    stepRun.scenarioId,
+    stepRun.iteration,
+    stepRun.attempt,
+    stepRun.status,
+    stepRun.durationMs ?? null,
+    stepRun.statusCode ?? null,
+    stepRun.errorMessage || null,
+    resultDataJson,
+    stepRun.artifactsPath || null,
+    stepRun.createdAt,
+  )
+}
+
+export function getStepRuns(
+  db: DatabaseSync,
+  filter: { runId?: string; stepId?: string; scenarioId?: string; limit?: number },
+): StepRunRecord[] {
+  const conditions: string[] = []
+  const params: (string | number)[] = []
+
+  if (filter.runId) {
+    conditions.push("run_id = ?")
+    params.push(filter.runId)
+  }
+  if (filter.stepId) {
+    conditions.push("step_id = ?")
+    params.push(filter.stepId)
+  }
+  if (filter.scenarioId) {
+    conditions.push("scenario_id = ?")
+    params.push(filter.scenarioId)
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
+  const limitClause = filter.limit ? "LIMIT ?" : "LIMIT 100"
+  if (filter.limit) params.push(filter.limit)
+
+  const rows = db.prepare(`SELECT * FROM step_runs ${whereClause} ORDER BY created_at DESC ${limitClause}`).all(...params) as StepRunRow[]
+  return rows.map(mapStepRunRow)
 }

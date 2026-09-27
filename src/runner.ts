@@ -1,7 +1,9 @@
-import { mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import type { DatabaseSync } from "node:sqlite"
 import { type LoadedConfig, resolveFromConfig, SHELL_TARGET, serviceOf } from "./config.ts"
 import { getPath, mismatch, type Scope, substitute } from "./context.ts"
+import { openDatabase, resolveDbPath, saveRun, saveStepRun } from "./db.ts"
 import { HttpDriver } from "./drivers/http.ts"
 import { MobileDriver } from "./drivers/mobile.ts"
 import { ShellDriver } from "./drivers/shell.ts"
@@ -100,6 +102,16 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     options.onEvent?.({ type: "log", text: line, level: isDetail ? "detail" : "info" })
   })
 
+  let db: DatabaseSync | undefined
+  const dbPath = resolveDbPath(config.configDir)
+  if (existsSync(dbPath)) {
+    try {
+      db = openDatabase(dbPath)
+    } catch {
+      // ignore db open error
+    }
+  }
+
   const scenarios = loadScenarios(config, options.scenarios)
   const used = targetsUsed(scenarios)
   const drivers = new Map<string, Driver>()
@@ -119,6 +131,13 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     // An exclusive service left running would make the next run refuse to start.
     for (const started of services) {
       if (!options.checkOnly || config.services?.[started.name]?.exclusive) stopService(started)
+    }
+    if (db) {
+      try {
+        db.close()
+      } catch {
+        // ignore
+      }
     }
   }
   const onInterrupt = () => {
@@ -162,6 +181,23 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
       return summary
     }
 
+    if (db) {
+      try {
+        saveRun(db, {
+          id: runId,
+          environmentName: config.activeEnvironment || config.env?.APP_ENV || "dev",
+          status: "RUNNING",
+          totalScenarios: scenarios.length * options.repeat,
+          passedScenarios: 0,
+          failedScenarios: 0,
+          artifactsDir: artifactsRoot,
+          startedAt,
+        })
+      } catch {
+        // ignore
+      }
+    }
+
     options.onEvent?.({
       type: "run_start",
       runId,
@@ -185,6 +221,8 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           out,
           onEvent: options.onEvent,
           signal: options.signal,
+          runId,
+          db,
         })
         summary.total++
         if (failure) {
@@ -197,11 +235,29 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     }
   } finally {
     process.removeListener("SIGINT", onInterrupt)
+    summary.status = summary.failed === 0 ? "PASSED" : "FAILED"
+    summary.duration_ms = Date.now() - startedAt
+    if (db && !options.checkOnly) {
+      try {
+        saveRun(db, {
+          id: runId,
+          environmentName: config.activeEnvironment || config.env?.APP_ENV || "dev",
+          status: options.signal?.aborted ? "CANCELLED" : summary.status,
+          totalScenarios: summary.total,
+          passedScenarios: summary.passed,
+          failedScenarios: summary.failed,
+          durationMs: summary.duration_ms,
+          artifactsDir: artifactsRoot,
+          startedAt,
+          completedAt: Date.now(),
+        })
+      } catch {
+        // ignore
+      }
+    }
     await cleanup()
   }
 
-  summary.status = summary.failed === 0 ? "PASSED" : "FAILED"
-  summary.duration_ms = Date.now() - startedAt
   writeFileSync(join(resultsDir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`)
 
   out.line()
@@ -224,9 +280,11 @@ async function runScenario(
     out: RunLog
     onEvent?: (event: RunEvent) => void
     signal?: AbortSignal
+    runId: string
+    db?: DatabaseSync
   },
 ): Promise<{ step: string; error: string } | undefined> {
-  const { drivers, dir, out, onEvent, signal } = run
+  const { drivers, dir, out, onEvent, signal, runId, db } = run
   const scope: Scope = {
     ctx: { ...scenario.vars },
     env: config.env,
@@ -276,6 +334,24 @@ async function runScenario(
 
       for (let attempt = 1; attempt <= attempts; attempt++) {
         if (signal?.aborted) throw new Error("Execution cancelled")
+        const attemptBegan = Date.now()
+        const stepRunId = `${runId}:${scenario.id}:${index}:${attempt}`
+        if (db) {
+          try {
+            saveStepRun(db, {
+              id: stepRunId,
+              runId,
+              stepId: raw.id,
+              scenarioId: scenario.id,
+              iteration: run.iteration,
+              attempt,
+              status: "RUNNING",
+              createdAt: attemptBegan,
+            })
+          } catch {
+            // ignore
+          }
+        }
         try {
           const step = substitute(raw, scope)
           const driver = drivers.get(step.target) as Driver
@@ -283,9 +359,47 @@ async function runScenario(
           checkAssert(step, result)
           extract(step, result, scope.ctx)
           lastError = undefined
+          if (db) {
+            try {
+              saveStepRun(db, {
+                id: stepRunId,
+                runId,
+                stepId: raw.id,
+                scenarioId: scenario.id,
+                iteration: run.iteration,
+                attempt,
+                status: "PASSED",
+                durationMs: Date.now() - attemptBegan,
+                statusCode: result.status ?? result.exitCode,
+                resultData: result.data,
+                createdAt: attemptBegan,
+              })
+            } catch {
+              // ignore
+            }
+          }
           break
         } catch (error) {
           lastError = error as Error
+          if (db) {
+            try {
+              saveStepRun(db, {
+                id: stepRunId,
+                runId,
+                stepId: raw.id,
+                scenarioId: scenario.id,
+                iteration: run.iteration,
+                attempt,
+                status: "FAILED",
+                durationMs: Date.now() - attemptBegan,
+                errorMessage: lastError.message,
+                artifactsPath: dir,
+                createdAt: attemptBegan,
+              })
+            } catch {
+              // ignore
+            }
+          }
           if (attempt < attempts) {
             out.detail(`attempt ${attempt} failed: ${lastError.message}`)
             await sleep(raw.retry?.delay_ms ?? 1000)

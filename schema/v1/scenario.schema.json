@@ -7,6 +7,7 @@
   "required": ["name", "steps"],
   "additionalProperties": false,
   "properties": {
+    "id": { "type": "string", "description": "Scenario identifier" },
     "$schema": { "type": "string" },
     "version": { "const": 1, "description": "Schema version this file is written for. Omit it to mean version 1" },
     "name": { "type": "string", "description": "Human-readable journey name" },
@@ -32,6 +33,7 @@
       "required": ["name", "target"],
       "additionalProperties": false,
       "properties": {
+        "id": { "type": "string", "description": "Optional unique step identifier" },
         "name": { "type": "string" },
         "target": {
           "type": "string",

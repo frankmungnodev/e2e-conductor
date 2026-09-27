@@ -2,12 +2,13 @@ import {
   Clock,
   FileText,
   Image as ImageIcon,
+  ListChecks,
   Maximize2,
   ShieldCheck,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { fetchRunDetails, fetchRuns } from "../api.ts"
-import type { RunHistoryItem, RunSummary } from "../types.ts"
+import type { RunHistoryItem, RunSummary, StepRunItem } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { CodeBlock } from "./CodeBlock.tsx"
 import { EmptyState } from "./EmptyState.tsx"
@@ -20,13 +21,18 @@ export function ArtifactsView() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [runDetails, setRunDetails] = useState<{
     runId: string
+    status?: string
+    environmentName?: string
+    durationMs?: number
+    stepRuns?: StepRunItem[]
     scenarios: Record<string, Array<{ name: string; url: string; isImage: boolean }>>
     runLog: string
   } | null>(null)
   const [latestSummary, setLatestSummary] = useState<RunSummary | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useUrlTab<"artifacts" | "log">("subtab", "artifacts", [
+  const [activeTab, setActiveTab] = useUrlTab<"artifacts" | "steps" | "log">("subtab", "artifacts", [
     "artifacts",
+    "steps",
     "log",
   ])
 
@@ -118,7 +124,31 @@ export function ArtifactsView() {
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-fg-muted">
-                    <span>{r.scenarios.length} Scenario Results Recorded</span>
+                    <span>
+                      {r.totalScenarios ? `${r.passedScenarios ?? 0}/${r.totalScenarios} Passed` : `${r.scenarios.length} Scenarios`}
+                    </span>
+                    {r.status && (
+                      <Badge
+                        size="xs"
+                        variant={
+                          r.status === "PASSED"
+                            ? "success"
+                            : r.status === "FAILED"
+                              ? "danger"
+                              : r.status === "RUNNING"
+                                ? "info"
+                                : "warning"
+                        }
+                      >
+                        {r.status === "PASSED"
+                          ? "Passed"
+                          : r.status === "FAILED"
+                            ? "Failed"
+                            : r.status === "RUNNING"
+                              ? "Running"
+                              : "Cancelled"}
+                      </Badge>
+                    )}
                   </div>
                 </button>
               )
@@ -138,18 +168,45 @@ export function ArtifactsView() {
                   <span className="text-xs font-bold text-fg-bright font-mono">
                     Test Run: {selectedRunId}
                   </span>
-                  {latestSummary?.artifacts?.includes(selectedRunId) && (
+                  {selectedRunItem?.status ? (
+                    <Badge
+                      size="xs"
+                      variant={
+                        selectedRunItem.status === "PASSED"
+                          ? "success"
+                          : selectedRunItem.status === "FAILED"
+                            ? "danger"
+                            : selectedRunItem.status === "RUNNING"
+                              ? "info"
+                              : "warning"
+                      }
+                    >
+                      {selectedRunItem.status === "PASSED"
+                        ? "Passed"
+                        : selectedRunItem.status === "FAILED"
+                          ? "Failed"
+                          : selectedRunItem.status === "RUNNING"
+                            ? "Running"
+                            : "Cancelled"}
+                    </Badge>
+                  ) : latestSummary?.artifacts?.includes(selectedRunId) ? (
                     <Badge
                       size="xs"
                       variant={latestSummary.status === "PASSED" ? "success" : "danger"}
                     >
                       {latestSummary.status === "PASSED" ? "Passed" : "Failed"}
                     </Badge>
-                  )}
+                  ) : null}
                 </div>
                 {selectedRunItem && (
                   <div className="text-[11px] text-fg-muted mt-0.5 flex items-center gap-2">
                     <span>Date Tested: {new Date(selectedRunItem.timestamp).toLocaleString()}</span>
+                    {selectedRunItem.durationMs && (
+                      <>
+                        <span>•</span>
+                        <span>Duration: {(selectedRunItem.durationMs / 1000).toFixed(1)}s</span>
+                      </>
+                    )}
                     <span>•</span>
                     <span>{allImages.length} Screenshots Saved</span>
                   </div>
@@ -164,7 +221,15 @@ export function ArtifactsView() {
                   onClick={() => setActiveTab("artifacts")}
                   icon={<ImageIcon className="w-3 h-3" />}
                 >
-                  Screenshots & Screen Captures
+                  Screenshots
+                </TabButton>
+                <TabButton
+                  variant="pills"
+                  active={activeTab === "steps"}
+                  onClick={() => setActiveTab("steps")}
+                  icon={<ListChecks className="w-3 h-3" />}
+                >
+                  Step Runs {runDetails?.stepRuns?.length ? `(${runDetails.stepRuns.length})` : ""}
                 </TabButton>
                 <TabButton
                   variant="pills"
@@ -172,7 +237,7 @@ export function ArtifactsView() {
                   onClick={() => setActiveTab("log")}
                   icon={<FileText className="w-3 h-3" />}
                 >
-                  Detailed Log (run.log)
+                  Run Log
                 </TabButton>
               </div>
             </div>
@@ -260,6 +325,83 @@ export function ArtifactsView() {
                         </div>
                       </Panel>
                     </div>
+                  )}
+                </div>
+              ) : activeTab === "steps" ? (
+                /* Step Runs Tab */
+                <div className="space-y-4 max-w-6xl mx-auto">
+                  {!runDetails?.stepRuns || runDetails.stepRuns.length === 0 ? (
+                    <EmptyState
+                      icon={<ListChecks className="w-6 h-6" />}
+                      title="No Step Run Records Available"
+                      description="Detailed step execution telemetry will be displayed here for runs performed with the database enabled."
+                    />
+                  ) : (
+                    <Panel title={`Step Execution History (${runDetails.stepRuns.length})`} variant="editor">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-titlebar text-fg-muted font-medium border-b border-border">
+                            <tr>
+                              <th className="py-2 px-3">Status</th>
+                              <th className="py-2 px-3">Step Identifier</th>
+                              <th className="py-2 px-3">Scenario</th>
+                              <th className="py-2 px-3 text-right">Attempt</th>
+                              <th className="py-2 px-3 text-right">Duration</th>
+                              <th className="py-2 px-3">Details</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {runDetails.stepRuns.map((sr) => (
+                              <tr key={sr.id} className="hover:bg-hover">
+                                <td className="py-2 px-3 whitespace-nowrap">
+                                  <Badge
+                                    size="xs"
+                                    variant={
+                                      sr.status === "PASSED"
+                                        ? "success"
+                                        : sr.status === "FAILED"
+                                          ? "danger"
+                                          : sr.status === "RUNNING"
+                                            ? "info"
+                                            : "neutral"
+                                    }
+                                  >
+                                    {sr.status === "PASSED"
+                                      ? "Passed"
+                                      : sr.status === "FAILED"
+                                        ? "Failed"
+                                        : sr.status === "RUNNING"
+                                          ? "Running"
+                                          : "Skipped"}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 px-3 font-mono font-medium text-fg-bright">
+                                  {sr.stepId || sr.id}
+                                </td>
+                                <td className="py-2 px-3 font-mono text-fg-muted">{sr.scenarioId}</td>
+                                <td className="py-2 px-3 text-right font-mono text-fg-muted">{sr.attempt}</td>
+                                <td className="py-2 px-3 text-right font-mono text-fg-muted">
+                                  {sr.durationMs != null ? `${sr.durationMs}ms` : "-"}
+                                </td>
+                                <td className="py-2 px-3 text-fg">
+                                  {sr.errorMessage ? (
+                                    <span className="text-error font-mono text-[11px] truncate block max-w-xs" title={sr.errorMessage}>
+                                      {sr.errorMessage}
+                                    </span>
+                                  ) : sr.statusCode != null ? (
+                                    <span className="text-fg-muted font-mono text-[11px]">
+                                      Code {sr.statusCode}
+                                    </span>
+                                  ) : (
+                                    <span className="text-fg-subtle text-[11px]">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Panel>
                   )}
                 </div>
               ) : (
