@@ -207,6 +207,19 @@ function AppContent() {
     await startService(name)
   }
 
+  const handleNavigateToConfig = (sub = "fixtures") => {
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set("tab", "config")
+      url.searchParams.set("sub", sub)
+      window.history.pushState({}, "", url.toString())
+    } catch {
+      // ignore
+    }
+    setActiveTab("config")
+    window.dispatchEvent(new PopStateEvent("popstate"))
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-editor text-fg selection:bg-selection selection:text-white">
       <Header
@@ -262,6 +275,7 @@ function AppContent() {
             onSaveScenario={handleSaveScenario}
             onDeleteScenario={handleDeleteScenario}
             onSaveFlow={handleSaveFlow}
+            onNavigateToConfig={handleNavigateToConfig}
           />
         )}
 

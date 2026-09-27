@@ -8,6 +8,7 @@ import {
   Code2,
   Copy,
   Database,
+  ExternalLink,
   FileCode,
   FilePlus2,
   Layers,
@@ -43,6 +44,7 @@ type ScenarioBuilderProps = {
     file: string,
     content: string,
   ) => Promise<{ ok: boolean; isValid: boolean; errors: string[] } | undefined>
+  onNavigateToConfig?: (sub?: string) => void
 }
 
 export function ScenarioBuilder({
@@ -52,6 +54,7 @@ export function ScenarioBuilder({
   onSaveScenario,
   onDeleteScenario,
   onSaveFlow,
+  onNavigateToConfig,
 }: ScenarioBuilderProps) {
   // Explorer state
   const [activeItem, setActiveItem] = useState<{ type: "scenario" | "flow"; id: string } | null>(
@@ -77,7 +80,6 @@ export function ScenarioBuilder({
   const [bodyDrafts, setBodyDrafts] = useState<Record<number, string>>({})
   const [jsonMatchDrafts, setJsonMatchDrafts] = useState<Record<number, string>>({})
   const [paramsDrafts, setParamsDrafts] = useState<Record<number, string>>({})
-  const [customFixtureInput, setCustomFixtureInput] = useState("")
   const [newVarKey, setNewVarKey] = useState("")
   const [newVarVal, setNewVarVal] = useState("")
   const [isSettingsOpen, setIsSettingsOpen] = useState(true)
@@ -244,15 +246,6 @@ export function ScenarioBuilder({
       raw: newRaw,
     })
     setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
-  const addCustomFixture = (name: string) => {
-    const trimmed = name.trim()
-    if (!trimmed || !draftScenario) return
-    if (!draftScenario.setup?.includes(trimmed)) {
-      toggleSetupFixture(trimmed)
-    }
-    setCustomFixtureInput("")
   }
 
   const updateScenarioVar = (key: string, value: string, oldKey?: string) => {
@@ -801,11 +794,31 @@ export function ScenarioBuilder({
                       <div className="p-3 space-y-3.5 text-xs bg-sidebar/30">
                         {/* Setup Fixtures Section */}
                         <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-[10px] text-fg-muted font-semibold uppercase tracking-wider flex items-center gap-1">
-                              <Database className="w-3 h-3 text-primary" /> Setup Fixtures (Run before scenario):
-                            </label>
-                            <span className="text-[10px] text-fg-muted">Toggled fixtures execute in order before Step 1</span>
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex flex-col gap-0.5">
+                              <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
+                                <Database className="w-3.5 h-3.5 text-primary" /> Setup Fixtures
+                              </label>
+                              <span className="text-xs text-fg-muted">
+                                Toggled fixtures execute sequentially before Step 1
+                              </span>
+                            </div>
+                            {onNavigateToConfig && (
+                              <a
+                                href="?tab=config&sub=fixtures"
+                                onClick={(e) => {
+                                  if (!e.metaKey && !e.ctrlKey) {
+                                    e.preventDefault()
+                                    onNavigateToConfig("fixtures")
+                                  }
+                                }}
+                                className="text-xs text-primary hover:underline flex items-center gap-1 cursor-pointer font-medium shrink-0 pt-0.5"
+                                title="Configure and manage fixtures in project config"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Manage Fixtures
+                              </a>
+                            )}
                           </div>
 
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -835,10 +848,14 @@ export function ScenarioBuilder({
                               .map((fix) => (
                                 <span
                                   key={fix}
-                                  className="px-2 py-0.5 text-xs font-mono rounded-xs border bg-primary/20 text-primary border-primary/50 flex items-center gap-1 font-medium"
+                                  className="px-2 py-0.5 text-xs font-mono rounded-xs border bg-warning/15 text-warning border-warning/40 flex items-center gap-1 font-medium"
+                                  title="Fixture not found in project config"
                                 >
-                                  <Check className="w-3 h-3 text-primary" />
+                                  <AlertTriangle className="w-3 h-3 text-warning" />
                                   {fix}
+                                  <Badge variant="warning" size="xs">
+                                    Missing
+                                  </Badge>
                                   <button
                                     type="button"
                                     onClick={() => toggleSetupFixture(fix)}
@@ -850,82 +867,106 @@ export function ScenarioBuilder({
                                 </span>
                               ))}
 
-                            {/* Add Custom Fixture Input */}
-                            <div className="flex items-center gap-1.5 ml-1">
-                              <input
-                                type="text"
-                                placeholder="Add custom fixture..."
-                                value={customFixtureInput}
-                                onChange={(e) => setCustomFixtureInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault()
-                                    addCustomFixture(customFixtureInput)
-                                  }
-                                }}
-                                className="px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none w-40"
-                              />
-                              <Button
-                                size="xs"
-                                variant="secondary"
-                                onClick={() => addCustomFixture(customFixtureInput)}
-                                disabled={!customFixtureInput.trim()}
-                                icon={<Plus className="w-3 h-3" />}
-                              >
-                                Add
-                              </Button>
-                            </div>
+                            {/* Empty state when no fixtures exist in config */}
+                            {(config?.fixtures ?? []).length === 0 && (draftScenario.setup ?? []).length === 0 && (
+                              <div className="flex items-center gap-2 py-1 text-fg-muted text-xs">
+                                <span>No fixtures defined in configuration.</span>
+                                {onNavigateToConfig && (
+                                  <Button
+                                    size="xs"
+                                    variant="secondary"
+                                    onClick={() => onNavigateToConfig("fixtures")}
+                                    icon={<ExternalLink className="w-3 h-3" />}
+                                  >
+                                    Configure Fixtures
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
 
                         {/* Scenario Variables Section */}
                         <div className="pt-2.5 border-t border-border/60">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-[10px] text-fg-muted font-semibold uppercase tracking-wider flex items-center gap-1">
-                              <Variable className="w-3 h-3 text-secondary" /> Initial Variables (ctx):
-                            </label>
-                            <span className="text-[10px] text-fg-muted">Accessible in steps as &ldquo;${"{"}ctx.varName{"}"}&rdquo;</span>
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex flex-col gap-0.5">
+                              <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
+                                <Variable className="w-3.5 h-3.5 text-secondary" /> Scenario Variables
+                              </label>
+                              <span className="text-xs text-fg-muted">
+                                Default values and variables used throughout this scenario.
+                              </span>
+                            </div>
                           </div>
+
+                          {/* Variable Chips for quick copy */}
+                          {Object.keys(draftScenario.vars ?? {}).length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 mb-2.5 pb-2 border-b border-border/40">
+                              <span className="text-xs text-fg-muted mr-1">Available:</span>
+                              {Object.keys(draftScenario.vars ?? {}).map((key) => (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`\${ctx.${key}}`)
+                                    toastSuccess(`Copied {${key}} to clipboard`, "Copied")
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono rounded bg-secondary/15 text-secondary border border-secondary/30 hover:bg-secondary/25 transition-colors cursor-pointer"
+                                  title={`Click to copy {${key}}`}
+                                >
+                                  <span>{`{${key}}`}</span>
+                                  <Copy className="w-3 h-3 opacity-70" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Column Headers */}
+                          {Object.keys(draftScenario.vars ?? {}).length > 0 && (
+                            <div className="grid grid-cols-[1fr_1.2fr_auto] gap-2 px-1 text-xs font-semibold text-fg-muted uppercase tracking-wider mb-1">
+                              <span>Variable Name</span>
+                              <span>Default Value</span>
+                              <span className="w-6" />
+                            </div>
+                          )}
 
                           {/* Existing Variables list */}
                           <div className="space-y-1.5">
                             {Object.entries(draftScenario.vars ?? {}).map(([key, val]) => (
-                              <div key={key} className="flex items-center gap-2">
+                              <div key={key} className="grid grid-cols-[1fr_1.2fr_auto] items-center gap-2">
                                 <input
                                   type="text"
                                   value={key}
                                   onChange={(e) => updateScenarioVar(e.target.value, String(val), key)}
                                   placeholder="Variable name"
-                                  className="w-44 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
+                                  className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
                                 />
-                                <span className="text-fg-muted font-mono">=</span>
                                 <input
                                   type="text"
                                   value={typeof val === "object" ? JSON.stringify(val) : String(val)}
                                   onChange={(e) => updateScenarioVar(key, e.target.value)}
                                   placeholder="Value e.g. 100 or 'test'"
-                                  className="flex-1 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
+                                  className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
                                 />
                                 <Button
                                   size="xs"
                                   variant="ghost"
                                   onClick={() => deleteScenarioVar(key)}
                                   title="Delete variable"
-                                  icon={<X className="w-3.5 h-3.5 text-error" />}
+                                  icon={<Trash2 className="w-3.5 h-3.5 text-error" />}
                                 />
                               </div>
                             ))}
 
                             {/* Add Variable Row */}
-                            <div className="flex items-center gap-2 pt-1">
+                            <div className="grid grid-cols-[1fr_1.2fr_auto] items-center gap-2 pt-1.5 border-t border-border/40">
                               <input
                                 type="text"
                                 placeholder="New variable name..."
                                 value={newVarKey}
                                 onChange={(e) => setNewVarKey(e.target.value)}
-                                className="w-44 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
+                                className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
                               />
-                              <span className="text-fg-muted font-mono">=</span>
                               <input
                                 type="text"
                                 placeholder="Initial value..."
@@ -939,7 +980,7 @@ export function ScenarioBuilder({
                                     setNewVarVal("")
                                   }
                                 }}
-                                className="flex-1 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
+                                className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
                               />
                               <Button
                                 size="xs"
@@ -1021,8 +1062,8 @@ export function ScenarioBuilder({
                         <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-border mb-3">
                           {/* Step Index & Name Input */}
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <span className="w-6 h-6 rounded-xs bg-editor border border-border text-fg-muted flex items-center justify-center text-[11px] font-mono font-bold shrink-0 shadow-2xs">
-                              {idx + 1}
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-xs bg-primary/15 text-primary border border-primary/30 font-mono text-xs font-semibold shrink-0">
+                              Step {idx + 1}
                             </span>
                             <div className="relative flex-1 min-w-[160px] max-w-md">
                               <input
@@ -1222,8 +1263,8 @@ export function ScenarioBuilder({
                                                 onChange={(e) =>
                                                   updateStepHeader(idx, hKey, e.target.value)
                                                 }
-                                                placeholder="Value (e.g. Bearer ${ctx.token})"
-                                                className="flex-1 px-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                                placeholder="Header value (e.g. Bearer token123)"
+                                                className="flex-1 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                                               />
                                               <Button
                                                 size="xs"
@@ -1239,33 +1280,38 @@ export function ScenarioBuilder({
                                     </div>
 
                                     {/* Response Value Extraction (extract) */}
-                                    <div className="pt-1.5 border-t border-border/50">
-                                      <div className="flex items-center justify-between mb-1">
-                                        <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                          Extract to Context ({Object.keys(step.extract ?? {}).length}):
+                                    <div className="pt-2 border-t border-border/50">
+                                      <div className="flex items-center justify-between mb-1.5">
+                                        <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider flex items-center gap-1">
+                                          <Variable className="w-3 h-3 text-secondary" />
+                                          Extract Variables ({Object.keys(step.extract ?? {}).length})
                                         </label>
                                         <Button
                                           size="xs"
                                           variant="ghost"
-                                          onClick={() =>
-                                            updateStepExtract(idx, "extractedVar", "data[0].id")
-                                          }
+                                          onClick={() => {
+                                            const baseName = `var_${Object.keys(step.extract ?? {}).length + 1}`
+                                            updateStepExtract(idx, baseName, "data[0].id")
+                                          }}
                                           icon={<Plus className="w-2.5 h-2.5" />}
                                         >
                                           Add Extraction
                                         </Button>
                                       </div>
                                       {step.extract && Object.keys(step.extract).length > 0 && (
-                                        <div className="space-y-1">
+                                        <div className="space-y-1.5">
+                                          <div className="grid grid-cols-[1fr_auto_1.4fr_auto] gap-1.5 px-1 text-[9px] font-semibold text-fg-muted uppercase tracking-wider">
+                                            <span>Save to Variable</span>
+                                            <span />
+                                            <span>JSON Response Path</span>
+                                            <span className="w-5" />
+                                          </div>
                                           {Object.entries(step.extract).map(
                                             ([varName, jsonPath]) => (
                                               <div
                                                 key={varName}
-                                                className="flex items-center gap-1"
+                                                className="grid grid-cols-[1fr_auto_1.4fr_auto] items-center gap-1.5"
                                               >
-                                                <span className="text-fg-muted font-mono text-[10px]">
-                                                  {"${ctx."}
-                                                </span>
                                                 <input
                                                   type="text"
                                                   value={varName}
@@ -1277,11 +1323,14 @@ export function ScenarioBuilder({
                                                       varName,
                                                     )
                                                   }
-                                                  placeholder="varName"
-                                                  className="w-28 px-1.5 py-0.5 text-[11px] rounded-xs bg-input border border-border text-primary font-mono focus:border-border-focus focus:outline-none"
+                                                  placeholder="Variable name"
+                                                  className="w-full px-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-primary font-mono focus:border-border-focus focus:outline-none"
                                                 />
-                                                <span className="text-fg-muted font-mono text-[10px]">
-                                                  {"}"} &larr;
+                                                <span
+                                                  className="text-fg-muted text-[11px] px-0.5 font-bold"
+                                                  title="Extracts value into variable"
+                                                >
+                                                  &larr;
                                                 </span>
                                                 <input
                                                   type="text"
@@ -1289,15 +1338,15 @@ export function ScenarioBuilder({
                                                   onChange={(e) =>
                                                     updateStepExtract(idx, varName, e.target.value)
                                                   }
-                                                  placeholder="JSON path e.g. data[0].id"
-                                                  className="flex-1 px-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                                  placeholder="e.g. data[0].id or token"
+                                                  className="w-full px-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                                                 />
                                                 <Button
                                                   size="xs"
                                                   variant="ghost"
                                                   onClick={() => deleteStepExtract(idx, varName)}
                                                   title="Remove extraction"
-                                                  icon={<X className="w-3 h-3 text-error" />}
+                                                  icon={<Trash2 className="w-3 h-3 text-error" />}
                                                 />
                                               </div>
                                             ),
@@ -1569,12 +1618,12 @@ export function ScenarioBuilder({
                                 {/* Structured JSON Match */}
                                 {stepDriver === "http" && (
                                   <div>
-                                    <div className="flex items-center justify-between mb-0.5">
-                                      <label className="text-[10px] text-fg-muted font-medium uppercase tracking-wider">
-                                        JSON Match Assertions (json_match):
+                                    <div className="flex flex-col gap-0.5 mb-1.5">
+                                      <label className="text-xs font-semibold text-fg-bright">
+                                        JSON Match Assertions
                                       </label>
-                                      <span className="text-[10px] text-fg-muted">
-                                        Supports &ldquo;${"{"}ctx.key{"}"}&rdquo;, $exists, $gte, etc.
+                                      <span className="text-xs text-fg-muted">
+                                        Validate JSON response fields against expected values or operators like $exists, $gte.
                                       </span>
                                     </div>
                                     <textarea

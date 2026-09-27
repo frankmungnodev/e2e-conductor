@@ -51,6 +51,9 @@ All tokens are defined in Tailwind v4 `@theme` and produce direct utility classe
 | `--color-fg-muted` | `#858585` | `text-fg-muted` | Secondary hints, timestamps, descriptions |
 | `--color-fg-subtle` | `#6e7681` | `text-fg-subtle` | Disabled text, empty placeholders |
 
+> [!NOTE]
+> **Accessible Font Size Floor**: The absolute minimum font size anywhere in the GUI is **12px (`text-xs`)**. Sub-12px classes (such as `text-[9px]`, `text-[10px]`, `text-[11px]`) violate WCAG accessibility standards and are strictly prohibited. Secondary text must use at least `text-xs` (12px) with compliant contrast (`text-fg-muted` or `text-fg`).
+
 ### Semantic Status Colors
 
 | State | Foreground | Background | Border |
@@ -217,5 +220,8 @@ Text input controls with unified focus rings and validation error indicators.
 3. **Capitalized Badges**: Every badge text MUST be capitalized using Title Case (capitalize the first character of each word, e.g. `Passed`, `Failed`, `Running`, `Idle`, not all-caps) across all screens and components.
 4. **Use Design Tokens**: Use the theme tokens (`bg-editor`, `bg-sidebar`, `bg-input`, `border-border`, `border-border-focus`, `text-fg`, `text-fg-muted`, `text-primary`, etc.). Never introduce arbitrary hardcoded hex color codes in component styles.
 5. **High Density**: The orchestrator GUI is a developer tool. Favor compact spacing (`gap-1.5`, `py-1`, `text-xs`), clear visual boundaries (`border border-border`), and monospace fonts for IDs, file paths, durations, and code identifiers.
-6. **Imports**: Import components directly from their file in `ui/src/components/` (e.g. `import { Button } from "./Button.tsx"`).
-7. **Quality & Linting**: Always run `pnpm run lint` and verify there are no Biome diagnostics after any UI modification.
+6. **Accessible Minimum Font Size (12px / `text-xs`)**: In accordance with WCAG and accessibility standards, the absolute minimum font size anywhere in the UI is **12px (`text-xs`)**. NEVER use arbitrary sub-12px classes (such as `text-[9px]`, `text-[10px]`, or `text-[11px]`) for labels, helper text, captions, or descriptions. Secondary/meta text must be at least `text-xs` (12px) with compliant contrast (`text-fg-muted` or `text-fg`).
+7. **Vertical Hierarchy (Titles & Descriptions in Column)**: Whenever a section, card, form control, or header includes both a title/label and a description/hint, they **MUST be stacked vertically in a column** (e.g. `flex flex-col gap-0.5` or `flex flex-col gap-1`), **NEVER placed side-by-side in a horizontal row** (`flex-row` / `justify-between`). Supporting descriptions belong directly underneath their respective titles. Any associated action buttons should be aligned to the right of the container while keeping the title and description vertically grouped together on the left.
+8. **Clean, Human-Centric Copy (No Internal Jargon)**: NEVER expose internal runtime implementation details, scoping namespaces, or compiler prefixes (such as `ctx.`, `scope.`, `raw.`, `vars.`, or `json_match`) in user-facing UI labels, descriptions, subtitles, or placeholders (e.g. NEVER write "Reference in steps as ${ctx.varName}" or "Bearer ${ctx.token}"). Always use plain, natural, user-centric terminology (e.g. "Scenario Variables", "Default values and variables used throughout this scenario").
+9. **Imports**: Import components directly from their file in `ui/src/components/` (e.g. `import { Button } from "./Button.tsx"`).
+10. **Quality & Linting**: Always run `pnpm run lint` and verify there are no Biome diagnostics after any UI modification.

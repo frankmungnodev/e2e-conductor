@@ -701,8 +701,8 @@ export function RunnerView({
                     <div className="divide-y divide-border/60">
                       {activePreviewScenario.steps.map((st, idx) => (
                         <div key={idx} className="p-3 hover:bg-hover/30 transition-colors flex items-start gap-3">
-                          <span className="text-xs font-mono text-fg-muted w-6 text-right shrink-0">
-                            #{idx + 1}
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-primary/15 text-primary border border-primary/30 font-mono text-xs font-semibold shrink-0">
+                            Step {idx + 1}
                           </span>
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
