@@ -657,33 +657,41 @@ export function ScenarioBuilder({
         {activeItem?.type === "scenario" && draftScenario ? (
           <>
             {/* Scenario Header Bar */}
-            <div className="px-4 py-2 border-b border-border bg-titlebar flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-4">
-                <FileCode className="w-4 h-4 text-primary shrink-0" />
-                <div className="min-w-0 flex-1">
+            <div className="px-4 py-2.5 border-b border-border bg-titlebar flex items-center justify-between shrink-0 gap-4">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-xs bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0 text-primary">
+                  <FileCode className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={draftScenario.name}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setDraftScenario({
-                          ...draftScenario,
-                          name: val,
-                          raw: { ...draftScenario.raw, name: val },
-                        })
-                        setJsonText(JSON.stringify({ ...draftScenario.raw, name: val }, null, 2))
-                      }}
-                      className="text-xs font-bold bg-transparent text-fg-bright hover:bg-input px-1.5 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none flex-1 min-w-0 max-w-lg"
-                    />
-                    <span className="text-[10px] font-mono text-fg-muted bg-sidebar px-1.5 py-0.2 rounded-xs border border-border shrink-0">
+                    <div className="relative flex-1 max-w-md">
+                      <input
+                        type="text"
+                        value={draftScenario.name}
+                        placeholder="Scenario name..."
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setDraftScenario({
+                            ...draftScenario,
+                            name: val,
+                            raw: { ...draftScenario.raw, name: val },
+                          })
+                          setJsonText(JSON.stringify({ ...draftScenario.raw, name: val }, null, 2))
+                        }}
+                        className="w-full text-xs font-semibold bg-input border border-border hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none px-2.5 py-1 rounded-xs text-fg-bright transition-colors"
+                      />
+                    </div>
+                    <span
+                      className="text-[10px] font-mono text-fg-muted bg-sidebar px-2 py-1 rounded-xs border border-border shrink-0 select-all"
+                      title="Scenario file ID"
+                    >
                       {draftScenario.id}.json
                     </span>
                   </div>
-                  <div className="mt-0.5">
+                  <div className="relative max-w-lg">
                     <input
                       type="text"
-                      placeholder="Add description..."
+                      placeholder="Add scenario description..."
                       value={draftScenario.description ?? ""}
                       onChange={(e) => {
                         const val = e.target.value
@@ -694,7 +702,7 @@ export function ScenarioBuilder({
                         })
                         setJsonText(JSON.stringify({ ...draftScenario.raw, description: val }, null, 2))
                       }}
-                      className="text-[11px] text-fg-muted bg-transparent hover:bg-input px-1.5 py-0.5 rounded-xs border border-transparent hover:border-border focus:border-border-focus focus:bg-input focus:outline-none w-full max-w-xl"
+                      className="w-full text-[11px] text-fg bg-input/70 border border-border/70 hover:border-fg-muted/40 focus:border-border-focus focus:bg-input focus:ring-1 focus:ring-border-focus/30 focus:outline-none px-2.5 py-0.5 rounded-xs placeholder-fg-muted transition-colors"
                     />
                   </div>
                 </div>
@@ -843,7 +851,7 @@ export function ScenarioBuilder({
                               ))}
 
                             {/* Add Custom Fixture Input */}
-                            <div className="flex items-center gap-1 ml-1">
+                            <div className="flex items-center gap-1.5 ml-1">
                               <input
                                 type="text"
                                 placeholder="Add custom fixture..."
@@ -855,14 +863,14 @@ export function ScenarioBuilder({
                                     addCustomFixture(customFixtureInput)
                                   }
                                 }}
-                                className="px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none w-36"
+                                className="px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none w-40"
                               />
                               <Button
                                 size="xs"
                                 variant="secondary"
                                 onClick={() => addCustomFixture(customFixtureInput)}
                                 disabled={!customFixtureInput.trim()}
-                                icon={<Plus className="w-2.5 h-2.5" />}
+                                icon={<Plus className="w-3 h-3" />}
                               >
                                 Add
                               </Button>
@@ -888,7 +896,7 @@ export function ScenarioBuilder({
                                   value={key}
                                   onChange={(e) => updateScenarioVar(e.target.value, String(val), key)}
                                   placeholder="Variable name"
-                                  className="w-40 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-primary font-mono focus:border-border-focus focus:outline-none"
+                                  className="w-44 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
                                 />
                                 <span className="text-fg-muted font-mono">=</span>
                                 <input
@@ -896,14 +904,14 @@ export function ScenarioBuilder({
                                   value={typeof val === "object" ? JSON.stringify(val) : String(val)}
                                   onChange={(e) => updateScenarioVar(key, e.target.value)}
                                   placeholder="Value e.g. 100 or 'test'"
-                                  className="flex-1 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                  className="flex-1 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
                                 />
                                 <Button
                                   size="xs"
                                   variant="ghost"
                                   onClick={() => deleteScenarioVar(key)}
                                   title="Delete variable"
-                                  icon={<X className="w-3 h-3 text-error" />}
+                                  icon={<X className="w-3.5 h-3.5 text-error" />}
                                 />
                               </div>
                             ))}
@@ -915,7 +923,7 @@ export function ScenarioBuilder({
                                 placeholder="New variable name..."
                                 value={newVarKey}
                                 onChange={(e) => setNewVarKey(e.target.value)}
-                                className="w-40 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-primary font-mono focus:border-border-focus focus:outline-none"
+                                className="w-44 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
                               />
                               <span className="text-fg-muted font-mono">=</span>
                               <input
@@ -931,7 +939,7 @@ export function ScenarioBuilder({
                                     setNewVarVal("")
                                   }
                                 }}
-                                className="flex-1 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                className="flex-1 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none"
                               />
                               <Button
                                 size="xs"
@@ -944,7 +952,7 @@ export function ScenarioBuilder({
                                   }
                                 }}
                                 disabled={!newVarKey.trim()}
-                                icon={<Plus className="w-2.5 h-2.5" />}
+                                icon={<Plus className="w-3 h-3" />}
                               >
                                 Add
                               </Button>
@@ -963,38 +971,42 @@ export function ScenarioBuilder({
                       </h3>
                       {/* Add step quick buttons */}
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-fg-muted">Add Step:</span>
+                        <span className="text-[11px] text-fg-muted font-medium">Add Step:</span>
                         <Button
                           size="xs"
                           variant="secondary"
                           onClick={() => addStep("http")}
                           className="text-[#9cdcfe]"
+                          icon={<Plus className="w-3 h-3 text-[#9cdcfe]" />}
                         >
-                          + Web API
+                          Web API
                         </Button>
                         <Button
                           size="xs"
                           variant="secondary"
                           onClick={() => addStep("web")}
                           className="text-[#4ec9b0]"
+                          icon={<Plus className="w-3 h-3 text-[#4ec9b0]" />}
                         >
-                          + Web Browser
+                          Web Browser
                         </Button>
                         <Button
                           size="xs"
                           variant="secondary"
                           onClick={() => addStep("mobile")}
                           className="text-[#89d185]"
+                          icon={<Plus className="w-3 h-3 text-[#89d185]" />}
                         >
-                          + Mobile App
+                          Mobile App
                         </Button>
                         <Button
                           size="xs"
                           variant="secondary"
                           onClick={() => addStep("shell")}
                           className="text-[#dcdcaa]"
+                          icon={<Plus className="w-3 h-3 text-[#dcdcaa]" />}
                         >
-                          + Command Line
+                          Command Line
                         </Button>
                       </div>
                     </div>
@@ -1006,19 +1018,25 @@ export function ScenarioBuilder({
                         className="p-3 shadow-xs hover:border-border-focus transition"
                       >
                         {/* Step Card Top Controls */}
-                        <div className="flex items-center justify-between pb-2.5 border-b border-border mb-3">
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-3">
-                            <span className="w-5 h-5 rounded-xs bg-input border border-border text-fg-muted flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
+                        <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-border mb-3">
+                          {/* Step Index & Name Input */}
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <span className="w-6 h-6 rounded-xs bg-editor border border-border text-fg-muted flex items-center justify-center text-[11px] font-mono font-bold shrink-0 shadow-2xs">
                               {idx + 1}
                             </span>
-                            <input
-                              type="text"
-                              value={step.name}
-                              onChange={(e) => updateStep(idx, { name: e.target.value })}
-                              placeholder="Step Name"
-                              className="font-medium text-xs text-fg-bright bg-transparent hover:bg-input px-2 py-0.5 rounded-xs border border-transparent focus:border-border-focus focus:bg-input focus:outline-none flex-1 min-w-0"
-                            />
-                            {/* Target selector */}
+                            <div className="relative flex-1 min-w-[160px] max-w-md">
+                              <input
+                                type="text"
+                                value={step.name}
+                                onChange={(e) => updateStep(idx, { name: e.target.value })}
+                                placeholder="Step name (e.g. Verify response)"
+                                className="w-full text-xs font-medium text-fg-bright bg-input border border-border hover:border-fg-muted/40 focus:border-border-focus focus:ring-1 focus:ring-border-focus/30 focus:outline-none px-2.5 py-1 rounded-xs transition-colors"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Target Selector, Driver Badge, Divider & Action Buttons */}
+                          <div className="flex items-center gap-2 shrink-0">
                             <Select
                               size="xs"
                               value={step.target}
@@ -1028,44 +1046,46 @@ export function ScenarioBuilder({
                                 label: formatTargetLabel(t),
                               }))}
                               className="w-40 shrink-0"
-                              triggerClassName="font-medium text-xs text-fg-bright font-sans"
+                              triggerClassName="text-xs text-fg-bright font-sans"
                             />
                             <Badge size="xs" variant={getTargetBadgeVariant(step.target)} className="shrink-0">
                               {capitalizeFirst(getTargetDriver(step.target))}
                             </Badge>
-                          </div>
 
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => moveStep(idx, "up")}
-                              disabled={idx === 0}
-                              title="Move Up"
-                              icon={<ArrowUp className="w-3 h-3" />}
-                            />
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => moveStep(idx, "down")}
-                              disabled={idx === draftScenario.steps.length - 1}
-                              title="Move Down"
-                              icon={<ArrowDown className="w-3 h-3" />}
-                            />
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => duplicateStep(idx)}
-                              title="Duplicate Step"
-                              icon={<Copy className="w-3 h-3" />}
-                            />
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => deleteStep(idx)}
-                              title="Delete Step"
-                              icon={<Trash2 className="w-3 h-3 text-error" />}
-                            />
+                            <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
+
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => moveStep(idx, "up")}
+                                disabled={idx === 0}
+                                title="Move Up"
+                                icon={<ArrowUp className="w-3.5 h-3.5" />}
+                              />
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => moveStep(idx, "down")}
+                                disabled={idx === draftScenario.steps.length - 1}
+                                title="Move Down"
+                                icon={<ArrowDown className="w-3.5 h-3.5" />}
+                              />
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => duplicateStep(idx)}
+                                title="Duplicate Step"
+                                icon={<Copy className="w-3.5 h-3.5" />}
+                              />
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => deleteStep(idx)}
+                                title="Delete Step"
+                                icon={<Trash2 className="w-3.5 h-3.5 text-error" />}
+                              />
+                            </div>
                           </div>
                         </div>
 

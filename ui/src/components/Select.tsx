@@ -160,6 +160,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       },
     }[size]
 
+    const hasCustomWidth = /(?:^|\s)w-\S+/.test(className)
+
     return (
       <div
         id={selectId}
@@ -171,7 +173,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             forwardedRef.current = node
           }
         }}
-        className={`relative flex flex-col gap-1 w-full ${className}`}
+        className={`relative flex flex-col gap-1 ${hasCustomWidth ? "" : "w-full"} ${className}`}
       >
         {label && (
           <label className="text-[11px] font-medium text-fg-muted uppercase tracking-wider select-none">
