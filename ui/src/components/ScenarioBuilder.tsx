@@ -1,6 +1,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  Bookmark,
   Check,
   Code,
   Copy,
@@ -669,31 +670,25 @@ export function ScenarioBuilder({
                 <Button
                   size="xs"
                   variant="ghost"
-                  onClick={() => setIsPresetModalOpen(true)}
-                  title="Insert Step from Preset"
-                  icon={<Plus className="w-3.5 h-3.5 text-primary" />}
-                >
-                  Preset
-                </Button>
+                  onClick={() => setShowScenarioSettings(true)}
+                  title="Scenario Settings & Fixtures"
+                  className="p-1 h-6 w-6 text-fg-muted hover:text-fg"
+                  icon={<Settings className="w-3.5 h-3.5" />}
+                />
               </div>
             </div>
 
-            {/* Scenario Global Settings Trigger */}
+            {/* Insert Step from Preset Trigger */}
             <div className="p-2 border-b border-border bg-sidebar/50">
               <Button
                 type="button"
-                variant="ghost"
+                variant="secondary"
                 size="xs"
-                onClick={() => setShowScenarioSettings(true)}
-                className="w-full justify-between text-fg-muted hover:text-fg py-1.5 px-2.5"
+                onClick={() => setIsPresetModalOpen(true)}
+                className="w-full justify-center gap-1.5"
+                icon={<Bookmark className="w-3.5 h-3.5 text-primary" />}
               >
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Settings className="w-3.5 h-3.5 text-fg-muted" />
-                  Scenario Settings & Fixtures
-                </span>
-                <span className="text-xs text-fg-muted font-mono">
-                  Edit
-                </span>
+                Insert Step from Preset
               </Button>
             </div>
 
