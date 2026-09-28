@@ -48,7 +48,7 @@ function AppContent() {
   const { error: toastError, success: toastSuccess } = useToast()
 
   // Load initial data
-  const loadInitialData = async () => {
+  const loadInitialData = async (retryCount = 0) => {
     try {
       const [cfg, scList, flList] = await Promise.all([
         fetchConfig(),
@@ -62,6 +62,9 @@ function AppContent() {
     } catch (e) {
       console.warn("Backend not yet ready:", (e as Error).message)
       setIsConnected(false)
+      if (retryCount < 5) {
+        setTimeout(() => loadInitialData(retryCount + 1), 1000)
+      }
     }
   }
 

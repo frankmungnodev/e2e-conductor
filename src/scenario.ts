@@ -20,10 +20,10 @@ export type { Assert, Scenario, Step, StepPreset }
 
 /** Fields each driver accepts on top of the common step fields. */
 const DRIVER_FIELDS: Record<string, string[]> = {
-  http: ["method", "url", "headers", "body"],
+  http: ["actions", "method", "url", "headers", "body"],
   web: ["actions", "action", "selector", "value", "key", "url", "ms", "run", "params"],
   mobile: ["actions", "action", "selector", "value", "key", "ms", "flow", "launch", "params"],
-  shell: ["command", "cwd"],
+  shell: ["actions", "command", "cwd"],
 }
 const REQUIRED: Record<string, string> = { http: "url", web: "run", mobile: "flow", shell: "command" }
 const COMMON = new Set(["id", "name", "target", "extract", "assert", "timeout_ms", "retry"])
@@ -72,12 +72,20 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlow
         ? (step.actions !== undefined && step.actions.length > 0) || step.action !== undefined || step.run !== undefined
         : driver === "mobile"
           ? (step.actions !== undefined && step.actions.length > 0) || step.action !== undefined || step.flow !== undefined || step.launch !== undefined
-          : step[REQUIRED[driver] as keyof Step] !== undefined
+          : driver === "http"
+            ? (step.actions !== undefined && step.actions.length > 0) || step.url !== undefined
+            : driver === "shell"
+              ? (step.actions !== undefined && step.actions.length > 0) || step.command !== undefined
+              : step[REQUIRED[driver] as keyof Step] !== undefined
     if (!hasRequired) {
       if (driver === "web") {
         errors.push(`${where}: web step needs "actions", "action", or "run"`)
       } else if (driver === "mobile") {
         errors.push(`${where}: mobile step needs "actions", "action", "flow", or "launch"`)
+      } else if (driver === "http") {
+        errors.push(`${where}: http step needs "actions" or "url"`)
+      } else if (driver === "shell") {
+        errors.push(`${where}: shell step needs "actions" or "command"`)
       } else {
         errors.push(`${where}: ${driver} step needs "${REQUIRED[driver]}"`)
       }

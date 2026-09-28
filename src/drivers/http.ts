@@ -8,6 +8,44 @@ export class HttpDriver implements Driver {
   constructor(private readonly service: ServiceConfig) {}
 
   async run({ step, log }: StepRun): Promise<StepResult> {
+    if (step.actions && step.actions.length > 0) {
+      let lastResult: StepResult = { data: {} }
+      for (let i = 0; i < step.actions.length; i++) {
+        const act = step.actions[i]
+        const actionMethod = act.method ?? (act.action.startsWith("http_") ? act.action.replace("http_", "") : "GET")
+        const actionUrl = act.url ?? step.url ?? "/"
+        const targetUrl = /^https?:\/\//.test(actionUrl) ? actionUrl : new URL(actionUrl, this.service.url).href
+        const method = actionMethod.toUpperCase()
+        const body = act.body ?? step.body
+        const hasBody = body !== undefined
+        log(`${method} ${targetUrl}`)
+        if (hasBody) log(`body ${JSON.stringify(body)}`)
+
+        const response = await fetch(targetUrl, {
+          method,
+          headers: {
+            ...(hasBody ? { "Content-Type": "application/json" } : {}),
+            ...(this.cookies.size > 0 ? { Cookie: [...this.cookies].map(([name, value]) => `${name}=${value}`).join("; ") } : {}),
+            ...step.headers,
+            ...act.headers,
+          },
+          body: hasBody ? JSON.stringify(body) : undefined,
+          signal: AbortSignal.timeout(step.timeout_ms ?? 30_000),
+        })
+        this.storeCookies(response.headers.getSetCookie())
+        const text = await response.text()
+        let data: unknown = text
+        try {
+          data = JSON.parse(text)
+        } catch {
+          // not JSON; keep the text
+        }
+        log(`-> ${response.status} ${text.slice(0, 300)}`)
+        lastResult = { data, status: response.status, output: text }
+      }
+      return lastResult
+    }
+
     const url = /^https?:\/\//.test(step.url ?? "") ? (step.url as string) : new URL(step.url ?? "/", this.service.url).href
     const method = step.method ?? "GET"
     const hasBody = step.body !== undefined

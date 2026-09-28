@@ -83,20 +83,20 @@ Each action in `step.actions` executes sequentially within the step's driver ses
 - `action`: Specific driver action keyword:
   - **Web**: `navigate`, `click`, `fill`, `press`, `wait_for`, `assert_visible`, `assert_text`, `hover`, `select`, `check`, `uncheck`, `screenshot`, `eval`.
   - **Mobile**: `tap`, `type`, `press`, `swipe`, `assert_visible`, `assert_not_visible`, `wait_for`, `back`, `hidekeyboard`, `launch`, `stop`.
+  - **HTTP**: `http_get`, `http_post`, `http_put`, `http_patch`, `http_delete`.
+  - **Shell**: `shell`.
 - `selector`: CSS selector, XPath, or mobile element label/resource ID.
 - `value`: Text input value, expected assertion text, or script content.
-- `url`: Destination URL for web navigation.
+- `url`: Destination URL for web navigation or HTTP requests.
 - `key`: Keyboard key (`Enter`, `Tab`, `Escape`, `BACK`, `HOME`) or swipe direction (`RIGHT`, `LEFT`, `UP`, `DOWN`).
 - `ms`: Delay duration or timeout in milliseconds.
-
-### Single-Action Backwards Compatibility
-For backwards compatibility, drivers support legacy single-action fields directly on the step (`step.action`, `step.selector`, `step.value`, etc.), automatically wrapping them into a single-action execution.
-
-### Target Driver Escape Hatches
-- **Web driver**: `run` - optional TypeScript module name in `.e2e/modules` for custom script execution.
-- **Mobile driver**: `flow` - optional YAML flow file in `.e2e/flows`.
-- **HTTP driver**: `url`, `method`, `headers`, `body`.
-- **Shell driver**: `command`, `cwd`.
+- `command`: Shell command string executed with `sh -c`.
+- `cwd`: Shell working directory, relative to config folder.
+- `method`: HTTP request method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
+- `headers`: HTTP request headers map.
+- `body`: HTTP request JSON body.
+- `status`: Expected HTTP response status code assertion.
+- `exit_code`: Expected shell process exit code assertion.
 
 ---
 

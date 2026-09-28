@@ -58,6 +58,18 @@ const MOBILE_ACTION_OPTIONS = [
   { value: "stop", label: "Stop Application" },
 ]
 
+const HTTP_ACTION_OPTIONS = [
+  { value: "http_get", label: "HTTP GET Request" },
+  { value: "http_post", label: "HTTP POST Request" },
+  { value: "http_put", label: "HTTP PUT Request" },
+  { value: "http_patch", label: "HTTP PATCH Request" },
+  { value: "http_delete", label: "HTTP DELETE Request" },
+]
+
+const SHELL_ACTION_OPTIONS = [
+  { value: "shell", label: "Run Shell Command" },
+]
+
 export type ScenarioBuilderProps = {
   scenarios: ScenarioItem[]
   flows?: FlowItem[]
@@ -160,27 +172,49 @@ export function ScenarioBuilder({
     if (!sc) return
     setSelectedScenarioId(id)
     const cloned = JSON.parse(JSON.stringify(sc)) as ScenarioItem
-    // Ensure all steps have actions array initialized if web or mobile
+
+    // GUARANTEE: Every step has an initialized actions array so Step Actions is ALWAYS visible!
     if (cloned.steps) {
-      cloned.steps = cloned.steps.map((st) => {
-        const driver = getTargetDriver(st.target)
-        if ((driver === "web" || driver === "mobile") && (!st.actions || st.actions.length === 0)) {
-          const defaultAct = driver === "web" ? "navigate" : "tap"
-          return {
-            ...st,
-            actions: [
-              {
-                id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-                action: defaultAct,
-                url: driver === "web" ? "/" : undefined,
-                selector: driver === "mobile" ? "Button" : undefined,
-              },
-            ],
+      cloned.steps = cloned.steps.map((st, i) => {
+        if (!st.actions || st.actions.length === 0) {
+          const driver = getTargetDriver(st.target)
+          let defaultAct: StepAction
+          if (driver === "http") {
+            const method = (st.method ?? "GET").toLowerCase()
+            defaultAct = {
+              id: `act_${Date.now()}_${i}`,
+              action: `http_${method}`,
+              method: st.method ?? "GET",
+              url: st.url ?? "/api",
+              status: st.assert?.status ?? 200,
+            }
+          } else if (driver === "shell") {
+            defaultAct = {
+              id: `act_${Date.now()}_${i}`,
+              action: "shell",
+              command: st.command ?? "echo 'Step execution'",
+              exit_code: st.assert?.exit_code ?? 0,
+            }
+          } else if (driver === "mobile") {
+            defaultAct = {
+              id: `act_${Date.now()}_${i}`,
+              action: "tap",
+              selector: "Button",
+            }
+          } else {
+            defaultAct = {
+              id: `act_${Date.now()}_${i}`,
+              action: "navigate",
+              url: st.url ?? "/",
+            }
           }
+          return { ...st, actions: [defaultAct] }
         }
         return st
       })
+      cloned.raw = { ...cloned.raw, steps: cloned.steps }
     }
+
     setDraftScenario(cloned)
     setSelectedStepIdx(0)
     setShowScenarioSettings(false)
@@ -258,11 +292,20 @@ export function ScenarioBuilder({
     const step = draftScenario?.steps[stepIdx]
     if (!step) return
     const driver = getTargetDriver(step.target)
-    const actType = defaultAction ?? (driver === "web" ? "navigate" : "tap")
+    let actType = defaultAction
+    if (!actType) {
+      if (driver === "http") actType = "http_get"
+      else if (driver === "shell") actType = "shell"
+      else if (driver === "mobile") actType = "tap"
+      else actType = "navigate"
+    }
+
     const newAction: StepAction = {
       id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       action: actType,
-      url: actType === "navigate" ? "/" : undefined,
+      url: actType === "navigate" || actType.startsWith("http_") ? "/" : undefined,
+      command: actType === "shell" ? "echo 'Step execution'" : undefined,
+      selector: actType === "tap" ? "Button" : undefined,
     }
     const currentActions = step.actions ?? []
     updateStep(stepIdx, { actions: [...currentActions, newAction] })
@@ -334,12 +377,23 @@ export function ScenarioBuilder({
         },
       ]
     } else if (driverType === "http") {
-      newStep.method = "GET"
-      newStep.url = "/api/status"
-      newStep.assert = { status: 200 }
+      newStep.actions = [
+        {
+          id: `act_${Date.now()}_1`,
+          action: "http_get",
+          url: "/api/status",
+          status: 200,
+        },
+      ]
     } else if (driverType === "shell") {
-      newStep.command = "echo 'Step execution'"
-      newStep.assert = { exit_code: 0 }
+      newStep.actions = [
+        {
+          id: `act_${Date.now()}_1`,
+          action: "shell",
+          command: "echo 'Step execution'",
+          exit_code: 0,
+        },
+      ]
     }
 
     const newSteps = [...draftScenario.steps, newStep]
@@ -444,7 +498,14 @@ export function ScenarioBuilder({
     if (!draftScenario) return
     setIsSaving(true)
     try {
-      let content = draftScenario.raw
+      let content = {
+        ...draftScenario.raw,
+        name: draftScenario.name,
+        description: draftScenario.description,
+        setup: draftScenario.setup,
+        vars: draftScenario.vars,
+        steps: draftScenario.steps,
+      }
       if (inspectorMode === "json") {
         try {
           content = JSON.parse(jsonText)
@@ -496,7 +557,13 @@ export function ScenarioBuilder({
       : null
 
   const stepDriver = selectedStep ? getTargetDriver(selectedStep.target) : "web"
-  const isWebOrMobile = stepDriver === "web" || stepDriver === "mobile"
+
+  const getActionOptions = (driver: string) => {
+    if (driver === "http") return HTTP_ACTION_OPTIONS
+    if (driver === "shell") return SHELL_ACTION_OPTIONS
+    if (driver === "mobile") return MOBILE_ACTION_OPTIONS
+    return WEB_ACTION_OPTIONS
+  }
 
   return (
     <div className="flex h-[calc(100vh-49px)] overflow-hidden bg-editor text-fg select-none">
@@ -792,10 +859,10 @@ export function ScenarioBuilder({
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-fg-muted">
-                      <span className="truncate">
+                      <span className="truncate font-mono">
                         {actionsCount > 0
                           ? `${actionsCount} action(s): ${actionsSummary}${actionsCount > 3 ? "..." : ""}`
-                          : st.url || st.command || "Configured step"}
+                          : "1 action"}
                       </span>
                       <div
                         className="flex items-center gap-0.5 opacity-60 hover:opacity-100"
@@ -892,7 +959,7 @@ export function ScenarioBuilder({
       </section>
 
       {/* ========================================================================= */}
-      {/* COLUMN 3: STEP INSPECTOR & ACTIONS EDITOR                                 */}
+      {/* COLUMN 3: STEP INSPECTOR & COMPOSITE ACTIONS                              */}
       {/* ========================================================================= */}
       <section className="flex-1 flex flex-col bg-sidebar overflow-hidden">
         {draftScenario && selectedStep ? (
@@ -971,30 +1038,17 @@ export function ScenarioBuilder({
                             const newDriver = getTargetDriver(val)
                             const currentDriver = getTargetDriver(selectedStep.target)
                             if (newDriver !== currentDriver) {
+                              let defaultAct: StepAction
                               if (newDriver === "web") {
-                                updateStep(selectedStepIdx, {
-                                  target: val,
-                                  actions: [{ id: `act_${Date.now()}_1`, action: "navigate", url: "/" }],
-                                })
+                                defaultAct = { id: `act_${Date.now()}_1`, action: "navigate", url: "/" }
                               } else if (newDriver === "mobile") {
-                                updateStep(selectedStepIdx, {
-                                  target: val,
-                                  actions: [{ id: `act_${Date.now()}_1`, action: "tap", selector: "Button" }],
-                                })
+                                defaultAct = { id: `act_${Date.now()}_1`, action: "tap", selector: "Button" }
                               } else if (newDriver === "http") {
-                                updateStep(selectedStepIdx, {
-                                  target: val,
-                                  method: "GET",
-                                  url: "/api/test",
-                                  actions: undefined,
-                                })
+                                defaultAct = { id: `act_${Date.now()}_1`, action: "http_get", url: "/api/test", status: 200 }
                               } else {
-                                updateStep(selectedStepIdx, {
-                                  target: val,
-                                  command: "echo 'hello'",
-                                  actions: undefined,
-                                })
+                                defaultAct = { id: `act_${Date.now()}_1`, action: "shell", command: "echo 'hello'", exit_code: 0 }
                               }
+                              updateStep(selectedStepIdx, { target: val, actions: [defaultAct] })
                             } else {
                               updateStep(selectedStepIdx, { target: val })
                             }
@@ -1015,24 +1069,26 @@ export function ScenarioBuilder({
                   </Panel>
 
                   {/* ========================================================================= */}
-                  {/* COMPOSITE STEP ACTIONS (Web & Mobile)                                    */}
+                  {/* STEP ACTIONS SEQUENCE (RENDERED FOR EVERY SINGLE STEP!)                   */}
                   {/* ========================================================================= */}
-                  {isWebOrMobile && (
-                    <Panel variant="sidebar" className="p-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col gap-0.5">
-                          <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
-                            {stepDriver === "web" ? (
-                              <Globe className="w-3.5 h-3.5 text-[#4ec9b0]" />
-                            ) : (
-                              <Smartphone className="w-3.5 h-3.5 text-[#ce9178]" />
-                            )}
-                            Step Actions Sequence
-                          </label>
-                          <span className="text-xs text-fg-muted">
-                            Ordered atomic {stepDriver} actions executed sequentially in this step
-                          </span>
-                        </div>
+                  <Panel variant="sidebar" className="p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
+                          {stepDriver === "web" && <Globe className="w-3.5 h-3.5 text-[#4ec9b0]" />}
+                          {stepDriver === "mobile" && <Smartphone className="w-3.5 h-3.5 text-[#ce9178]" />}
+                          {stepDriver === "http" && <Code className="w-3.5 h-3.5 text-[#9cdcfe]" />}
+                          {stepDriver === "shell" && <Terminal className="w-3.5 h-3.5 text-[#dcdcaa]" />}
+                          Step Actions Sequence
+                        </label>
+                        <span className="text-xs text-fg-muted">
+                          Atomic execution actions performed in sequence for this {stepDriver} step
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="neutral" size="xs">
+                          {selectedStep.actions?.length ?? 0} {(selectedStep.actions?.length ?? 0) === 1 ? "Action" : "Actions"}
+                        </Badge>
                         <Button
                           size="xs"
                           variant="secondary"
@@ -1042,603 +1098,442 @@ export function ScenarioBuilder({
                           Add Action
                         </Button>
                       </div>
+                    </div>
 
-                      {/* Actions List */}
-                      <div className="space-y-2.5">
-                        {(selectedStep.actions ?? []).map((act, actIdx) => {
-                          const actionOptions =
-                            stepDriver === "web" ? WEB_ACTION_OPTIONS : MOBILE_ACTION_OPTIONS
-                          const isWeb = stepDriver === "web"
-                          const actType = act.action ?? (isWeb ? "navigate" : "tap")
+                    {/* Actions List */}
+                    <div className="space-y-2.5">
+                      {(selectedStep.actions ?? []).map((act, actIdx) => {
+                        const actionOptions = getActionOptions(stepDriver)
+                        const actType = act.action || actionOptions[0]?.value || "navigate"
 
-                          return (
-                            <div
-                              key={act.id || actIdx}
-                              className="p-3 rounded-xs border border-border bg-input/40 space-y-2.5"
-                            >
-                              {/* Action Header */}
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 flex-1">
-                                  <span className="text-xs font-mono font-bold text-fg-muted shrink-0">
-                                    #{actIdx + 1}
-                                  </span>
-                                  <Select
-                                    size="xs"
-                                    value={actType}
-                                    onChange={(val) => {
-                                      updateStepAction(selectedStepIdx, actIdx, { action: val })
-                                    }}
-                                    options={actionOptions}
-                                    className="w-56"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => moveStepAction(selectedStepIdx, actIdx, "up")}
-                                    disabled={actIdx === 0}
-                                    className="p-1 text-fg-muted hover:text-fg disabled:opacity-20 cursor-pointer"
-                                    title="Move action up"
-                                  >
-                                    <ArrowUp className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => moveStepAction(selectedStepIdx, actIdx, "down")}
-                                    disabled={actIdx === (selectedStep.actions?.length ?? 1) - 1}
-                                    className="p-1 text-fg-muted hover:text-fg disabled:opacity-20 cursor-pointer"
-                                    title="Move action down"
-                                  >
-                                    <ArrowDown className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteStepAction(selectedStepIdx, actIdx)}
-                                    className="p-1 text-fg-muted hover:text-error cursor-pointer"
-                                    title="Delete action"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                        return (
+                          <div
+                            key={act.id || actIdx}
+                            className="p-3 rounded-xs border border-border bg-input/40 space-y-2.5"
+                          >
+                            {/* Action Header */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                <span className="text-xs font-mono font-bold text-fg-muted shrink-0">
+                                  #{actIdx + 1}
+                                </span>
+                                <Select
+                                  size="xs"
+                                  value={actType}
+                                  onChange={(val) => {
+                                    updateStepAction(selectedStepIdx, actIdx, { action: val })
+                                  }}
+                                  options={actionOptions}
+                                  className="w-56"
+                                />
                               </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => moveStepAction(selectedStepIdx, actIdx, "up")}
+                                  disabled={actIdx === 0}
+                                  className="p-1 text-fg-muted hover:text-fg disabled:opacity-20 cursor-pointer"
+                                  title="Move action up"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveStepAction(selectedStepIdx, actIdx, "down")}
+                                  disabled={actIdx === (selectedStep.actions?.length ?? 1) - 1}
+                                  className="p-1 text-fg-muted hover:text-fg disabled:opacity-20 cursor-pointer"
+                                  title="Move action down"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteStepAction(selectedStepIdx, actIdx)}
+                                  className="p-1 text-fg-muted hover:text-error cursor-pointer"
+                                  title="Delete action"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
 
-                              {/* Action Inputs */}
-                              <div className="space-y-2 pt-1 border-t border-border/60">
-                                {/* Web: Navigate */}
-                                {isWeb && (actType === "navigate" || actType === "goto") && (
-                                  <div className="space-y-1">
-                                    <label className="text-xs text-fg-muted font-medium">
-                                      URL / Path:
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={act.url ?? act.value ?? ""}
-                                      onChange={(e) =>
-                                        updateStepAction(selectedStepIdx, actIdx, {
-                                          url: e.target.value,
-                                        })
-                                      }
-                                      placeholder="e.g. /login, /checkout, or https://example.com"
-                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                    />
-                                  </div>
-                                )}
-
-                                {/* Web: Click, Hover, Check, Uncheck, Assert Visible */}
-                                {isWeb &&
-                                  [
-                                    "click",
-                                    "hover",
-                                    "check",
-                                    "uncheck",
-                                    "assert_visible",
-                                  ].includes(actType) && (
+                            {/* Action Inputs based on Type */}
+                            <div className="space-y-2 pt-1 border-t border-border/60">
+                              {/* HTTP Actions */}
+                              {actType.startsWith("http_") && (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-[1fr_130px] gap-2">
                                     <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Element Selector:
-                                      </label>
+                                      <label className="text-xs text-fg-muted font-medium">URL / Endpoint:</label>
                                       <input
                                         type="text"
-                                        value={act.selector ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. button[type='submit'], #login-btn, .nav-item"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                  )}
-
-                                {/* Web: Fill / Type */}
-                                {isWeb && (actType === "fill" || actType === "type") && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Element Selector:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.selector ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. #email, input[name='username']"
+                                        value={act.url ?? ""}
+                                        onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { url: e.target.value })}
+                                        placeholder="e.g. /api/users or https://api.example.com"
                                         className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                                       />
                                     </div>
                                     <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Input Value:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.value ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            value: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. admin@example.com"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Web: Press Key */}
-                                {isWeb && actType === "press" && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Key to Press:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.key ?? act.value ?? "Enter"}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            key: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. Enter, Tab, Escape"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Selector (Optional):
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.selector ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. #search-input (default: page)"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Web: Assert Text */}
-                                {isWeb && actType === "assert_text" && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Element Selector:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.selector ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. .status-badge, #message"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Expected Text:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.value ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            value: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. Order Placed Successfully"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Web: Select Dropdown */}
-                                {isWeb && actType === "select" && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Select Element:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.selector ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. select#country"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Option Value / Label:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.value ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            value: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. US, admin"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Web & Mobile: Wait / Delay */}
-                                {["wait_for", "wait"].includes(actType) && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Wait for Selector (Optional):
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.selector ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. .spinner or #modal"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Delay (ms):
-                                      </label>
+                                      <label className="text-xs text-fg-muted font-medium">Expected Status:</label>
                                       <NumberInput
                                         size="xs"
-                                        value={act.ms ?? 1000}
-                                        onChange={(val) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            ms: val,
-                                          })
-                                        }
+                                        value={act.status ?? 200}
+                                        onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { status: val })}
                                         min={100}
-                                        step={500}
+                                        max={599}
                                       />
                                     </div>
                                   </div>
-                                )}
-
-                                {/* Web: Screenshot */}
-                                {isWeb && actType === "screenshot" && (
-                                  <div className="space-y-1">
-                                    <label className="text-xs text-fg-muted font-medium">
-                                      Screenshot File Path (Optional):
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={act.value ?? ""}
-                                      onChange={(e) =>
-                                        updateStepAction(selectedStepIdx, actIdx, {
-                                          value: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Leave blank for automatic run artifact capture"
-                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                    />
-                                  </div>
-                                )}
-
-                                {/* Web: JavaScript Expression */}
-                                {isWeb && actType === "eval" && (
-                                  <div className="space-y-1">
-                                    <label className="text-xs text-fg-muted font-medium">
-                                      JavaScript Expression:
-                                    </label>
-                                    <textarea
-                                      rows={2}
-                                      value={act.value ?? ""}
-                                      onChange={(e) =>
-                                        updateStepAction(selectedStepIdx, actIdx, {
-                                          value: e.target.value,
-                                        })
-                                      }
-                                      placeholder="e.g. document.title, window.scrollTo(0, 500)"
-                                      className="w-full p-2 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                    />
-                                  </div>
-                                )}
-
-                                {/* Mobile: Tap, Assert Visible */}
-                                {!isWeb &&
-                                  [
-                                    "tap",
-                                    "click",
-                                    "assert_visible",
-                                    "assert_not_visible",
-                                  ].includes(actType) && (
+                                  {["http_post", "http_put", "http_patch"].includes(actType) && (
                                     <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Element Text, Label, or ID:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.selector ?? act.value ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. Sign In, btn_submit, or com.app:id/title"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      <label className="text-xs text-fg-muted font-medium">Request Body (JSON):</label>
+                                      <textarea
+                                        rows={3}
+                                        value={typeof act.body === "object" ? JSON.stringify(act.body, null, 2) : String(act.body ?? "")}
+                                        onChange={(e) => {
+                                          try {
+                                            const parsed = JSON.parse(e.target.value)
+                                            updateStepAction(selectedStepIdx, actIdx, { body: parsed })
+                                          } catch {
+                                            updateStepAction(selectedStepIdx, actIdx, { body: e.target.value })
+                                          }
+                                        }}
+                                        placeholder='{"key": "value"}'
+                                        className="w-full p-2 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                                       />
                                     </div>
                                   )}
+                                </div>
+                              )}
 
-                                {/* Mobile: Type Text */}
-                                {!isWeb && (actType === "type" || actType === "fill") && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Tap First (Optional Selector):
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.selector ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. Input Field Selector"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Text to Type:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.value ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            value: e.target.value,
-                                          })
-                                        }
-                                        placeholder="e.g. hello world"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Mobile: Swipe */}
-                                {!isWeb && actType === "swipe" && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        Swipe Direction:
-                                      </label>
-                                      <Select
-                                        size="xs"
-                                        value={act.key ?? "RIGHT"}
-                                        onChange={(val) =>
-                                          updateStepAction(selectedStepIdx, actIdx, { key: val })
-                                        }
-                                        options={[
-                                          { value: "RIGHT", label: "Swipe Right" },
-                                          { value: "LEFT", label: "Swipe Left" },
-                                          { value: "UP", label: "Swipe Up" },
-                                          { value: "DOWN", label: "Swipe Down" },
-                                        ]}
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs text-fg-muted font-medium">
-                                        From Element (Optional):
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={act.selector ?? ""}
-                                        onChange={(e) =>
-                                          updateStepAction(selectedStepIdx, actIdx, {
-                                            selector: e.target.value,
-                                          })
-                                        }
-                                        placeholder="Element to start swipe from"
-                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Mobile: Press Key */}
-                                {!isWeb && actType === "press" && (
+                              {/* Shell Action */}
+                              {actType === "shell" && (
+                                <div className="space-y-2">
                                   <div className="space-y-1">
-                                    <label className="text-xs text-fg-muted font-medium">
-                                      Key Name:
-                                    </label>
+                                    <label className="text-xs text-fg-muted font-medium">Shell Command:</label>
+                                    <input
+                                      type="text"
+                                      value={act.command ?? (typeof act.value === "string" ? act.value : "")}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { command: e.target.value })}
+                                      placeholder="e.g. pnpm run seed, curl -sf http://localhost:4173/"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-[1fr_130px] gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">Working Directory (Optional):</label>
+                                      <input
+                                        type="text"
+                                        value={act.cwd ?? ""}
+                                        onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { cwd: e.target.value })}
+                                        placeholder="Default: workspace root"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">Expected Exit Code:</label>
+                                      <NumberInput
+                                        size="xs"
+                                        value={act.exit_code ?? 0}
+                                        onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { exit_code: val })}
+                                        min={0}
+                                        max={255}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Web: Navigate */}
+                              {(actType === "navigate" || actType === "goto") && (
+                                <div className="space-y-1">
+                                  <label className="text-xs text-fg-muted font-medium">URL / Path:</label>
+                                  <input
+                                    type="text"
+                                    value={act.url ?? act.value ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { url: e.target.value })}
+                                    placeholder="e.g. /login, /checkout, or https://example.com"
+                                    className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: Click, Hover, Check, Uncheck, Assert Visible */}
+                              {["click", "hover", "check", "uncheck", "assert_visible"].includes(actType) && (
+                                <div className="space-y-1">
+                                  <label className="text-xs text-fg-muted font-medium">Element Selector:</label>
+                                  <input
+                                    type="text"
+                                    value={act.selector ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                    placeholder="e.g. button[type='submit'], #login-btn, .nav-item"
+                                    className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: Fill / Type */}
+                              {(actType === "fill" || (stepDriver === "web" && actType === "type")) && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Element Selector:</label>
+                                    <input
+                                      type="text"
+                                      value={act.selector ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                      placeholder="e.g. #email, input[name='username']"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Input Value:</label>
+                                    <input
+                                      type="text"
+                                      value={act.value ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                      placeholder="e.g. admin@example.com"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Web: Press Key */}
+                              {stepDriver === "web" && actType === "press" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Key to Press:</label>
+                                    <input
+                                      type="text"
+                                      value={act.key ?? act.value ?? "Enter"}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { key: e.target.value })}
+                                      placeholder="e.g. Enter, Tab, Escape"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Selector (Optional):</label>
+                                    <input
+                                      type="text"
+                                      value={act.selector ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                      placeholder="e.g. #search-input (default: page)"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Web: Assert Text */}
+                              {actType === "assert_text" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Element Selector:</label>
+                                    <input
+                                      type="text"
+                                      value={act.selector ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                      placeholder="e.g. .status-badge, #message"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Expected Text:</label>
+                                    <input
+                                      type="text"
+                                      value={act.value ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                      placeholder="e.g. Order Placed Successfully"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Web: Select Dropdown */}
+                              {actType === "select" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Select Element:</label>
+                                    <input
+                                      type="text"
+                                      value={act.selector ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                      placeholder="e.g. select#country"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Option Value / Label:</label>
+                                    <input
+                                      type="text"
+                                      value={act.value ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                      placeholder="e.g. US, admin"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Web & Mobile: Wait / Delay */}
+                              {["wait_for", "wait"].includes(actType) && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Wait for Selector (Optional):</label>
+                                    <input
+                                      type="text"
+                                      value={act.selector ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                      placeholder="e.g. .spinner or #modal"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Delay (ms):</label>
+                                    <NumberInput
+                                      size="xs"
+                                      value={act.ms ?? 1000}
+                                      onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { ms: val })}
+                                      min={100}
+                                      step={500}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Web: Screenshot */}
+                              {actType === "screenshot" && (
+                                <div className="space-y-1">
+                                  <label className="text-xs text-fg-muted font-medium">Screenshot File Path (Optional):</label>
+                                  <input
+                                    type="text"
+                                    value={act.value ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                    placeholder="Leave blank for automatic run artifact capture"
+                                    className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: JavaScript Expression */}
+                              {actType === "eval" && (
+                                <div className="space-y-1">
+                                  <label className="text-xs text-fg-muted font-medium">JavaScript Expression:</label>
+                                  <textarea
+                                    rows={2}
+                                    value={act.value ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                    placeholder="e.g. document.title, window.scrollTo(0, 500)"
+                                    className="w-full p-2 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Mobile: Tap, Assert Visible */}
+                              {stepDriver === "mobile" && ["tap", "click", "assert_visible", "assert_not_visible"].includes(actType) && (
+                                <div className="space-y-1">
+                                  <label className="text-xs text-fg-muted font-medium">Element Text, Label, or ID:</label>
+                                  <input
+                                    type="text"
+                                    value={act.selector ?? act.value ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                    placeholder="e.g. Sign In, btn_submit, or com.app:id/title"
+                                    className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Mobile: Type Text */}
+                              {stepDriver === "mobile" && (actType === "type" || actType === "fill") && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Tap First (Optional Selector):</label>
+                                    <input
+                                      type="text"
+                                      value={act.selector ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                      placeholder="e.g. Input Field Selector"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Text to Type:</label>
+                                    <input
+                                      type="text"
+                                      value={act.value ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                      placeholder="e.g. hello world"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Mobile: Swipe */}
+                              {stepDriver === "mobile" && actType === "swipe" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">Swipe Direction:</label>
                                     <Select
                                       size="xs"
-                                      value={act.key ?? "BACK"}
-                                      onChange={(val) =>
-                                        updateStepAction(selectedStepIdx, actIdx, { key: val })
-                                      }
+                                      value={act.key ?? "RIGHT"}
+                                      onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { key: val })}
                                       options={[
-                                        { value: "BACK", label: "Back Key" },
-                                        { value: "ENTER", label: "Enter Key" },
-                                        { value: "HOME", label: "Home Key" },
-                                        { value: "TAB", label: "Tab Key" },
+                                        { value: "RIGHT", label: "Swipe Right" },
+                                        { value: "LEFT", label: "Swipe Left" },
+                                        { value: "UP", label: "Swipe Up" },
+                                        { value: "DOWN", label: "Swipe Down" },
                                       ]}
                                     />
                                   </div>
-                                )}
-                              </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">From Element (Optional):</label>
+                                    <input
+                                      type="text"
+                                      value={act.selector ?? ""}
+                                      onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                      placeholder="Element to start swipe from"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Mobile: Press Key */}
+                              {stepDriver === "mobile" && actType === "press" && (
+                                <div className="space-y-1">
+                                  <label className="text-xs text-fg-muted font-medium">Key Name:</label>
+                                  <Select
+                                    size="xs"
+                                    value={act.key ?? "BACK"}
+                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { key: val })}
+                                    options={[
+                                      { value: "BACK", label: "Back Key" },
+                                      { value: "ENTER", label: "Enter Key" },
+                                      { value: "HOME", label: "Home Key" },
+                                      { value: "TAB", label: "Tab Key" },
+                                    ]}
+                                  />
+                                </div>
+                              )}
                             </div>
-                          )
-                        })}
-                      </div>
+                          </div>
+                        )
+                      })}
+                    </div>
 
-                      {/* Prominent + Add Action Button */}
-                      <Button
-                        size="xs"
-                        variant="secondary"
-                        className="w-full justify-center py-2 border-dashed"
-                        onClick={() => addStepAction(selectedStepIdx)}
-                        icon={<Plus className="w-3.5 h-3.5 text-primary" />}
-                      >
-                        + Add Action to Step
-                      </Button>
-                    </Panel>
-                  )}
-
-                  {/* ========================================================================= */}
-                  {/* HTTP API REQUEST CONFIGURATION                                            */}
-                  {/* ========================================================================= */}
-                  {stepDriver === "http" && (
-                    <Panel variant="sidebar" className="p-3 space-y-3">
-                      <div className="flex flex-col gap-0.5">
-                        <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
-                          <Code className="w-3.5 h-3.5 text-[#9cdcfe]" />
-                          HTTP API Request
-                        </label>
-                        <span className="text-xs text-fg-muted">
-                          REST endpoint request configuration
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-[100px_1fr] gap-2">
-                        <div className="space-y-1">
-                          <label className="text-xs text-fg-muted font-medium">Method:</label>
-                          <Select
-                            size="xs"
-                            value={selectedStep.method ?? "GET"}
-                            onChange={(val) =>
-                              updateStep(selectedStepIdx, { method: val })
-                            }
-                            options={[
-                              { value: "GET", label: "GET" },
-                              { value: "POST", label: "POST" },
-                              { value: "PUT", label: "PUT" },
-                              { value: "PATCH", label: "PATCH" },
-                              { value: "DELETE", label: "DELETE" },
-                            ]}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs text-fg-muted font-medium">URL / Endpoint:</label>
-                          <input
-                            type="text"
-                            value={selectedStep.url ?? ""}
-                            onChange={(e) => updateStep(selectedStepIdx, { url: e.target.value })}
-                            placeholder="e.g. /api/users or https://api.example.com/v1"
-                            className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Request Body */}
-                      {["POST", "PUT", "PATCH"].includes(selectedStep.method ?? "") && (
-                        <div className="space-y-1">
-                          <label className="text-xs text-fg-muted font-medium">
-                            Request Body (JSON):
-                          </label>
-                          <textarea
-                            rows={4}
-                            value={
-                              typeof selectedStep.body === "object"
-                                ? JSON.stringify(selectedStep.body, null, 2)
-                                : String(selectedStep.body ?? "")
-                            }
-                            onChange={(e) => {
-                              try {
-                                const parsed = JSON.parse(e.target.value)
-                                updateStep(selectedStepIdx, { body: parsed })
-                              } catch {
-                                updateStep(selectedStepIdx, { body: e.target.value })
-                              }
-                            }}
-                            placeholder='{"key": "value"}'
-                            className="w-full p-2.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                          />
-                        </div>
-                      )}
-                    </Panel>
-                  )}
-
-                  {/* ========================================================================= */}
-                  {/* SHELL COMMAND CONFIGURATION                                              */}
-                  {/* ========================================================================= */}
-                  {stepDriver === "shell" && (
-                    <Panel variant="sidebar" className="p-3 space-y-3">
-                      <div className="flex flex-col gap-0.5">
-                        <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
-                          <Terminal className="w-3.5 h-3.5 text-[#dcdcaa]" />
-                          Shell Command
-                        </label>
-                        <span className="text-xs text-fg-muted">
-                          Local command executed in project shell
-                        </span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs text-fg-muted font-medium">Command:</label>
-                        <input
-                          type="text"
-                          value={selectedStep.command ?? ""}
-                          onChange={(e) => updateStep(selectedStepIdx, { command: e.target.value })}
-                          placeholder="e.g. pnpm run seed, docker compose up -d"
-                          className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs text-fg-muted font-medium">
-                          Working Directory (Optional):
-                        </label>
-                        <input
-                          type="text"
-                          value={selectedStep.cwd ?? ""}
-                          onChange={(e) => updateStep(selectedStepIdx, { cwd: e.target.value })}
-                          placeholder="Default: workspace root"
-                          className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                        />
-                      </div>
-                    </Panel>
-                  )}
+                    {/* Prominent + Add Action Button */}
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      className="w-full justify-center py-2 border-dashed"
+                      onClick={() => addStepAction(selectedStepIdx)}
+                      icon={<Plus className="w-3.5 h-3.5 text-primary" />}
+                    >
+                      + Add Action to Step
+                    </Button>
+                  </Panel>
 
                   {/* Execution & Retry Policy */}
                   <Panel variant="sidebar" className="p-3 space-y-3">
@@ -1694,74 +1589,6 @@ export function ScenarioBuilder({
                           }
                           min={100}
                           max={60000}
-                        />
-                      </div>
-                    </div>
-                  </Panel>
-
-                  {/* Step Assertions Form */}
-                  <Panel variant="sidebar" className="p-3 space-y-3">
-                    <div className="flex flex-col gap-0.5">
-                      <label className="text-xs font-semibold text-fg-bright">
-                        Step Assertions
-                      </label>
-                      <span className="text-xs text-fg-muted">
-                        Verification criteria evaluated when step finishes
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      {stepDriver === "http" && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-fg-muted w-36">Expected Status Code:</span>
-                          <NumberInput
-                            size="xs"
-                            value={selectedStep.assert?.status ?? 200}
-                            onChange={(val) =>
-                              updateStep(selectedStepIdx, {
-                                assert: { ...(selectedStep.assert ?? {}), status: val },
-                              })
-                            }
-                            min={100}
-                            max={599}
-                            className="w-32"
-                          />
-                        </div>
-                      )}
-
-                      {stepDriver === "shell" && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-fg-muted w-36">Expected Exit Code:</span>
-                          <NumberInput
-                            size="xs"
-                            value={selectedStep.assert?.exit_code ?? 0}
-                            onChange={(val) =>
-                              updateStep(selectedStepIdx, {
-                                assert: { ...(selectedStep.assert ?? {}), exit_code: val },
-                              })
-                            }
-                            min={0}
-                            max={255}
-                            className="w-32"
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-fg-muted w-36">Output Contains:</span>
-                        <input
-                          type="text"
-                          value={selectedStep.assert?.output_contains ?? ""}
-                          onChange={(e) =>
-                            updateStep(selectedStepIdx, {
-                              assert: {
-                                ...(selectedStep.assert ?? {}),
-                                output_contains: e.target.value || undefined,
-                              },
-                            })
-                          }
-                          placeholder="Optional substring match..."
-                          className="flex-1 px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                         />
                       </div>
                     </div>

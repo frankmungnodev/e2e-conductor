@@ -19,6 +19,13 @@ export type StepAction = {
   url?: string
   key?: string
   ms?: number
+  method?: string
+  headers?: Record<string, string>
+  body?: unknown
+  status?: number
+  command?: string
+  cwd?: string
+  exit_code?: number
 }
 
 export type Step = {

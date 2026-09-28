@@ -111,13 +111,21 @@
         "name": { "type": "string" },
         "action": {
           "type": "string",
-          "description": "Action name (e.g. navigate, click, fill, press, wait_for, tap, type, swipe, launch)"
+          "description": "Action name (e.g. navigate, click, fill, press, wait_for, tap, type, swipe, launch, http_get, http_post, shell)"
         },
         "selector": { "type": "string" },
         "value": {},
         "url": { "type": "string" },
         "key": { "type": "string" },
-        "ms": { "type": "integer" }
+        "ms": { "type": "integer" },
+        "method": { "type": "string" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "body": {},
+        "status": { "type": "integer" },
+        "command": { "type": "string" },
+        "cwd": { "type": "string" },
+        "exit_code": { "type": "integer" },
+        "params": { "type": "object" }
       }
     },
     "Assert": {
