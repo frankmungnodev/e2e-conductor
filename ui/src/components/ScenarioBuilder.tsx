@@ -16,7 +16,7 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { deleteStepPreset, fetchStepPresets, saveStepPreset } from "../api.ts"
 import type { ConfigMeta, FlowItem, ScenarioItem, ScenarioStep, StepAction, StepPreset } from "../types.ts"
 import { Badge, type BadgeVariant } from "./Badge.tsx"
@@ -565,6 +565,19 @@ export function ScenarioBuilder({
     return WEB_ACTION_OPTIONS
   }
 
+  const availableFixtures = useMemo(() => {
+    const list: string[] = []
+    if (Array.isArray(config?.fixtures)) {
+      list.push(...config.fixtures)
+    } else if (config?.fixtures && typeof config.fixtures === "object") {
+      list.push(...Object.keys(config.fixtures))
+    }
+    if (draftScenario?.setup) {
+      list.push(...draftScenario.setup)
+    }
+    return Array.from(new Set(list.filter(Boolean)))
+  }, [config?.fixtures, draftScenario?.setup])
+
   return (
     <div className="flex h-[calc(100vh-49px)] overflow-hidden bg-editor text-fg select-none">
       {/* ========================================================================= */}
@@ -623,12 +636,12 @@ export function ScenarioBuilder({
       {/* ========================================================================= */}
       {/* COLUMN 2: STEPPER SEQUENCE & SCENARIO OVERVIEW                            */}
       {/* ========================================================================= */}
-      <section className="w-84 border-r border-border bg-titlebar flex flex-col shrink-0">
+      <section className="w-96 border-r border-border bg-titlebar flex flex-col shrink-0">
         {draftScenario ? (
           <>
             <div className="p-3 border-b border-border bg-sidebar flex items-center justify-between gap-2">
               <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-xs font-semibold text-fg-bright truncate">
+                <span className="text-xs font-semibold text-fg-bright line-clamp-2 leading-snug" title={draftScenario.name}>
                   {draftScenario.name}
                 </span>
                 <span className="text-xs text-fg-muted">
@@ -725,29 +738,33 @@ export function ScenarioBuilder({
                       )}
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {(config?.fixtures ? Object.keys(config.fixtures) : []).map((fix) => {
-                        const isSet = draftScenario.setup?.includes(fix)
-                        return (
-                          <button
-                            key={fix}
-                            type="button"
-                            onClick={() => {
-                              const curr = draftScenario.setup ?? []
-                              const next = isSet ? curr.filter((f) => f !== fix) : [...curr, fix]
-                              const raw = { ...draftScenario.raw, setup: next }
-                              updateDraft({ ...draftScenario, setup: next, raw })
-                            }}
-                            className={`px-2 py-0.5 text-xs font-mono rounded-xs border transition cursor-pointer flex items-center gap-1 ${
-                              isSet
-                                ? "bg-primary/20 text-primary border-primary/50 font-semibold"
-                                : "bg-input text-fg-muted border-border hover:border-fg-muted"
-                            }`}
-                          >
-                            {isSet && <Check className="w-3 h-3 text-primary" />}
-                            {fix}
-                          </button>
-                        )
-                      })}
+                      {availableFixtures.length === 0 ? (
+                        <span className="text-xs text-fg-muted italic">No fixtures configured</span>
+                      ) : (
+                        availableFixtures.map((fix) => {
+                          const isSet = draftScenario.setup?.includes(fix)
+                          return (
+                            <button
+                              key={fix}
+                              type="button"
+                              onClick={() => {
+                                const curr = draftScenario.setup ?? []
+                                const next = isSet ? curr.filter((f) => f !== fix) : [...curr, fix]
+                                const raw = { ...draftScenario.raw, setup: next }
+                                updateDraft({ ...draftScenario, setup: next, raw })
+                              }}
+                              className={`px-2 py-0.5 text-xs font-mono rounded-xs border transition cursor-pointer flex items-center gap-1 ${
+                                isSet
+                                  ? "bg-primary/20 text-primary border-primary/50 font-semibold"
+                                  : "bg-input text-fg-muted border-border hover:border-fg-muted"
+                              }`}
+                            >
+                              {isSet && <Check className="w-3 h-3 text-primary" />}
+                              {fix}
+                            </button>
+                          )
+                        })
+                      )}
                     </div>
                   </div>
 
@@ -1028,7 +1045,7 @@ export function ScenarioBuilder({
                   <Panel variant="sidebar" className="p-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label className="text-xs text-fg-muted uppercase tracking-wider font-medium">
+                        <label className="text-xs text-fg-muted font-medium">
                           Platform Target:
                         </label>
                         <Select
@@ -1745,7 +1762,7 @@ export function ScenarioBuilder({
       >
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-xs text-fg-muted uppercase tracking-wider font-medium">
+            <label className="text-xs text-fg-muted font-medium">
               Preset Name:
             </label>
             <input
@@ -1758,7 +1775,7 @@ export function ScenarioBuilder({
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-fg-muted uppercase tracking-wider font-medium">
+            <label className="text-xs text-fg-muted font-medium">
               Description (Optional):
             </label>
             <input

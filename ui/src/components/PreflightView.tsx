@@ -58,11 +58,11 @@ export function PreflightView({
       <Panel variant="sidebar" className="p-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-semibold text-fg-bright flex items-center gap-2 uppercase tracking-wide">
+            <h2 className="text-xs font-semibold text-fg-bright flex items-center gap-2">
               <Server className="w-3.5 h-3.5 text-primary" />
               System Health & Readiness Check
             </h2>
-            <p className="text-[11px] text-fg-muted mt-0.5">
+            <p className="text-xs text-fg-muted mt-0.5">
               Live status check to confirm background servers, mobile devices, and browser tools are ready to run tests.
             </p>
           </div>
@@ -94,7 +94,7 @@ export function PreflightView({
 
       {/* Services Grid */}
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+        <h3 className="text-xs font-semibold text-fg-muted flex items-center gap-2">
           <Globe className="w-3.5 h-3.5 text-primary" />
           Connected Web Services & APIs
         </h3>
@@ -131,7 +131,7 @@ export function PreflightView({
                       )}
                     </div>
 
-                    <div className="space-y-1 text-[11px] text-fg-muted font-mono">
+                    <div className="space-y-1 text-xs text-fg-muted font-mono">
                       <div className="flex items-center gap-2">
                         <span className="text-fg-muted">URL:</span>
                         <a
@@ -158,7 +158,7 @@ export function PreflightView({
                     </div>
 
                     {svc.gitWarning && (
-                      <div className="p-2 rounded-xs bg-warning-bg border border-warning-border text-warning text-[11px] flex items-center gap-2">
+                      <div className="p-2 rounded-xs bg-warning-bg border border-warning-border text-warning text-xs flex items-center gap-2">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                         <span>Warning: {svc.gitWarning} in progress in service repository.</span>
                       </div>
@@ -188,7 +188,7 @@ export function PreflightView({
 
       {/* Android & Devices Status */}
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+        <h3 className="text-xs font-semibold text-fg-muted flex items-center gap-2">
           <Smartphone className="w-3.5 h-3.5 text-success" />
           Mobile Devices & Simulators
         </h3>
@@ -197,7 +197,7 @@ export function PreflightView({
           <PanelHeader
             title="Mobile Device Bridge (ADB)"
             actions={
-              <span className="text-[11px] text-fg-muted font-mono">
+              <span className="text-xs text-fg-muted font-mono">
                 {preflightData?.devices.length ?? 0} Connected Device(s)
               </span>
             }
@@ -211,7 +211,7 @@ export function PreflightView({
                     Ready
                   </Badge>
                   {preflightData.adb.path && (
-                    <span className="text-[11px] font-mono text-fg-muted truncate max-w-md">
+                    <span className="text-xs font-mono text-fg-muted truncate max-w-md">
                       ({preflightData.adb.path})
                     </span>
                   )}
@@ -235,7 +235,7 @@ export function PreflightView({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-xs text-fg-bright">{dev.model || "Android Device"}</span>
-                        <span className="font-mono text-[11px] text-fg-muted bg-input px-1.5 py-0.2 rounded-xs border border-border">
+                        <span className="font-mono text-xs text-fg-muted bg-input px-1.5 py-0.2 rounded-xs border border-border">
                           {dev.serial}
                         </span>
                       </div>
@@ -243,7 +243,7 @@ export function PreflightView({
                       {/* Installed Packages status for mobile targets */}
                       <div className="mt-2 space-y-1">
                         {Object.entries(dev.packages).map(([appId, isInstalled]) => (
-                          <div key={appId} className="flex items-center gap-2 text-[11px] font-mono">
+                          <div key={appId} className="flex items-center gap-2 text-xs font-mono">
                             <span className="text-fg-muted">App ID {appId}:</span>
                             {isInstalled ? (
                               <Badge size="xs" variant="success" icon={<CheckCircle2 className="w-2.5 h-2.5 text-success" />}>
@@ -272,7 +272,7 @@ export function PreflightView({
 
       {/* Target Drivers & Architecture Configuration */}
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+        <h3 className="text-xs font-semibold text-fg-muted flex items-center gap-2">
           <FolderTree className="w-3.5 h-3.5 text-info" />
           Connected Platforms & Engines
         </h3>
@@ -294,7 +294,7 @@ export function PreflightView({
                     Shell
                   </Badge>
                 </td>
-                <td className="p-2.5 text-fg-muted font-sans text-[11px]">
+                <td className="p-2.5 text-fg-muted font-sans text-xs">
                   Built-in local command line runner
                 </td>
               </tr>
@@ -316,7 +316,7 @@ export function PreflightView({
                         {t.driver.charAt(0).toUpperCase() + t.driver.slice(1)}
                       </Badge>
                     </td>
-                    <td className="p-2.5 text-fg-muted font-sans text-[11px]">
+                    <td className="p-2.5 text-fg-muted font-sans text-xs">
                       {t.driver === "http" && `Service: ${t.service}`}
                       {t.driver === "web" && `Service: ${t.service}, Browser Modules: ${t.modules}`}
                       {t.driver === "mobile" && `App ID: ${t.appId}, Workflows: ${t.flows}`}

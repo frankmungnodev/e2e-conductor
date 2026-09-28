@@ -64,12 +64,12 @@ export function Modal({
         <div className="px-4 py-3 border-b border-border bg-titlebar flex items-center justify-between gap-3">
           <div className="min-w-0">
             {title && (
-              <h3 className="text-xs font-semibold text-fg-bright uppercase tracking-wide">
+              <h3 className="text-xs font-semibold text-fg-bright">
                 {title}
               </h3>
             )}
             {description && (
-              <p className="text-[11px] text-fg-muted mt-0.5">{description}</p>
+              <p className="text-xs text-fg-muted mt-0.5">{description}</p>
             )}
           </div>
           {dismissable && (

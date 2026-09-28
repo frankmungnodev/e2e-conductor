@@ -97,7 +97,7 @@ export function EnvVariablesEditor({ rows, onChange, disabled }: EnvVariablesEdi
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 px-1 text-[11px] font-semibold text-fg-muted uppercase tracking-wider">
+          <div className="flex items-center gap-2 px-1 text-xs font-semibold text-fg-muted">
             <div className="flex-1">Variable Name</div>
             <span className="opacity-0 select-none">=</span>
             <div className="flex-1">Value</div>
@@ -142,9 +142,8 @@ export function EnvVariablesEditor({ rows, onChange, disabled }: EnvVariablesEdi
         </div>
       )}
 
-      <p className="text-[11px] text-fg-muted leading-tight">
-        Key-value pairs accessible in scenario steps via{" "}
-        <code className="font-mono text-primary font-medium">{"${env.KEY}"}</code>
+      <p className="text-xs text-fg-muted leading-relaxed">
+        Environment variables accessible to steps and services during scenario execution.
       </p>
     </div>
   )

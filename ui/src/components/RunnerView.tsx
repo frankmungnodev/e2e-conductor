@@ -287,16 +287,23 @@ export function RunnerView({
     scenarios.find((s) => s.id === previewScenarioId) || scenarios[0] || null
 
   const renderStepActionSummary = (step: ScenarioStep) => {
-    if (step.command) return <span className="font-mono text-[11px] text-fg-muted">{step.command}</span>
+    if (step.actions && step.actions.length > 0) {
+      return (
+        <span className="font-mono text-xs text-fg-muted">
+          {step.actions.map((a) => a.action).join(" → ")}
+        </span>
+      )
+    }
+    if (step.command) return <span className="font-mono text-xs text-fg-muted">{step.command}</span>
     if (step.url) {
       return (
-        <span className="font-mono text-[11px] text-fg-muted">
+        <span className="font-mono text-xs text-fg-muted">
           <span className="text-info font-bold">{step.method ?? "GET"}</span> {step.url}
         </span>
       )
     }
-    if (step.run) return <span className="font-mono text-[11px] text-fg-muted">{step.run}()</span>
-    if (step.flow) return <span className="font-mono text-[11px] text-fg-muted">flow: {step.flow}</span>
+    if (step.run) return <span className="font-mono text-xs text-fg-muted">{step.run}()</span>
+    if (step.flow) return <span className="font-mono text-xs text-fg-muted">flow: {step.flow}</span>
     return null
   }
 
@@ -309,7 +316,7 @@ export function RunnerView({
           <div className="flex items-center gap-1.5">
             <PlayCircle className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-semibold text-fg-bright tracking-tight">Test Scenarios</span>
-            <span className="text-[10px] font-mono px-1 rounded-xs bg-editor text-fg-muted border border-border">
+            <span className="text-xs font-mono px-1 rounded-xs bg-editor text-fg-muted border border-border">
               {scenarios.length}
             </span>
           </div>
@@ -318,7 +325,7 @@ export function RunnerView({
             type="button"
             onClick={toggleAllScenarios}
             disabled={isRunning}
-            className="text-[11px] text-primary hover:text-primary-hover font-medium cursor-pointer disabled:opacity-50"
+            className="text-xs text-primary hover:text-primary-hover font-medium cursor-pointer disabled:opacity-50"
           >
             {selectedScenarios.length === scenarios.length ? "Deselect All" : "Select All"}
           </button>
@@ -387,7 +394,7 @@ export function RunnerView({
                             <XCircle className="w-3 h-3 text-error shrink-0" />
                           )}
                         </div>
-                        <div className="text-[10px] text-fg-muted font-mono truncate">
+                        <div className="text-xs text-fg-muted font-mono truncate">
                           {sc.id}
                         </div>
                       </div>
@@ -419,7 +426,7 @@ export function RunnerView({
                         </Badge>
                       ))}
                     </div>
-                    <span className="text-[10px] text-fg-muted font-mono shrink-0">
+                    <span className="text-xs text-fg-muted font-mono shrink-0">
                       {sc.steps.length} step{sc.steps.length === 1 ? "" : "s"}
                     </span>
                   </div>
@@ -442,7 +449,7 @@ export function RunnerView({
                 <Sliders className="w-3 h-3 text-fg-muted" />
                 <span>Run Options</span>
               </div>
-              <div className="flex items-center gap-1 text-[10px] text-fg-muted">
+              <div className="flex items-center gap-1 text-xs text-fg-muted">
                 <span>{repeat > 1 ? `${repeat}x • ` : ""}{headless ? "Silent" : "Visible"}</span>
                 {showOptions ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               </div>
@@ -567,7 +574,7 @@ export function RunnerView({
                     style={{ width: `${percentComplete}%` }}
                   />
                 </div>
-                <span className="text-[10px] font-mono text-fg-muted w-7 text-right">
+                <span className="text-xs font-mono text-fg-muted w-7 text-right">
                   {percentComplete}%
                 </span>
               </div>
@@ -609,7 +616,7 @@ export function RunnerView({
                     placeholder="Search logs..."
                     value={logFilter}
                     onChange={(e) => setLogFilter(e.target.value)}
-                    className="pl-6 pr-2 py-0.5 text-[11px] rounded-xs bg-input border border-border text-fg placeholder-fg-muted w-28 focus:w-40 transition-all focus:border-border-focus focus:outline-none"
+                    className="pl-6 pr-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg placeholder-fg-muted w-28 focus:w-40 transition-all focus:border-border-focus focus:outline-none"
                   />
                 </div>
 
@@ -671,7 +678,7 @@ export function RunnerView({
                     </div>
 
                     <div className="flex items-center gap-2 pt-1 border-t border-border/60">
-                      <span className="text-[11px] text-fg-muted font-medium">Platforms:</span>
+                      <span className="text-xs text-fg-muted font-medium">Platforms:</span>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {Array.from(new Set(activePreviewScenario.targets)).map((tgt) => (
                           <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt)}>
@@ -680,7 +687,7 @@ export function RunnerView({
                         ))}
                       </div>
                       <span className="text-fg-muted mx-1">•</span>
-                      <span className="text-[11px] text-fg-muted font-mono">
+                      <span className="text-xs text-fg-muted font-mono">
                         {activePreviewScenario.steps.length} sequential steps
                       </span>
                     </div>
@@ -689,11 +696,11 @@ export function RunnerView({
                   {/* Step Breakdown Preview */}
                   <div className="bg-sidebar border border-border rounded-xs overflow-hidden">
                     <div className="px-3 py-2 bg-titlebar border-b border-border flex items-center justify-between">
-                      <span className="text-xs font-semibold text-fg-bright uppercase tracking-wider flex items-center gap-2">
+                      <span className="text-xs font-semibold text-fg-bright flex items-center gap-2">
                         <Layers className="w-3.5 h-3.5 text-primary" />
                         Configured Step Sequence
                       </span>
-                      <span className="text-[11px] text-fg-muted">
+                      <span className="text-xs text-fg-muted">
                         Ready to execute
                       </span>
                     </div>
@@ -715,7 +722,7 @@ export function RunnerView({
                             <div>{renderStepActionSummary(st)}</div>
 
                             {st.assert && (
-                              <div className="text-[10px] font-mono text-fg-muted flex items-center gap-2 pt-0.5">
+                              <div className="text-xs font-mono text-fg-muted flex items-center gap-2 pt-0.5">
                                 <span className="text-success flex items-center gap-1">
                                   <Check className="w-2.5 h-2.5" />
                                   Verify:
@@ -769,11 +776,11 @@ export function RunnerView({
                   } flex flex-col bg-editor`}
                 >
                   <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-sidebar">
-                    <span className="text-xs font-semibold text-fg-bright uppercase tracking-wider flex items-center gap-2">
+                    <span className="text-xs font-semibold text-fg-bright flex items-center gap-2">
                       <Layers className="w-3.5 h-3.5 text-primary" />
                       Live Steps & Verification
                     </span>
-                    <span className="text-[11px] text-fg-muted font-mono">
+                    <span className="text-xs text-fg-muted font-mono">
                       {executionTree.length} scenario run{executionTree.length === 1 ? "" : "s"}
                     </span>
                   </div>
@@ -788,7 +795,7 @@ export function RunnerView({
                         {lastSummary.failures.map((f, i) => (
                           <div
                             key={i}
-                            className="bg-editor p-2.5 rounded-xs border border-error-border font-mono text-[11px] text-fg whitespace-pre-wrap"
+                            className="bg-editor p-2.5 rounded-xs border border-error-border font-mono text-xs text-fg whitespace-pre-wrap"
                           >
                             {f.error}
                           </div>
@@ -819,7 +826,7 @@ export function RunnerView({
                                 <div className="font-semibold text-xs text-fg-bright truncate">
                                   {sc.name}
                                 </div>
-                                <div className="text-[10px] text-fg-muted font-mono truncate">
+                                <div className="text-xs text-fg-muted font-mono truncate">
                                   {sc.id}{" "}
                                   {sc.totalIterations > 1 ? `(${sc.iteration}/${sc.totalIterations})` : ""}
                                 </div>
@@ -828,7 +835,7 @@ export function RunnerView({
 
                             <div className="flex items-center gap-2 shrink-0">
                               {sc.duration_ms !== undefined && (
-                                <span className="text-[10px] text-fg-muted font-mono">
+                                <span className="text-xs text-fg-muted font-mono">
                                   {sc.duration_ms}ms
                                 </span>
                               )}
@@ -879,7 +886,7 @@ export function RunnerView({
                                       <span className="font-medium text-fg">{st.name}</span>
                                     </div>
                                     {st.error && (
-                                      <div className="mt-1 p-2 bg-error-bg border border-error-border rounded-xs text-error text-[11px] font-mono whitespace-pre-wrap">
+                                      <div className="mt-1 p-2 bg-error-bg border border-error-border rounded-xs text-error text-xs font-mono whitespace-pre-wrap">
                                         {st.error}
                                       </div>
                                     )}
@@ -887,7 +894,7 @@ export function RunnerView({
                                 </div>
 
                                 {st.duration_ms !== undefined && (
-                                  <span className="text-[10px] text-fg-muted font-mono shrink-0 ml-2">
+                                  <span className="text-xs text-fg-muted font-mono shrink-0 ml-2">
                                     {st.duration_ms}ms
                                   </span>
                                 )}
@@ -911,16 +918,16 @@ export function RunnerView({
                   <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-sidebar">
                     <div className="flex items-center gap-2">
                       <Terminal className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-xs font-semibold text-fg-bright uppercase tracking-wider">
+                      <span className="text-xs font-semibold text-fg-bright">
                         Live Output Log
                       </span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-xs bg-input text-fg-muted font-mono border border-border">
+                      <span className="text-xs px-1.5 py-0.2 rounded-xs bg-input text-fg-muted font-mono border border-border">
                         {logs.length} lines
                       </span>
                     </div>
 
                     {currentRunId && (
-                      <div className="text-[11px] text-fg-muted font-mono flex items-center gap-1">
+                      <div className="text-xs text-fg-muted font-mono flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         <span>Run: {currentRunId}</span>
                       </div>
@@ -928,7 +935,7 @@ export function RunnerView({
                   </div>
 
                   {/* Terminal Box */}
-                  <div className="flex-1 p-3 font-mono text-[11.5px] overflow-y-auto leading-relaxed text-fg space-y-0.5 bg-activity select-text">
+                  <div className="flex-1 p-3 font-mono text-xs overflow-y-auto leading-relaxed text-fg space-y-0.5 bg-activity select-text">
                     {filteredLogs.length === 0 ? (
                       <div className="text-fg-muted/60 italic p-2">
                         {logs.length === 0

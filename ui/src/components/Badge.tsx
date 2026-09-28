@@ -35,8 +35,8 @@ export function Badge({
   const baseStyles = "inline-flex items-center font-medium border select-none rounded capitalize"
 
   const sizeStyles: Record<BadgeSize, string> = {
-    xs: "text-[10px] px-1.5 py-0.5 gap-1 leading-none",
-    sm: "text-[11px] px-2 py-0.5 gap-1.5 leading-tight",
+    xs: "text-xs px-1.5 py-0.5 gap-1 leading-none",
+    sm: "text-xs px-2 py-0.5 gap-1.5 leading-tight",
     md: "text-xs px-2.5 py-1 gap-1.5 leading-normal",
   }
 

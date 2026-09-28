@@ -32,7 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       "inline-flex items-center justify-center font-medium transition-colors select-none focus:outline-none focus-visible:ring-1 focus-visible:ring-border-focus disabled:opacity-50 disabled:pointer-events-none cursor-pointer rounded"
 
     const sizeStyles: Record<ButtonSize, string> = {
-      xs: "text-[11px] px-2 py-0.5 gap-1.5 h-6",
+      xs: "text-xs px-2 py-0.5 gap-1.5 h-6",
       sm: "text-xs px-2.5 py-1 gap-1.5 h-7",
       md: "text-xs px-3.5 py-1.5 gap-2 h-8",
       lg: "text-sm px-4 py-2 gap-2.5 h-9",

@@ -83,7 +83,7 @@ export function ArtifactsView() {
         <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-titlebar">
           <div className="flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-fg-bright">
+            <span className="text-xs font-semibold text-fg-bright">
               Past Test Runs
             </span>
           </div>
@@ -120,10 +120,10 @@ export function ArtifactsView() {
                     <span className="font-mono text-xs font-semibold truncate flex-1 min-w-0 pr-2">
                       {r.runId}
                     </span>
-                    <span className="text-[10px] text-fg-muted shrink-0">{dateStr}</span>
+                    <span className="text-xs text-fg-muted shrink-0">{dateStr}</span>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-fg-muted">
+                  <div className="flex items-center justify-between text-xs text-fg-muted">
                     <span>
                       {r.totalScenarios ? `${r.passedScenarios ?? 0}/${r.totalScenarios} Passed` : `${r.scenarios.length} Scenarios`}
                     </span>
@@ -199,7 +199,7 @@ export function ArtifactsView() {
                   ) : null}
                 </div>
                 {selectedRunItem && (
-                  <div className="text-[11px] text-fg-muted mt-0.5 flex items-center gap-2">
+                  <div className="text-xs text-fg-muted mt-0.5 flex items-center gap-2">
                     <span>Date Tested: {new Date(selectedRunItem.timestamp).toLocaleString()}</span>
                     {selectedRunItem.durationMs && (
                       <>
@@ -254,7 +254,7 @@ export function ArtifactsView() {
                     />
                   ) : (
                     <div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-3">
+                      <h3 className="text-xs font-semibold text-fg-muted mb-3">
                         Saved Step Screenshots ({allImages.length})
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -276,10 +276,10 @@ export function ArtifactsView() {
                               </div>
                             </div>
                             <div className="p-2 text-xs">
-                              <div className="font-semibold text-fg-bright truncate text-[11px]">
+                              <div className="font-semibold text-fg-bright truncate text-xs">
                                 {img.name}
                               </div>
-                              <div className="text-[10px] text-fg-muted font-mono truncate">
+                              <div className="text-xs text-fg-muted font-mono truncate">
                                 {img.scenario}
                               </div>
                             </div>
@@ -292,7 +292,7 @@ export function ArtifactsView() {
                   {/* Scenario artifacts files breakdown */}
                   {runDetails && Object.keys(runDetails.scenarios).length > 0 && (
                     <div className="mt-6 space-y-2">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                      <h3 className="text-xs font-semibold text-fg-muted">
                         Result Files & Reports
                       </h3>
                       <Panel variant="sidebar">
@@ -311,13 +311,13 @@ export function ArtifactsView() {
                                       href={file.url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="px-2 py-0.5 rounded-xs bg-input hover:bg-hover text-info text-[11px] font-mono border border-border transition"
+                                      className="px-2 py-0.5 rounded-xs bg-input hover:bg-hover text-info text-xs font-mono border border-border transition"
                                     >
                                       {file.name}
                                     </a>
                                   ))
                                 ) : (
-                                  <span className="text-[11px] text-fg-subtle italic">No artifacts saved</span>
+                                  <span className="text-xs text-fg-subtle italic">No artifacts saved</span>
                                 )}
                               </div>
                             </div>
@@ -385,15 +385,15 @@ export function ArtifactsView() {
                                 </td>
                                 <td className="py-2 px-3 text-fg">
                                   {sr.errorMessage ? (
-                                    <span className="text-error font-mono text-[11px] truncate block max-w-xs" title={sr.errorMessage}>
+                                    <span className="text-error font-mono text-xs truncate block max-w-xs" title={sr.errorMessage}>
                                       {sr.errorMessage}
                                     </span>
                                   ) : sr.statusCode != null ? (
-                                    <span className="text-fg-muted font-mono text-[11px]">
+                                    <span className="text-fg-muted font-mono text-xs">
                                       Code {sr.statusCode}
                                     </span>
                                   ) : (
-                                    <span className="text-fg-subtle text-[11px]">-</span>
+                                    <span className="text-fg-subtle text-xs">-</span>
                                   )}
                                 </td>
                               </tr>

@@ -37,12 +37,12 @@ export function CodeBlock({
       className={`rounded-sm border border-border bg-editor overflow-hidden flex flex-col font-mono text-xs ${className}`}
     >
       <div className="flex items-center justify-between px-3 py-1.5 bg-titlebar/80 border-b border-border text-fg-muted">
-        <div className="flex items-center gap-2 text-[11px]">
+        <div className="flex items-center gap-2 text-xs">
           {header || <span className="uppercase tracking-wider">{language}</span>}
         </div>
         <button
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xs text-[11px] hover:text-fg-bright hover:bg-hover transition-colors cursor-pointer text-fg-muted"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xs text-xs hover:text-fg-bright hover:bg-hover transition-colors cursor-pointer text-fg-muted"
         >
           {copied ? (
             <>

@@ -470,7 +470,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-fg-bright">Configuration</span>
-            <span className="text-[10px] font-mono text-fg-muted bg-sidebar px-1.5 py-0.5 rounded-xs border border-border">
+            <span className="text-xs font-mono text-fg-muted bg-sidebar px-1.5 py-0.5 rounded-xs border border-border">
               {config?.dbPath || ".e2e/e2e.db"}
             </span>
             <Badge variant={config?.dbExists ? "success" : "neutral"} size="xs">
@@ -541,7 +541,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
               <div className="p-3 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Globe className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-bold text-fg-bright uppercase tracking-wider">Profiles</span>
+                  <span className="text-xs font-bold text-fg-bright">Profiles</span>
                   <Badge variant="neutral" size="xs">{envKeys.length}</Badge>
                 </div>
                 <Button
@@ -589,10 +589,10 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                         </div>
                       </div>
                       {data?.description && (
-                        <p className="text-[11px] text-fg-muted truncate">{data.description}</p>
+                        <p className="text-xs text-fg-muted truncate">{data.description}</p>
                       )}
                       {data?.url && (
-                        <div className="text-[10px] font-mono text-fg-muted truncate">
+                        <div className="text-xs font-mono text-fg-muted truncate">
                           {data.url}
                         </div>
                       )}
@@ -667,15 +667,15 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                   <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-primary" />
                     <div>
-                      <h3 className="text-xs font-bold text-fg-bright uppercase tracking-wider">
+                      <h3 className="text-xs font-bold text-fg-bright">
                         Profile Configuration
                       </h3>
-                      <p className="text-[11px] text-fg-muted">
+                      <p className="text-xs text-fg-muted">
                         Directories and environment variables for the {selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)} profile.
                       </p>
                     </div>
                   </div>
-                  <span className="text-[11px] text-fg-muted">
+                  <span className="text-xs text-fg-muted">
                     Saved in SQLite database
                   </span>
                 </div>
@@ -757,7 +757,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
             <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-fg-bright uppercase tracking-wider flex items-center gap-1.5">
+                  <h2 className="text-sm font-bold text-fg-bright flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-primary" /> Configured Platforms
                   </h2>
                   <Badge variant="neutral" size="xs">{platformsCount} Configured</Badge>
@@ -911,7 +911,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                                 <span className="flex items-center gap-1">
                                   <span>Dev Server:</span>
                                   {plat.overriddenFields?.includes("url") && (
-                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                    <span className="text-xs text-primary font-semibold">(overridden)</span>
                                   )}
                                 </span>
                                 <span className="font-mono text-primary truncate max-w-[170px]">
@@ -929,7 +929,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                                   <span className="flex items-center gap-1">
                                     <span>Slow-Mo:</span>
                                     {plat.overriddenFields?.includes("slowMo") && (
-                                      <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                      <span className="text-xs text-primary font-semibold">(overridden)</span>
                                     )}
                                   </span>
                                   <span className="font-mono text-fg">{plat.slowMo}ms</span>
@@ -939,16 +939,16 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                                 <span className="flex items-center gap-1">
                                   <span>Headless:</span>
                                   {plat.overriddenFields?.includes("headless") && (
-                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                    <span className="text-xs text-primary font-semibold">(overridden)</span>
                                   )}
                                 </span>
                                 <span className="font-mono text-fg">{plat.headless ? "Yes" : "No"}</span>
                               </div>
                               {plat.startCmd && (
-                                <div className="text-[11px] font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
+                                <div className="text-xs font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
                                   <span className="text-fg-bright">$</span> {plat.startCmd}
                                   {plat.overriddenFields?.includes("startCmd") && (
-                                    <span className="ml-2 text-[10px] text-primary">(overridden)</span>
+                                    <span className="ml-2 text-xs text-primary">(overridden)</span>
                                   )}
                                 </div>
                               )}
@@ -961,7 +961,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                                 <span className="flex items-center gap-1">
                                   <span>Application ID:</span>
                                   {plat.overriddenFields?.includes("appId") && (
-                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                    <span className="text-xs text-primary font-semibold">(overridden)</span>
                                   )}
                                 </span>
                                 <span className="font-mono text-success truncate max-w-[170px]">
@@ -991,7 +991,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                                 </div>
                               )}
                               {plat.installCmd && (
-                                <div className="text-[11px] font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
+                                <div className="text-xs font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
                                   <span className="text-fg-bright">$</span> {plat.installCmd}
                                 </div>
                               )}
@@ -1004,7 +1004,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                                 <span className="flex items-center gap-1">
                                   <span>Endpoint URL:</span>
                                   {plat.overriddenFields?.includes("url") && (
-                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                    <span className="text-xs text-primary font-semibold">(overridden)</span>
                                   )}
                                 </span>
                                 <span className="font-mono text-info truncate max-w-[170px]">
@@ -1015,7 +1015,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                                 <span className="flex items-center gap-1">
                                   <span>Health Check:</span>
                                   {plat.overriddenFields?.includes("health") && (
-                                    <span className="text-[10px] text-primary font-semibold">(overridden)</span>
+                                    <span className="text-xs text-primary font-semibold">(overridden)</span>
                                   )}
                                 </span>
                                 <span className="font-mono text-fg truncate max-w-[170px]">
@@ -1023,10 +1023,10 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                                 </span>
                               </div>
                               {plat.startCmd && (
-                                <div className="text-[11px] font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
+                                <div className="text-xs font-mono text-fg-muted bg-editor/60 p-2 rounded-xs border border-border mt-1">
                                   <span className="text-fg-bright">$</span> {plat.startCmd}
                                   {plat.overriddenFields?.includes("startCmd") && (
-                                    <span className="ml-2 text-[10px] text-primary">(overridden)</span>
+                                    <span className="ml-2 text-xs text-primary">(overridden)</span>
                                   )}
                                 </div>
                               )}
@@ -1037,7 +1037,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
 
                       {/* Environments Matrix for this platform */}
                       <div className="pt-2 border-t border-border space-y-1.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted block">
+                        <span className="text-xs font-semibold text-fg-muted block">
                           Availability Across Environments
                         </span>
                         <div className="flex flex-wrap gap-1.5">
@@ -1111,7 +1111,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
             <div className="flex items-center justify-between pb-4 border-b border-border">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-fg-bright uppercase tracking-wider flex items-center gap-1.5">
+                  <h2 className="text-sm font-bold text-fg-bright flex items-center gap-1.5">
                     <Terminal className="w-4 h-4 text-warning" /> Setup Fixtures
                   </h2>
                   <Badge variant="neutral" size="xs">{fixturesList.length} Fixtures</Badge>
@@ -1163,7 +1163,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-xs text-fg-bright">{fix.name}</span>
                           {fix.cwd && (
-                            <span className="text-[10px] font-mono text-fg-muted bg-editor px-1.5 py-0.5 rounded-xs border border-border">
+                            <span className="text-xs font-mono text-fg-muted bg-editor px-1.5 py-0.5 rounded-xs border border-border">
                               cwd: {fix.cwd}
                             </span>
                           )}
@@ -1214,7 +1214,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
             <div className="flex items-center justify-between pb-4 border-b border-border">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-fg-bright uppercase tracking-wider flex items-center gap-1.5">
+                  <h2 className="text-sm font-bold text-fg-bright flex items-center gap-1.5">
                     <Database className="w-4 h-4 text-primary" /> SQLite Database & Storage
                   </h2>
                   <Badge variant={config?.dbExists ? "success" : "neutral"} size="xs">
@@ -1230,29 +1230,29 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
             {/* Metrics Tiles */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-sidebar border border-border rounded-xs p-4">
-                <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-fg-muted block mb-1">
                   Active Profile
                 </span>
                 <span className="text-base font-bold text-primary">
                   {activeEnvName.charAt(0).toUpperCase() + activeEnvName.slice(1)}
                 </span>
-                <p className="text-[11px] text-fg-muted mt-1">Current target for CLI & scenario runs</p>
+                <p className="text-xs text-fg-muted mt-1">Current target for CLI & scenario runs</p>
               </div>
 
               <div className="bg-sidebar border border-border rounded-xs p-4">
-                <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-fg-muted block mb-1">
                   Stored Environments
                 </span>
                 <span className="text-base font-bold text-fg-bright">{envKeys.length}</span>
-                <p className="text-[11px] text-fg-muted mt-1">Total profiles configured in SQLite</p>
+                <p className="text-xs text-fg-muted mt-1">Total profiles configured in SQLite</p>
               </div>
 
               <div className="bg-sidebar border border-border rounded-xs p-4">
-                <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-fg-muted block mb-1">
                   Stored Platforms
                 </span>
                 <span className="text-base font-bold text-fg-bright">{platformsCount}</span>
-                <p className="text-[11px] text-fg-muted mt-1">Execution targets configured in SQLite</p>
+                <p className="text-xs text-fg-muted mt-1">Execution targets configured in SQLite</p>
               </div>
             </div>
 
@@ -1279,11 +1279,11 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                 <div>
                   <span className="text-fg-muted block text-xs font-semibold mb-1">Project Root Directory:</span>
                   <div className="font-mono text-fg-muted bg-editor p-2 rounded-xs border border-border truncate">
-                    {config?.configDir}
+                    {config?.configDir ? ". (Workspace Root)" : "Workspace Root"}
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-border text-[11px] text-fg-muted leading-relaxed">
+                <div className="pt-2 border-t border-border text-xs text-fg-muted leading-relaxed">
                   Configuration data is stored and loaded directly from SQLite. Test runs, preflight checks, and GUI dashboard mutations update this SQLite file with immediate effect without rewriting project source code.
                 </div>
               </div>
@@ -1408,7 +1408,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                   <Badge variant="danger" size="xs">Failed</Badge>
                 )}
                 {typeof fixtureRunState.durationMs === "number" && (
-                  <span className="text-[11px] font-mono text-fg-muted">{fixtureRunState.durationMs}ms</span>
+                  <span className="text-xs font-mono text-fg-muted">{fixtureRunState.durationMs}ms</span>
                 )}
               </div>
               <Button

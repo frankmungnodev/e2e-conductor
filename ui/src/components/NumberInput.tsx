@@ -181,7 +181,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           />
 
           {suffix && (
-            <span className="pr-2 text-[11px] text-fg-muted font-medium select-none shrink-0">{suffix}</span>
+            <span className="pr-2 text-xs text-fg-muted font-medium select-none shrink-0">{suffix}</span>
           )}
 
           {controls === "stepper" && (

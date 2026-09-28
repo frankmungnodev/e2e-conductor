@@ -4,3 +4,4 @@ ui/dist/
 .playwright-mcp/
 .e2e-db
 .e2e
+.playwright-screenshots/

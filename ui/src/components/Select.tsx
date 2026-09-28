@@ -176,7 +176,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
         className={`relative flex flex-col gap-1 ${hasCustomWidth ? "" : "w-full"} ${className}`}
       >
         {label && (
-          <label className="text-[11px] font-medium text-fg-muted uppercase tracking-wider select-none">
+          <label className="text-xs font-medium text-fg-muted select-none">
             {label}
           </label>
         )}
@@ -253,7 +253,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                       <span className="truncate">{option.label}</span>
                       {option.description && (
                         <span
-                          className={`text-[10px] truncate ${
+                          className={`text-xs truncate ${
                             isSelected ? "text-white/80" : "text-fg-muted"
                           }`}
                         >
@@ -271,8 +271,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           </div>
         )}
 
-        {error && <span className="text-[11px] text-error font-medium">{error}</span>}
-        {helperText && !error && <span className="text-[11px] text-fg-muted">{helperText}</span>}
+        {error && <span className="text-xs text-error font-medium">{error}</span>}
+        {helperText && !error && <span className="text-xs text-fg-muted">{helperText}</span>}
       </div>
     )
   },

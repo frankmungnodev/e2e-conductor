@@ -55,12 +55,12 @@ export function PanelHeader({
             {icon && <span className="text-fg-muted shrink-0">{icon}</span>}
             <div className="truncate">
               {title && (
-                <div className="text-xs font-semibold text-fg-bright tracking-wide uppercase">
+                <div className="text-xs font-semibold text-fg-bright">
                   {title}
                 </div>
               )}
               {description && (
-                <div className="text-[11px] text-fg-muted truncate">{description}</div>
+                <div className="text-xs text-fg-muted truncate">{description}</div>
               )}
             </div>
           </div>
