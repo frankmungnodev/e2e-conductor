@@ -212,6 +212,10 @@ Fallback view for empty scenarios, zero run results, or missing artifacts.
 Text input controls with unified focus rings and validation error indicators.
 - **Location**: `ui/src/components/FormControls.tsx`
 
+### `<Textarea>`
+Multiline text inputs with unified focus rings, monospace code support, and validation error indicators.
+- **Location**: `ui/src/components/FormControls.tsx`
+
 ---
 
 ## 3. Rules & Guidelines for AI Coding Agents

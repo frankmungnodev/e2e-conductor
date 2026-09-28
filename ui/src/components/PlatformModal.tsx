@@ -25,6 +25,7 @@ import type {
 } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
+import { Checkbox } from "./Checkbox.tsx"
 import { FormField, Input } from "./FormControls.tsx"
 import { Modal } from "./Modal.tsx"
 import { NumberInput } from "./NumberInput.tsx"
@@ -528,15 +529,12 @@ export function PlatformModal({
               <div />
             )
           ) : (
-            <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={scaffoldFiles}
-                onChange={(e) => setScaffoldFiles(e.target.checked)}
-                className="rounded-xs border-border bg-input text-primary focus:ring-0"
-              />
-              <span>Scaffold starter test files and smoke scenario</span>
-            </label>
+            <Checkbox
+              size="sm"
+              checked={scaffoldFiles}
+              onCheckedChange={setScaffoldFiles}
+              label="Scaffold starter test files and smoke scenario"
+            />
           )}
 
           <div className="flex items-center gap-2">
@@ -768,25 +766,19 @@ export function PlatformModal({
             </div>
 
             <div className="space-y-2 pt-1">
-              <label className="flex items-center gap-2 text-xs text-fg-bright cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={webHeadless}
-                  onChange={(e) => setWebHeadless(e.target.checked)}
-                  className="rounded-xs border-border bg-input text-primary focus:ring-0"
-                />
-                <span>Run browser in headless mode (no visual browser window)</span>
-              </label>
+              <Checkbox
+                size="sm"
+                checked={webHeadless}
+                onCheckedChange={setWebHeadless}
+                label="Run browser in headless mode (no visual browser window)"
+              />
 
-              <label className="flex items-center gap-2 text-xs text-fg-bright cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={webExclusive}
-                  onChange={(e) => setWebExclusive(e.target.checked)}
-                  className="rounded-xs border-border bg-input text-primary focus:ring-0"
-                />
-                <span>Exclusive service (never reuse an already running instance; always start freshly)</span>
-              </label>
+              <Checkbox
+                size="sm"
+                checked={webExclusive}
+                onCheckedChange={setWebExclusive}
+                label="Exclusive service (never reuse an already running instance; always start freshly)"
+              />
             </div>
           </div>
         )}
@@ -961,15 +953,14 @@ export function PlatformModal({
               </FormField>
             </div>
 
-            <label className="flex items-center gap-2 text-xs text-fg-bright cursor-pointer select-none pt-1">
-              <input
-                type="checkbox"
+            <div className="pt-1">
+              <Checkbox
+                size="sm"
                 checked={apiExclusive}
-                onChange={(e) => setApiExclusive(e.target.checked)}
-                className="rounded-xs border-border bg-input text-primary focus:ring-0"
+                onCheckedChange={setApiExclusive}
+                label="Exclusive service (never reuse an already running instance; always start freshly)"
               />
-              <span>Exclusive service (never reuse an already running instance; always start freshly)</span>
-            </label>
+            </div>
           </div>
         )}
       </div>

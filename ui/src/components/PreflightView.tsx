@@ -288,7 +288,7 @@ export function PreflightView({
             </thead>
             <tbody className="divide-y divide-border font-mono text-fg">
               <tr className="hover:bg-hover/40">
-                <td className="p-2.5 pl-3 font-semibold text-[#dcdcaa]">shell</td>
+                <td className="p-2.5 pl-3 font-semibold text-token-fn">shell</td>
                 <td className="p-2.5">
                   <Badge size="xs" variant="driver-shell">
                     Shell

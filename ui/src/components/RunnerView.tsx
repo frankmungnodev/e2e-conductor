@@ -20,6 +20,7 @@ import type { RunEvent, RunSummary, ScenarioItem, ScenarioStep } from "../types.
 import { Badge, type BadgeVariant } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
 import { Checkbox } from "./Checkbox.tsx"
+import { Input } from "./FormControls.tsx"
 import { NumberInput } from "./NumberInput.tsx"
 import { TabButton, useUrlTab } from "./Tabs.tsx"
 
@@ -321,28 +322,26 @@ export function RunnerView({
             </span>
           </div>
 
-          <button
+          <Button
             type="button"
+            size="xs"
+            variant="ghost"
             onClick={toggleAllScenarios}
             disabled={isRunning}
-            className="text-xs text-primary hover:text-primary-hover font-medium cursor-pointer disabled:opacity-50"
+            className="text-xs text-primary hover:text-primary-hover font-medium px-1.5 py-0.5"
           >
             {selectedScenarios.length === scenarios.length ? "Deselect All" : "Select All"}
-          </button>
+          </Button>
         </div>
 
         {/* Filter Input */}
         <div className="p-2 border-b border-border bg-sidebar">
-          <div className="relative">
-            <Search className="w-3 h-3 text-fg-muted absolute left-2.5 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search scenarios..."
-              value={scenarioFilter}
-              onChange={(e) => setScenarioFilter(e.target.value)}
-              className="w-full pl-7 pr-2 py-1 text-xs rounded-xs bg-input border border-border text-fg placeholder-fg-muted focus:border-border-focus focus:outline-none"
-            />
-          </div>
+          <Input
+            icon={<Search className="w-3.5 h-3.5" />}
+            placeholder="Search scenarios..."
+            value={scenarioFilter}
+            onChange={(e) => setScenarioFilter(e.target.value)}
+          />
         </div>
 
         {/* Scenarios List */}
@@ -440,10 +439,12 @@ export function RunnerView({
         <div className="p-3 border-t border-border bg-titlebar flex flex-col gap-2.5">
           {/* Options Dropdown Accordion */}
           <div>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={() => setShowOptions(!showOptions)}
-              className="w-full flex items-center justify-between text-xs text-fg-muted hover:text-fg font-medium py-0.5 cursor-pointer"
+              className="w-full justify-between text-xs text-fg-muted hover:text-fg font-medium py-1 px-1.5"
             >
               <div className="flex items-center gap-1.5">
                 <Sliders className="w-3 h-3 text-fg-muted" />
@@ -453,7 +454,7 @@ export function RunnerView({
                 <span>{repeat > 1 ? `${repeat}x • ` : ""}{headless ? "Silent" : "Visible"}</span>
                 {showOptions ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               </div>
-            </button>
+            </Button>
 
             {showOptions && (
               <div className="mt-2 pt-2 border-t border-border/60 space-y-2 text-xs">
@@ -609,14 +610,12 @@ export function RunnerView({
 
             {(viewMode === "split" || viewMode === "logs") && (
               <div className="flex items-center gap-1.5">
-                <div className="relative">
-                  <Search className="w-3 h-3 text-fg-muted absolute left-2 top-2" />
-                  <input
-                    type="text"
+                <div className="w-36">
+                  <Input
+                    icon={<Search className="w-3 h-3" />}
                     placeholder="Search logs..."
                     value={logFilter}
                     onChange={(e) => setLogFilter(e.target.value)}
-                    className="pl-6 pr-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg placeholder-fg-muted w-28 focus:w-40 transition-all focus:border-border-focus focus:outline-none"
                   />
                 </div>
 
