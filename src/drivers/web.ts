@@ -49,36 +49,24 @@ export class WebDriver implements Driver {
     const page = await this.openPage(env, log)
     page.setDefaultTimeout(step.timeout_ms ?? 15_000)
 
-    if (step.actions && step.actions.length > 0) {
-      log(`running composite step with ${step.actions.length} action(s)`)
-      const combinedData: Record<string, unknown> = {}
-      for (let i = 0; i < step.actions.length; i++) {
-        const actionItem = step.actions[i]
-        const label = actionItem.name ? `"${actionItem.name}" (${actionItem.action})` : `action #${i + 1} (${actionItem.action})`
-        log(`executing action ${label}`)
-        try {
-          const res = await this.executeAction(page, actionItem, log, step.timeout_ms)
-          Object.assign(combinedData, res)
-        } catch (err) {
-          throw new Error(`Step action #${i + 1} (${actionItem.action}) failed: ${(err as Error).message}`)
-        }
+    if (!step.actions || step.actions.length === 0) {
+      throw new Error('web step requires an "actions" list with at least one action')
+    }
+
+    log(`running step "${step.name}" with ${step.actions.length} action(s)`)
+    const combinedData: Record<string, unknown> = {}
+    for (let i = 0; i < step.actions.length; i++) {
+      const actionItem = step.actions[i]
+      const label = actionItem.name ? `"${actionItem.name}" (${actionItem.action})` : `action #${i + 1} (${actionItem.action})`
+      log(`executing action ${label}`)
+      try {
+        const res = await this.executeAction(page, actionItem, log, step.timeout_ms)
+        Object.assign(combinedData, res)
+      } catch (err) {
+        throw new Error(`Step action #${i + 1} (${actionItem.action}) failed: ${(err as Error).message}`)
       }
-      return { data: combinedData }
     }
-
-    if (step.action) {
-      const data = await this.executeAction(page, step, log, step.timeout_ms)
-      return { data }
-    }
-
-    if (step.run) {
-      const webStep = await this.loadStep(step.run as string)
-      const data = await webStep({ page, params: step.params ?? {}, baseUrl: this.service.url, env, log })
-      log(`-> ${JSON.stringify(data ?? {})}`)
-      return { data: data ?? {} }
-    }
-
-    throw new Error('web step needs "actions", "action" (e.g. navigate, click, fill), or "run" (module name)')
+    return { data: combinedData }
   }
 
   private async executeAction(

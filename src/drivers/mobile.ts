@@ -1,8 +1,7 @@
 import { spawnSync } from "node:child_process"
-import { existsSync, writeFileSync } from "node:fs"
+import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { MobileTarget } from "../config.ts"
-import { stringify } from "../context.ts"
 import { restoreKeyboards } from "../preflight.ts"
 import { runAdb } from "../process.ts"
 import { AdbFlowRunner } from "./adb-flow.ts"
@@ -11,7 +10,7 @@ import type { Driver, StepResult, StepRun } from "./types.ts"
 export class MobileDriver implements Driver {
   constructor(
     private readonly target: MobileTarget,
-    private readonly flowsDir: string,
+    _flowsDir: string,
     private readonly device: string,
     private readonly adb: string,
   ) {}
@@ -39,43 +38,25 @@ export class MobileDriver implements Driver {
 
     if (step.launch) await this.launch(step.launch, runner, log)
 
-    if (step.actions && step.actions.length > 0) {
-      log(`running composite mobile step with ${step.actions.length} action(s)`)
-      const combinedData: Record<string, unknown> = {}
-      for (let i = 0; i < step.actions.length; i++) {
-        const actionItem = step.actions[i]
-        const label = actionItem.name ? `"${actionItem.name}" (${actionItem.action})` : `action #${i + 1} (${actionItem.action})`
-        log(`executing action ${label}`)
-        try {
-          const res = await this.executeAction(runner, actionItem, appId, log)
-          Object.assign(combinedData, res)
-        } catch (err) {
-          throw new Error(`Step action #${i + 1} (${actionItem.action}) failed: ${(err as Error).message}`)
-        }
+    if (!step.actions || step.actions.length === 0) {
+      if (step.launch) return { data: { launched: appId } }
+      throw new Error('mobile step requires an "actions" list or "launch"')
+    }
+
+    log(`running mobile step "${step.name}" with ${step.actions.length} action(s)`)
+    const combinedData: Record<string, unknown> = {}
+    for (let i = 0; i < step.actions.length; i++) {
+      const actionItem = step.actions[i]
+      const label = actionItem.name ? `"${actionItem.name}" (${actionItem.action})` : `action #${i + 1} (${actionItem.action})`
+      log(`executing action ${label}`)
+      try {
+        const res = await this.executeAction(runner, actionItem, appId, log)
+        Object.assign(combinedData, res)
+      } catch (err) {
+        throw new Error(`Step action #${i + 1} (${actionItem.action}) failed: ${(err as Error).message}`)
       }
-      return { data: combinedData }
     }
-
-    if (step.action) {
-      const data = await this.executeAction(runner, step, appId, log)
-      return { data }
-    }
-
-    if (step.flow) {
-      const flow = join(this.flowsDir, step.flow)
-      if (!existsSync(flow)) throw new Error(`flow not found: ${flow}`)
-
-      const vars: Record<string, string> = { APP_ID: this.target.appId }
-      for (const [key, value] of Object.entries(step.params ?? {})) vars[key] = stringify(value)
-      await runner.runFlow(flow, vars)
-      return { data: {} }
-    }
-
-    if (!step.launch) {
-      throw new Error('mobile step needs "actions", "action" (e.g. tap, type, press), "flow", or "launch"')
-    }
-
-    return { data: { launched: appId } }
+    return { data: combinedData }
   }
 
   private async executeAction(

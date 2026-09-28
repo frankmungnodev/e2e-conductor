@@ -1,47 +1,24 @@
 import {
-  Activity,
-  AlertTriangle,
   ArrowDown,
   ArrowUp,
-  BookmarkPlus,
   Check,
-  CheckCircle2,
-  Clock,
-  Code2,
+  Code,
   Copy,
-  Database,
   ExternalLink,
-  FileCode,
   FilePlus2,
   Globe,
   Layers,
-  Play,
   Plus,
   Save,
   Search,
+  Settings,
   Smartphone,
   Terminal,
   Trash2,
-  Variable,
-  X,
-  XCircle,
 } from "lucide-react"
 import { useEffect, useState } from "react"
-import {
-  deleteStepPreset,
-  fetchStepPresets,
-  fetchStepRuns,
-  saveStepPreset,
-} from "../api.ts"
-import type {
-  ConfigMeta,
-  FlowItem,
-  ScenarioItem,
-  ScenarioStep,
-  StepAction,
-  StepPreset,
-  StepRunItem,
-} from "../types.ts"
+import { deleteStepPreset, fetchStepPresets, saveStepPreset } from "../api.ts"
+import type { ConfigMeta, FlowItem, ScenarioItem, ScenarioStep, StepAction, StepPreset } from "../types.ts"
 import { Badge, type BadgeVariant } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
 import { EmptyState } from "./EmptyState.tsx"
@@ -49,7 +26,6 @@ import { Modal } from "./Modal.tsx"
 import { NumberInput } from "./NumberInput.tsx"
 import { Panel } from "./Panel.tsx"
 import { Select } from "./Select.tsx"
-import { TabButton, useUrlTab } from "./Tabs.tsx"
 import { useToast } from "./Toast.tsx"
 
 const WEB_ACTION_OPTIONS = [
@@ -59,7 +35,7 @@ const WEB_ACTION_OPTIONS = [
   { value: "press", label: "Press Key (e.g. Enter)" },
   { value: "wait_for", label: "Wait for Element or Timeout" },
   { value: "assert_visible", label: "Assert Element Visible" },
-  { value: "assert_text", label: "Assert Text Match" },
+  { value: "assert_text", label: "Assert Element Contains Text" },
   { value: "hover", label: "Hover over Element" },
   { value: "select", label: "Select Dropdown Option" },
   { value: "check", label: "Check Checkbox" },
@@ -82,25 +58,18 @@ const MOBILE_ACTION_OPTIONS = [
   { value: "stop", label: "Stop Application" },
 ]
 
-type ScenarioBuilderProps = {
+export type ScenarioBuilderProps = {
   scenarios: ScenarioItem[]
-  flows: FlowItem[]
+  flows?: FlowItem[]
   config?: ConfigMeta
   isRunning?: boolean
-  onStartRun?: (options: {
-    scenarios: string[]
-    repeat: number
-    start: boolean
-    install: boolean
-    headless: boolean
-    verbose: boolean
-  }) => void
+  onStartRun?: (options: any) => void
   onSaveScenario: (
     id: string,
     content: any,
   ) => Promise<{ ok: boolean; isValid: boolean; errors: string[] } | undefined>
   onDeleteScenario: (id: string) => Promise<void>
-  onSaveFlow: (
+  onSaveFlow?: (
     target: string,
     file: string,
     content: string,
@@ -110,66 +79,63 @@ type ScenarioBuilderProps = {
 
 export function ScenarioBuilder({
   scenarios,
-  flows,
   config,
-  isRunning = false,
-  onStartRun,
   onSaveScenario,
   onDeleteScenario,
-  onSaveFlow,
   onNavigateToConfig,
 }: ScenarioBuilderProps) {
-  // Explorer selection state
-  const [activeItem, setActiveItem] = useState<{ type: "scenario" | "flow"; id: string } | null>(
-    null,
-  )
   const [searchQuery, setSearchQuery] = useState("")
-
-  // Scenario editing draft
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null)
   const [draftScenario, setDraftScenario] = useState<ScenarioItem | null>(null)
   const [selectedStepIdx, setSelectedStepIdx] = useState<number>(0)
-  const [inspectorView, setInspectorView] = useState<"step" | "context">("step")
+  const [inspectorMode, setInspectorMode] = useState<"designer" | "json">("designer")
+  const [showScenarioSettings, setShowScenarioSettings] = useState(false)
 
-  // Step Inspector sub-tabs
-  const [stepTab, setStepTab] = useUrlTab<"runs" | "config" | "json">("stepTab", "runs", [
-    "runs",
-    "config",
-    "json",
-  ])
-
-  // Context sub-tabs
-  const [contextTab, setContextTab] = useState<"fixtures" | "vars" | "json">("fixtures")
-
-  // Step runs telemetry loaded from SQLite
-  const [scenarioStepRuns, setScenarioStepRuns] = useState<StepRunItem[]>([])
-  const [isLoadingStepRuns, setIsLoadingStepRuns] = useState(false)
-  const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
-
-  // Raw JSON state
-  const [jsonText, setJsonText] = useState("")
-  const [jsonError, setJsonError] = useState<string | null>(null)
-
-  // Flow editing draft
-  const [draftFlow, setDraftFlow] = useState<FlowItem | null>(null)
-  const [flowText, setFlowText] = useState("")
-
-  // Form drafts & UI states
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
-  const [bodyDrafts, setBodyDrafts] = useState<Record<number, string>>({})
-  const [newVarKey, setNewVarKey] = useState("")
-  const [newVarVal, setNewVarVal] = useState("")
-
-  const { error: toastError, success: toastSuccess, info: toastInfo } = useToast()
-
-  // Step Presets state (reusable Steps)
+  // Presets state
   const [stepPresets, setStepPresets] = useState<StepPreset[]>([])
   const [isPresetModalOpen, setIsPresetModalOpen] = useState(false)
   const [isSavePresetModalOpen, setIsSavePresetModalOpen] = useState(false)
   const [newPresetName, setNewPresetName] = useState("")
   const [newPresetDesc, setNewPresetDesc] = useState("")
 
-  const loadStepPresets = async () => {
+  // Form states
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [jsonText, setJsonText] = useState("")
+  const [jsonError, setJsonError] = useState<string | null>(null)
+  const [newVarKey, setNewVarKey] = useState("")
+  const [newVarVal, setNewVarVal] = useState("")
+
+  const { error: toastError, success: toastSuccess, info: toastInfo } = useToast()
+
+  // Target options from config
+  const configuredTargets = Object.keys(config?.targets ?? {})
+  const availableTargets = Array.from(
+    new Set([...configuredTargets, "web", "mobile", "shell", "api"]),
+  )
+
+  const capitalize = (str: string) =>
+    str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : ""
+
+  const getTargetDriver = (target: string): "http" | "web" | "mobile" | "shell" => {
+    if (target === "shell") return "shell"
+    const targetObj = config?.targets?.[target]
+    if (targetObj) return targetObj.driver
+    if (target.includes("web") || target.includes("browser")) return "web"
+    if (target.includes("mobile") || target.includes("app")) return "mobile"
+    return "http"
+  }
+
+  const getTargetBadgeVariant = (target: string): BadgeVariant => {
+    const driver = getTargetDriver(target)
+    if (driver === "shell") return "driver-shell"
+    if (driver === "http") return "driver-http"
+    if (driver === "mobile") return "driver-mobile"
+    return "driver-web"
+  }
+
+  // Load presets from SQLite & .e2e/presets/
+  const loadPresets = async () => {
     try {
       const data = await fetchStepPresets()
       setStepPresets(data.presets ?? [])
@@ -179,12 +145,249 @@ export function ScenarioBuilder({
   }
 
   useEffect(() => {
-    loadStepPresets()
+    loadPresets()
   }, [])
 
+  // Auto-select first scenario on mount
+  useEffect(() => {
+    if (!selectedScenarioId && scenarios.length > 0) {
+      selectScenario(scenarios[0].id)
+    }
+  }, [scenarios, selectedScenarioId])
+
+  const selectScenario = (id: string) => {
+    const sc = scenarios.find((s) => s.id === id)
+    if (!sc) return
+    setSelectedScenarioId(id)
+    const cloned = JSON.parse(JSON.stringify(sc)) as ScenarioItem
+    // Ensure all steps have actions array initialized if web or mobile
+    if (cloned.steps) {
+      cloned.steps = cloned.steps.map((st) => {
+        const driver = getTargetDriver(st.target)
+        if ((driver === "web" || driver === "mobile") && (!st.actions || st.actions.length === 0)) {
+          const defaultAct = driver === "web" ? "navigate" : "tap"
+          return {
+            ...st,
+            actions: [
+              {
+                id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                action: defaultAct,
+                url: driver === "web" ? "/" : undefined,
+                selector: driver === "mobile" ? "Button" : undefined,
+              },
+            ],
+          }
+        }
+        return st
+      })
+    }
+    setDraftScenario(cloned)
+    setSelectedStepIdx(0)
+    setShowScenarioSettings(false)
+    setJsonText(JSON.stringify(cloned.raw, null, 2))
+    setJsonError(null)
+  }
+
+  const createNewScenario = () => {
+    const newId = `scenario_${Date.now().toString().slice(-4)}`
+    const defaultTarget = availableTargets.find((t) => getTargetDriver(t) === "web") ?? "web"
+    const newSc: ScenarioItem = {
+      id: newId,
+      file: `${newId}.json`,
+      name: "New Scenario",
+      description: "Description of test scenario",
+      steps: [
+        {
+          name: "Open Application",
+          target: defaultTarget,
+          actions: [
+            {
+              id: `act_${Date.now()}_1`,
+              action: "navigate",
+              url: "/",
+            },
+          ],
+        },
+      ],
+      setup: [],
+      vars: {},
+      targets: [defaultTarget],
+      isValid: true,
+      errors: [],
+      raw: {
+        name: "New Scenario",
+        description: "Description of test scenario",
+        steps: [
+          {
+            name: "Open Application",
+            target: defaultTarget,
+            actions: [
+              {
+                id: `act_${Date.now()}_1`,
+                action: "navigate",
+                url: "/",
+              },
+            ],
+          },
+        ],
+      },
+    }
+    setDraftScenario(newSc)
+    setSelectedScenarioId(newId)
+    setSelectedStepIdx(0)
+    setShowScenarioSettings(false)
+    setJsonText(JSON.stringify(newSc.raw, null, 2))
+    setJsonError(null)
+  }
+
+  const updateDraft = (newScenario: ScenarioItem) => {
+    setDraftScenario(newScenario)
+    setJsonText(JSON.stringify(newScenario.raw, null, 2))
+  }
+
+  const updateStep = (index: number, updates: Partial<ScenarioStep>) => {
+    if (!draftScenario?.steps[index]) return
+    const newSteps = [...draftScenario.steps]
+    newSteps[index] = { ...newSteps[index], ...updates }
+    const newRaw = { ...draftScenario.raw, steps: newSteps }
+    updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
+  }
+
+  // Action Manipulation within a Step
+  const addStepAction = (stepIdx: number, defaultAction?: string) => {
+    const step = draftScenario?.steps[stepIdx]
+    if (!step) return
+    const driver = getTargetDriver(step.target)
+    const actType = defaultAction ?? (driver === "web" ? "navigate" : "tap")
+    const newAction: StepAction = {
+      id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      action: actType,
+      url: actType === "navigate" ? "/" : undefined,
+    }
+    const currentActions = step.actions ?? []
+    updateStep(stepIdx, { actions: [...currentActions, newAction] })
+  }
+
+  const updateStepAction = (
+    stepIdx: number,
+    actionIdx: number,
+    updates: Partial<StepAction>,
+  ) => {
+    const step = draftScenario?.steps[stepIdx]
+    if (!step?.actions?.[actionIdx]) return
+    const currentActions = [...step.actions]
+    currentActions[actionIdx] = { ...currentActions[actionIdx], ...updates }
+    updateStep(stepIdx, { actions: currentActions })
+  }
+
+  const deleteStepAction = (stepIdx: number, actionIdx: number) => {
+    const step = draftScenario?.steps[stepIdx]
+    if (!step?.actions) return
+    const currentActions = step.actions.filter((_, i) => i !== actionIdx)
+    updateStep(stepIdx, { actions: currentActions })
+  }
+
+  const moveStepAction = (
+    stepIdx: number,
+    actionIdx: number,
+    direction: "up" | "down",
+  ) => {
+    const step = draftScenario?.steps[stepIdx]
+    if (!step?.actions) return
+    const targetIdx = direction === "up" ? actionIdx - 1 : actionIdx + 1
+    if (targetIdx < 0 || targetIdx >= step.actions.length) return
+    const currentActions = [...step.actions]
+    const temp = currentActions[actionIdx]
+    currentActions[actionIdx] = currentActions[targetIdx]
+    currentActions[targetIdx] = temp
+    updateStep(stepIdx, { actions: currentActions })
+  }
+
+  // Step Sequence Operations
+  const addStep = (driverType: "web" | "mobile" | "http" | "shell") => {
+    if (!draftScenario) return
+    let matchingTarget = configuredTargets.find(
+      (t) => config?.targets?.[t].driver === driverType,
+    )
+    if (!matchingTarget) matchingTarget = driverType
+
+    const newStep: ScenarioStep = {
+      id: `step_${Date.now()}`,
+      name: `New ${capitalize(driverType)} Step`,
+      target: matchingTarget,
+    }
+
+    if (driverType === "web") {
+      newStep.actions = [
+        {
+          id: `act_${Date.now()}_1`,
+          action: "navigate",
+          url: "/",
+        },
+      ]
+    } else if (driverType === "mobile") {
+      newStep.actions = [
+        {
+          id: `act_${Date.now()}_1`,
+          action: "tap",
+          selector: "Button",
+        },
+      ]
+    } else if (driverType === "http") {
+      newStep.method = "GET"
+      newStep.url = "/api/status"
+      newStep.assert = { status: 200 }
+    } else if (driverType === "shell") {
+      newStep.command = "echo 'Step execution'"
+      newStep.assert = { exit_code: 0 }
+    }
+
+    const newSteps = [...draftScenario.steps, newStep]
+    const newRaw = { ...draftScenario.raw, steps: newSteps }
+    updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
+    setSelectedStepIdx(newSteps.length - 1)
+    setShowScenarioSettings(false)
+  }
+
+  const deleteStep = (index: number) => {
+    if (!draftScenario) return
+    const newSteps = draftScenario.steps.filter((_, i) => i !== index)
+    const newRaw = { ...draftScenario.raw, steps: newSteps }
+    updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
+    if (selectedStepIdx >= newSteps.length) {
+      setSelectedStepIdx(Math.max(0, newSteps.length - 1))
+    }
+  }
+
+  const duplicateStep = (index: number) => {
+    if (!draftScenario) return
+    const stepToCopy = JSON.parse(JSON.stringify(draftScenario.steps[index])) as ScenarioStep
+    stepToCopy.id = `step_${Date.now()}`
+    stepToCopy.name = `${stepToCopy.name} (Copy)`
+    const newSteps = [...draftScenario.steps]
+    newSteps.splice(index + 1, 0, stepToCopy)
+    const newRaw = { ...draftScenario.raw, steps: newSteps }
+    updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
+    setSelectedStepIdx(index + 1)
+  }
+
+  const moveStep = (index: number, direction: "up" | "down") => {
+    if (!draftScenario) return
+    const targetIdx = direction === "up" ? index - 1 : index + 1
+    if (targetIdx < 0 || targetIdx >= draftScenario.steps.length) return
+    const newSteps = [...draftScenario.steps]
+    const temp = newSteps[index]
+    newSteps[index] = newSteps[targetIdx]
+    newSteps[targetIdx] = temp
+    const newRaw = { ...draftScenario.raw, steps: newSteps }
+    updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
+    setSelectedStepIdx(targetIdx)
+  }
+
+  // Presets Integration
   const insertStepPreset = (preset: StepPreset) => {
     if (!draftScenario) return
-    const clonedStep: ScenarioStep = JSON.parse(JSON.stringify(preset.step))
+    const clonedStep = JSON.parse(JSON.stringify(preset.step)) as ScenarioStep
     clonedStep.id = `step_${Date.now()}`
     const insertAt = draftScenario.steps.length > 0 ? selectedStepIdx + 1 : 0
     const newSteps = [
@@ -193,8 +396,7 @@ export function ScenarioBuilder({
       ...draftScenario.steps.slice(insertAt),
     ]
     const newRaw = { ...draftScenario.raw, steps: newSteps }
-    setDraftScenario({ ...draftScenario, steps: newSteps, raw: newRaw })
-    setJsonText(JSON.stringify(newRaw, null, 2))
+    updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
     setSelectedStepIdx(insertAt)
     setIsPresetModalOpen(false)
     toastSuccess(`Added step "${clonedStep.name}" from preset`, "Preset Inserted")
@@ -217,7 +419,7 @@ export function ScenarioBuilder({
         target: stepToSave.target,
         step: JSON.parse(JSON.stringify(stepToSave)),
       })
-      await loadStepPresets()
+      await loadPresets()
       setIsSavePresetModalOpen(false)
       setNewPresetName("")
       setNewPresetDesc("")
@@ -230,462 +432,20 @@ export function ScenarioBuilder({
   const handleDeletePreset = async (id: string, name: string) => {
     try {
       await deleteStepPreset(id)
-      await loadStepPresets()
+      await loadPresets()
       toastInfo(`Deleted preset "${name}"`, "Preset Removed")
     } catch (err) {
       toastError((err as Error).message, "Failed to Delete Preset")
     }
   }
 
-  const addStepAction = (stepIdx: number, defaultAction: string = "navigate") => {
-    const step = draftScenario?.steps[stepIdx]
-    if (!step) return
-    const currentActions: StepAction[] = step.actions && step.actions.length > 0
-      ? [...step.actions]
-      : step.action
-        ? [{ action: step.action, selector: step.selector, value: step.value as string | undefined, url: step.url, key: step.key, ms: step.ms }]
-        : []
-    const newAction: StepAction = {
-      id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      action: defaultAction,
-      url: defaultAction === "navigate" ? "/" : undefined,
-    }
-    updateStep(stepIdx, { actions: [...currentActions, newAction], action: undefined })
-  }
-
-  const updateActionItem = (stepIdx: number, actionIdx: number, updates: Partial<StepAction>) => {
-    const step = draftScenario?.steps[stepIdx]
-    if (!step) return
-    const currentActions: StepAction[] = step.actions && step.actions.length > 0
-      ? [...step.actions]
-      : step.action
-        ? [{ action: step.action, selector: step.selector, value: step.value as string | undefined, url: step.url, key: step.key, ms: step.ms }]
-        : []
-    if (!currentActions[actionIdx]) return
-    currentActions[actionIdx] = { ...currentActions[actionIdx], ...updates }
-    updateStep(stepIdx, { actions: currentActions, action: undefined })
-  }
-
-  const deleteActionItem = (stepIdx: number, actionIdx: number) => {
-    const step = draftScenario?.steps[stepIdx]
-    if (!step) return
-    const currentActions: StepAction[] = step.actions && step.actions.length > 0
-      ? [...step.actions]
-      : step.action
-        ? [{ action: step.action, selector: step.selector, value: step.value as string | undefined, url: step.url, key: step.key, ms: step.ms }]
-        : []
-    const nextActions = currentActions.filter((_, i) => i !== actionIdx)
-    updateStep(stepIdx, { actions: nextActions, action: undefined })
-  }
-
-  const moveActionItem = (stepIdx: number, actionIdx: number, direction: "up" | "down") => {
-    const step = draftScenario?.steps[stepIdx]
-    if (!step) return
-    const currentActions: StepAction[] = step.actions && step.actions.length > 0
-      ? [...step.actions]
-      : step.action
-        ? [{ action: step.action, selector: step.selector, value: step.value as string | undefined, url: step.url, key: step.key, ms: step.ms }]
-        : []
-    const targetIdx = direction === "up" ? actionIdx - 1 : actionIdx + 1
-    if (targetIdx < 0 || targetIdx >= currentActions.length) return
-    const temp = currentActions[actionIdx]
-    currentActions[actionIdx] = currentActions[targetIdx]
-    currentActions[targetIdx] = temp
-    updateStep(stepIdx, { actions: currentActions, action: undefined })
-  }
-
-  // Target options from config plus driver defaults
-  const configuredTargets = Object.keys(config?.targets ?? {})
-  const availableTargets = Array.from(
-    new Set([...configuredTargets, "shell", "api", "web", "mobile"]),
-  )
-
-  const capitalizeFirst = (str: string) =>
-    str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : ""
-
-  const formatTargetLabel = (target: string) => {
-    if (target.toLowerCase() === "api") return "Platform: API"
-    const capitalized = target
-      .split(/[-_]/)
-      .map((word) => (word.toLowerCase() === "api" ? "API" : capitalizeFirst(word)))
-      .join(" ")
-    return `Platform: ${capitalized}`
-  }
-
-  const getTargetDriver = (target: string): "http" | "web" | "mobile" | "shell" => {
-    if (target === "shell") return "shell"
-    const targetObj = config?.targets?.[target]
-    if (targetObj) return targetObj.driver
-    if (target.includes("web") || target.includes("browser")) return "web"
-    if (target.includes("mobile") || target.includes("app")) return "mobile"
-    return "http"
-  }
-
-  const getTargetBadgeVariant = (target: string): BadgeVariant => {
-    const driver = getTargetDriver(target)
-    if (driver === "shell") return "driver-shell"
-    if (driver === "http") return "driver-http"
-    if (driver === "mobile") return "driver-mobile"
-    return "driver-web"
-  }
-
-  // Load step runs for current scenario
-  const loadScenarioStepRuns = async (scenarioId: string) => {
-    setIsLoadingStepRuns(true)
-    try {
-      const runs = await fetchStepRuns({ scenarioId, limit: 200 })
-      setScenarioStepRuns(runs)
-    } catch {
-      // ignore
-    } finally {
-      setIsLoadingStepRuns(false)
-    }
-  }
-
-  // Default selection
-  useEffect(() => {
-    if (!activeItem && scenarios.length > 0) {
-      selectScenario(scenarios[0].id)
-    }
-  }, [scenarios])
-
-  // Reload step runs when isRunning finishes or when active scenario changes
-  useEffect(() => {
-    if (draftScenario?.id && !isRunning) {
-      loadScenarioStepRuns(draftScenario.id)
-    }
-  }, [draftScenario?.id, isRunning])
-
-  const selectScenario = (id: string) => {
-    const sc = scenarios.find((s) => s.id === id)
-    if (!sc) return
-    setActiveItem({ type: "scenario", id })
-    setDraftScenario(JSON.parse(JSON.stringify(sc)))
-    setSelectedStepIdx(0)
-    setInspectorView("step")
-    setJsonText(JSON.stringify(sc.raw, null, 2))
-    setJsonError(null)
-    setBodyDrafts({})
-    loadScenarioStepRuns(id)
-  }
-
-  const selectFlow = (file: string) => {
-    const fl = flows.find((f) => f.file === file)
-    if (!fl) return
-    setActiveItem({ type: "flow", id: file })
-    setDraftFlow(JSON.parse(JSON.stringify(fl)))
-    setFlowText(fl.content)
-  }
-
-  const createNewScenario = () => {
-    const newId = `scenario_${Date.now().toString().slice(-4)}`
-    const defaultTarget = availableTargets[0] ?? "shell"
-    const newSc: ScenarioItem = {
-      id: newId,
-      file: `${newId}.json`,
-      name: "New Scenario",
-      description: "Description of test scenario",
-      steps: [
-        {
-          name: "Health Check Step",
-          target: defaultTarget,
-          method: "GET",
-          url: "/health",
-        },
-      ],
-      setup: [],
-      vars: {},
-      targets: [defaultTarget],
-      isValid: true,
-      errors: [],
-      raw: {
-        name: "New Scenario",
-        description: "Description of test scenario",
-        steps: [
-          {
-            name: "Health Check Step",
-            target: defaultTarget,
-            method: "GET",
-            url: "/health",
-          },
-        ],
-      },
-    }
-    setActiveItem({ type: "scenario", id: newId })
-    setDraftScenario(newSc)
-    setSelectedStepIdx(0)
-    setInspectorView("step")
-    setScenarioStepRuns([])
-    setJsonText(JSON.stringify(newSc.raw, null, 2))
-    setJsonError(null)
-  }
-
-  const createNewFlow = () => {
-    const mobileTarget =
-      configuredTargets.find((t) => config?.targets?.[t].driver === "mobile") ?? "mobile"
-    const newFileName = `flow_${Date.now().toString().slice(-4)}.yaml`
-    const starterYaml = `# Android Flow YAML\n- launchApp:\n    clearState: false\n- tapOn:\n    text: "Sign In"\n`
-
-    const newFl: FlowItem = {
-      target: mobileTarget,
-      file: newFileName,
-      path: `flows/${newFileName}`,
-      content: starterYaml,
-      isValid: true,
-      errors: [],
-    }
-    setActiveItem({ type: "flow", id: newFileName })
-    setDraftFlow(newFl)
-    setFlowText(starterYaml)
-  }
-
-  // Update step in draft scenario
-  const updateStep = (index: number, patch: Partial<ScenarioStep>) => {
-    if (!draftScenario) return
-    const newSteps = [...draftScenario.steps]
-    newSteps[index] = { ...newSteps[index], ...patch }
-
-    const newRaw = {
-      ...draftScenario.raw,
-      steps: newSteps,
-    }
-
-    setDraftScenario({
-      ...draftScenario,
-      steps: newSteps,
-      raw: newRaw,
-    })
-    setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
-  const toggleSetupFixture = (fixtureName: string) => {
-    if (!draftScenario) return
-    const currentSetup = draftScenario.setup ?? []
-    const nextSetup = currentSetup.includes(fixtureName)
-      ? currentSetup.filter((f) => f !== fixtureName)
-      : [...currentSetup, fixtureName]
-
-    const newRaw = { ...draftScenario.raw }
-    if (nextSetup.length > 0) {
-      newRaw.setup = nextSetup
-    } else {
-      delete newRaw.setup
-    }
-
-    setDraftScenario({
-      ...draftScenario,
-      setup: nextSetup,
-      raw: newRaw,
-    })
-    setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
-  const updateScenarioVar = (key: string, value: string, oldKey?: string) => {
-    if (!draftScenario) return
-    const nextVars = { ...(draftScenario.vars ?? {}) }
-    if (oldKey && oldKey !== key) {
-      delete nextVars[oldKey]
-    }
-    if (key.trim()) {
-      let parsedVal: unknown = value
-      if (value === "true") parsedVal = true
-      else if (value === "false") parsedVal = false
-      else if (!Number.isNaN(Number(value)) && value.trim() !== "") parsedVal = Number(value)
-      nextVars[key.trim()] = parsedVal
-    }
-    const newRaw = { ...draftScenario.raw }
-    if (Object.keys(nextVars).length > 0) {
-      newRaw.vars = nextVars
-    } else {
-      delete newRaw.vars
-    }
-    setDraftScenario({
-      ...draftScenario,
-      vars: nextVars,
-      raw: newRaw,
-    })
-    setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
-  const deleteScenarioVar = (key: string) => {
-    if (!draftScenario) return
-    const nextVars = { ...(draftScenario.vars ?? {}) }
-    delete nextVars[key]
-    const newRaw = { ...draftScenario.raw }
-    if (Object.keys(nextVars).length > 0) {
-      newRaw.vars = nextVars
-    } else {
-      delete newRaw.vars
-    }
-    setDraftScenario({
-      ...draftScenario,
-      vars: nextVars,
-      raw: newRaw,
-    })
-    setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
-  const updateStepExtract = (
-    stepIdx: number,
-    varName: string,
-    path: string,
-    oldName?: string,
-  ) => {
-    if (!draftScenario) return
-    const currentExtract = { ...(draftScenario.steps[stepIdx].extract ?? {}) }
-    if (oldName && oldName !== varName) {
-      delete currentExtract[oldName]
-    }
-    if (varName.trim()) {
-      currentExtract[varName.trim()] = path
-    }
-    const nextExtract = Object.keys(currentExtract).length > 0 ? currentExtract : undefined
-    updateStep(stepIdx, { extract: nextExtract })
-  }
-
-  const deleteStepExtract = (stepIdx: number, varName: string) => {
-    if (!draftScenario) return
-    const currentExtract = { ...(draftScenario.steps[stepIdx].extract ?? {}) }
-    delete currentExtract[varName]
-    const nextExtract = Object.keys(currentExtract).length > 0 ? currentExtract : undefined
-    updateStep(stepIdx, { extract: nextExtract })
-  }
-
-  const addStepHeader = (stepIdx: number) => {
-    if (!draftScenario) return
-    const currentHeaders = { ...(draftScenario.steps[stepIdx].headers ?? {}) }
-    let newKey = "Header"
-    if (!("Content-Type" in currentHeaders)) {
-      newKey = "Content-Type"
-      currentHeaders[newKey] = "application/json"
-    } else if (!("Authorization" in currentHeaders)) {
-      newKey = "Authorization"
-      currentHeaders[newKey] = "Bearer "
-    } else {
-      let counter = 1
-      while (`Header-${counter}` in currentHeaders) {
-        counter++
-      }
-      newKey = `Header-${counter}`
-      currentHeaders[newKey] = ""
-    }
-    updateStep(stepIdx, { headers: currentHeaders })
-  }
-
-  const updateStepHeader = (
-    stepIdx: number,
-    headerIdx: number,
-    newKey: string,
-    newVal: string,
-  ) => {
-    if (!draftScenario) return
-    const entries = Object.entries(draftScenario.steps[stepIdx].headers ?? {})
-    if (headerIdx >= 0 && headerIdx < entries.length) {
-      entries[headerIdx] = [newKey, newVal]
-    } else {
-      entries.push([newKey, newVal])
-    }
-    const nextHeaders: Record<string, string> = {}
-    for (const [k, v] of entries) {
-      nextHeaders[k] = v
-    }
-    updateStep(stepIdx, {
-      headers: Object.keys(nextHeaders).length > 0 ? nextHeaders : undefined,
-    })
-  }
-
-  const deleteStepHeader = (stepIdx: number, headerIdx: number) => {
-    if (!draftScenario) return
-    const entries = Object.entries(draftScenario.steps[stepIdx].headers ?? {})
-    const nextEntries = entries.filter((_, i) => i !== headerIdx)
-    const nextHeaders =
-      nextEntries.length > 0 ? Object.fromEntries(nextEntries) : undefined
-    updateStep(stepIdx, { headers: nextHeaders })
-  }
-
-  const addStep = (driverType: "http" | "web" | "mobile" | "shell") => {
-    if (!draftScenario) return
-
-    let matchingTarget = configuredTargets.find(
-      (t) => config?.targets?.[t].driver === driverType,
-    )
-    if (!matchingTarget) matchingTarget = driverType
-
-    let newStep: ScenarioStep = {
-      name: `New ${driverType.toUpperCase()} Step`,
-      target: matchingTarget,
-    }
-
-    if (driverType === "http") {
-      newStep = { ...newStep, name: "API Request", method: "GET", url: "/api/test", assert: { status: 200 } }
-    } else if (driverType === "shell") {
-      newStep = { ...newStep, name: "Shell Command", command: "echo 'hello'", assert: { exit_code: 0 } }
-    } else if (driverType === "mobile") {
-      newStep = { ...newStep, name: "Mobile Tap", action: "tap", selector: "Button" }
-    } else if (driverType === "web") {
-      newStep = { ...newStep, name: "Navigate URL", action: "navigate", url: "/" }
-    }
-
-    const newSteps = [...draftScenario.steps, newStep]
-    const newRaw = { ...draftScenario.raw, steps: newSteps }
-
-    setDraftScenario({
-      ...draftScenario,
-      steps: newSteps,
-      raw: newRaw,
-    })
-    setSelectedStepIdx(newSteps.length - 1)
-    setInspectorView("step")
-    setStepTab("config")
-    setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
-  const deleteStep = (index: number) => {
-    if (!draftScenario) return
-    const newSteps = draftScenario.steps.filter((_, i) => i !== index)
-    const newRaw = { ...draftScenario.raw, steps: newSteps }
-    setDraftScenario({ ...draftScenario, steps: newSteps, raw: newRaw })
-    if (selectedStepIdx >= newSteps.length) {
-      setSelectedStepIdx(Math.max(0, newSteps.length - 1))
-    }
-    setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
-  const moveStep = (index: number, direction: "up" | "down") => {
-    if (!draftScenario) return
-    const targetIdx = direction === "up" ? index - 1 : index + 1
-    if (targetIdx < 0 || targetIdx >= draftScenario.steps.length) return
-
-    const newSteps = [...draftScenario.steps]
-    const temp = newSteps[index]
-    newSteps[index] = newSteps[targetIdx]
-    newSteps[targetIdx] = temp
-
-    const newRaw = { ...draftScenario.raw, steps: newSteps }
-    setDraftScenario({ ...draftScenario, steps: newSteps, raw: newRaw })
-    setSelectedStepIdx(targetIdx)
-    setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
-  const duplicateStep = (index: number) => {
-    if (!draftScenario) return
-    const stepToCopy = JSON.parse(JSON.stringify(draftScenario.steps[index]))
-    stepToCopy.name = `${stepToCopy.name} (Copy)`
-    const newSteps = [...draftScenario.steps]
-    newSteps.splice(index + 1, 0, stepToCopy)
-
-    const newRaw = { ...draftScenario.raw, steps: newSteps }
-    setDraftScenario({ ...draftScenario, steps: newSteps, raw: newRaw })
-    setSelectedStepIdx(index + 1)
-    setJsonText(JSON.stringify(newRaw, null, 2))
-  }
-
+  // Save Scenario
   const handleSaveScenario = async () => {
     if (!draftScenario) return
     setIsSaving(true)
     try {
       let content = draftScenario.raw
-      if (inspectorView === "context" && contextTab === "json") {
+      if (inspectorMode === "json") {
         try {
           content = JSON.parse(jsonText)
         } catch (e) {
@@ -693,19 +453,6 @@ export function ScenarioBuilder({
           setIsSaving(false)
           return
         }
-      } else if (content.steps && Array.isArray(content.steps)) {
-        const sanitizedSteps = content.steps.map((st: ScenarioStep) => {
-          if (!st.headers) return st
-          const cleanHeaders: Record<string, string> = {}
-          for (const [k, v] of Object.entries(st.headers)) {
-            if (k.trim()) cleanHeaders[k.trim()] = v
-          }
-          return {
-            ...st,
-            headers: Object.keys(cleanHeaders).length > 0 ? cleanHeaders : undefined,
-          }
-        })
-        content = { ...content, steps: sanitizedSteps }
       }
       const res = await onSaveScenario(draftScenario.id, content)
       if (res) {
@@ -715,7 +462,7 @@ export function ScenarioBuilder({
       }
       setSaveSuccess(true)
       toastSuccess(`Scenario "${draftScenario.name}" saved`, "Saved")
-      setTimeout(() => setSaveSuccess(false), 2500)
+      setTimeout(() => setSaveSuccess(false), 2000)
     } catch (e) {
       toastError((e as Error).message, "Failed to save scenario")
     } finally {
@@ -732,91 +479,29 @@ export function ScenarioBuilder({
       const other = scenarios.find((s) => s.id !== draftScenario.id)
       if (other) selectScenario(other.id)
     } else {
-      setActiveItem(null)
       setDraftScenario(null)
+      setSelectedScenarioId(null)
     }
   }
 
-  const handleSaveFlow = async () => {
-    if (!draftFlow) return
-    setIsSaving(true)
-    try {
-      const res = await onSaveFlow(draftFlow.target, draftFlow.file, flowText)
-      if (res) {
-        setDraftFlow((prev) =>
-          prev ? { ...prev, isValid: res.isValid, errors: res.errors } : null,
-        )
-      }
-      setSaveSuccess(true)
-      toastSuccess(`Flow "${draftFlow.file}" saved`, "Saved")
-      setTimeout(() => setSaveSuccess(false), 2500)
-    } catch (e) {
-      toastError((e as Error).message, "Failed to save flow")
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleRunScenario = () => {
-    if (!draftScenario || !onStartRun || isRunning) return
-    onStartRun({
-      scenarios: [draftScenario.id],
-      repeat: 1,
-      start: true,
-      install: false,
-      headless: false,
-      verbose: true,
-    })
-    toastSuccess(`Executing scenario "${draftScenario.name}"`, "Run Started")
-  }
-
-  // Filtered explorer lists
   const filteredScenarios = scenarios.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.id.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const filteredFlows = flows.filter(
-    (f) =>
-      f.file.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      f.target.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
-
-  // Step-level runs query helper
-  const getRunsForStep = (
-    stepRuns: StepRunItem[],
-    scenarioId: string,
-    step: ScenarioStep,
-    stepIdx: number,
-  ) => {
-    const stepId = step.id || `${scenarioId}:step:${stepIdx + 1}`
-    return stepRuns
-      .filter(
-        (r) =>
-          r.stepId === stepId ||
-          r.stepId === `${scenarioId}:step:${stepIdx + 1}` ||
-          r.id.includes(`:${scenarioId}:${stepIdx}:`),
-      )
-      .sort((a, b) => b.createdAt - a.createdAt)
-  }
-
   const selectedStep =
     draftScenario && draftScenario.steps[selectedStepIdx] !== undefined
       ? draftScenario.steps[selectedStepIdx]
       : null
 
-  const selectedStepRuns =
-    draftScenario && selectedStep
-      ? getRunsForStep(scenarioStepRuns, draftScenario.id, selectedStep, selectedStepIdx)
-      : []
-
-  const latestStepRun = selectedStepRuns[0]
+  const stepDriver = selectedStep ? getTargetDriver(selectedStep.target) : "web"
+  const isWebOrMobile = stepDriver === "web" || stepDriver === "mobile"
 
   return (
     <div className="flex h-[calc(100vh-49px)] overflow-hidden bg-editor text-fg select-none">
       {/* ========================================================================= */}
-      {/* COLUMN 1: EXPLORER (Scenarios & Mobile Flows)                             */}
+      {/* COLUMN 1: SCENARIOS EXPLORER                                              */}
       {/* ========================================================================= */}
       <section className="w-64 border-r border-border bg-sidebar flex flex-col shrink-0">
         <div className="p-3 border-b border-border space-y-2">
@@ -824,1965 +509,1327 @@ export function ScenarioBuilder({
             <Search className="w-3.5 h-3.5 text-fg-muted absolute left-2.5 top-2.5" />
             <input
               type="text"
-              placeholder="Search scenarios & flows..."
+              placeholder="Search scenarios..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg placeholder-fg-muted focus:outline-none focus:border-border-focus"
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="xs"
-              variant="secondary"
-              className="flex-1"
-              onClick={createNewScenario}
-              icon={<FilePlus2 className="w-3.5 h-3.5 text-primary" />}
-            >
-              New Scenario
-            </Button>
-            <Button
-              size="xs"
-              variant="secondary"
-              onClick={createNewFlow}
-              title="New Mobile Flow"
-              icon={<Smartphone className="w-3.5 h-3.5 text-success" />}
-            >
-              New Flow
-            </Button>
-          </div>
+          <Button
+            size="xs"
+            variant="secondary"
+            className="w-full justify-center"
+            onClick={createNewScenario}
+            icon={<FilePlus2 className="w-3.5 h-3.5 text-primary" />}
+          >
+            New Scenario
+          </Button>
         </div>
 
-        {/* Explorer Tree List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-3">
-          {/* Scenarios Section */}
-          <div>
-            <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <FileCode className="w-3.5 h-3.5 text-primary" />
-                Test Scenarios
-              </span>
-              <span className="font-mono text-xs text-fg-muted">
-                {filteredScenarios.length}
-              </span>
-            </div>
-            <div className="mt-1 space-y-1">
-              {filteredScenarios.map((sc) => {
-                const isSelected = activeItem?.type === "scenario" && activeItem.id === sc.id
-                return (
-                  <button
-                    key={sc.id}
-                    onClick={() => selectScenario(sc.id)}
-                    className={`w-full text-left p-2 rounded-xs text-xs transition flex flex-col gap-1 cursor-pointer ${
-                      isSelected
-                        ? "bg-editor text-fg-bright border-l-2 border-primary shadow-xs"
-                        : "text-fg hover:bg-hover"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span className="truncate font-medium text-xs text-fg-bright">
-                        {sc.name}
-                      </span>
-                      {!sc.isValid && (
-                        <AlertTriangle className="w-3.5 h-3.5 text-error shrink-0" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-fg-muted">
-                      <span className="font-mono truncate">{sc.id}.json</span>
-                      <span className="opacity-40">&bull;</span>
-                      <span className="shrink-0">{sc.steps.length} {sc.steps.length === 1 ? "step" : "steps"}</span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Flows Section */}
-          {flows.length > 0 && (
-            <div className="border-t border-border pt-2.5">
-              <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-fg-muted flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Smartphone className="w-3.5 h-3.5 text-success" />
-                  Mobile Workflows
-                </span>
-                <span className="font-mono text-xs text-fg-muted">
-                  {filteredFlows.length}
-                </span>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {filteredScenarios.map((sc) => {
+            const isSelected = selectedScenarioId === sc.id
+            return (
+              <div
+                key={sc.id}
+                onClick={() => selectScenario(sc.id)}
+                className={`p-2.5 rounded-xs border transition cursor-pointer flex items-center justify-between gap-2 ${
+                  isSelected
+                    ? "bg-primary/10 border-primary text-fg-bright font-medium"
+                    : "bg-sidebar border-transparent hover:bg-hover hover:border-border text-fg"
+                }`}
+              >
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-xs truncate font-medium">{sc.name}</span>
+                  <span className="text-xs text-fg-muted font-mono truncate">{sc.id}</span>
+                </div>
+                <Badge variant="neutral" size="xs">
+                  {sc.steps.length} {sc.steps.length === 1 ? "Step" : "Steps"}
+                </Badge>
               </div>
-              <div className="mt-1 space-y-1">
-                {filteredFlows.map((fl) => {
-                  const isSelected = activeItem?.type === "flow" && activeItem.id === fl.file
-                  return (
-                    <button
-                      key={fl.file}
-                      onClick={() => selectFlow(fl.file)}
-                      className={`w-full text-left p-2 rounded-xs text-xs transition flex flex-col gap-1 cursor-pointer ${
-                        isSelected
-                          ? "bg-editor text-fg-bright border-l-2 border-success shadow-xs"
-                          : "text-fg hover:bg-hover"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="truncate font-medium text-xs text-fg-bright">
-                          {fl.file}
-                        </span>
-                        {!fl.isValid && (
-                          <AlertTriangle className="w-3.5 h-3.5 text-error shrink-0" />
-                        )}
-                      </div>
-                      <div className="text-xs text-fg-muted font-sans truncate">
-                        {formatTargetLabel(fl.target)}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+            )
+          })}
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* FLOW EDITOR VIEW (If a mobile YAML flow is selected)                      */}
+      {/* COLUMN 2: STEPPER SEQUENCE & SCENARIO OVERVIEW                            */}
       {/* ========================================================================= */}
-      {activeItem?.type === "flow" && draftFlow && (
-        <section className="flex-1 flex flex-col bg-editor overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-border bg-titlebar flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <Smartphone className="w-4 h-4 text-success" />
-              <div className="flex flex-col gap-0.5">
-                <span className="font-semibold text-fg-bright text-xs">
-                  Workflow: {draftFlow.file}
+      <section className="w-84 border-r border-border bg-titlebar flex flex-col shrink-0">
+        {draftScenario ? (
+          <>
+            <div className="p-3 border-b border-border bg-sidebar flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-xs font-semibold text-fg-bright truncate">
+                  {draftScenario.name}
                 </span>
                 <span className="text-xs text-fg-muted">
-                  {formatTargetLabel(draftFlow.target)}
+                  {draftScenario.steps.length} sequential milestone steps
                 </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="xs"
+                  variant={saveSuccess ? "primary" : "secondary"}
+                  onClick={handleSaveScenario}
+                  isLoading={isSaving}
+                  icon={<Save className="w-3.5 h-3.5" />}
+                >
+                  {saveSuccess ? "Saved" : "Save"}
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setIsPresetModalOpen(true)}
+                  title="Insert Step from Preset"
+                  icon={<Plus className="w-3.5 h-3.5 text-primary" />}
+                >
+                  Preset
+                </Button>
               </div>
             </div>
 
-            <Button
-              size="xs"
-              variant="primary"
-              onClick={handleSaveFlow}
-              disabled={isSaving}
-              isLoading={isSaving}
-              icon={saveSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-            >
-              {saveSuccess ? "Saved!" : isSaving ? "Saving..." : "Save Flow"}
-            </Button>
-          </div>
+            {/* Scenario Global Settings Toggle */}
+            <div className="p-2 border-b border-border bg-sidebar/50">
+              <button
+                type="button"
+                onClick={() => setShowScenarioSettings(!showScenarioSettings)}
+                className="w-full px-2.5 py-1.5 text-xs rounded-xs flex items-center justify-between text-fg-muted hover:text-fg hover:bg-hover transition cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Settings className="w-3.5 h-3.5 text-fg-muted" />
+                  Scenario Settings & Fixtures
+                </span>
+                <span className="text-xs text-fg-muted font-mono">
+                  {showScenarioSettings ? "Hide" : "Edit"}
+                </span>
+              </button>
 
-          <div className="flex-1 p-4 overflow-y-auto">
-            <textarea
-              rows={24}
-              value={flowText}
-              onChange={(e) => setFlowText(e.target.value)}
-              className="w-full h-full p-3 text-xs rounded-xs bg-sidebar border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-            />
-          </div>
-        </section>
-      )}
-
-      {/* ========================================================================= */}
-      {/* CONCEPT A: 3-COLUMN STUDIO VIEW (SCENARIO SELECTED)                       */}
-      {/* ========================================================================= */}
-      {activeItem?.type === "scenario" && draftScenario && (
-        <>
-          {/* ===================================================================== */}
-          {/* COLUMN 2: STEPS SEQUENCE / STEPPER (Width 352px)                     */}
-          {/* ===================================================================== */}
-          <section className="w-88 border-r border-border bg-sidebar/50 flex flex-col shrink-0">
-            {/* Scenario Header & Action Bar */}
-            <div className="p-3 border-b border-border bg-titlebar flex flex-col gap-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex flex-col gap-1 min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
+              {showScenarioSettings && (
+                <div className="mt-2 p-2.5 rounded-xs border border-border bg-sidebar space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-fg-muted font-medium">Scenario Name:</label>
                     <input
                       type="text"
                       value={draftScenario.name}
                       onChange={(e) => {
-                        const val = e.target.value
-                        setDraftScenario({
+                        const name = e.target.value
+                        updateDraft({
                           ...draftScenario,
-                          name: val,
-                          raw: { ...draftScenario.raw, name: val },
+                          name,
+                          raw: { ...draftScenario.raw, name },
                         })
-                        setJsonText(JSON.stringify({ ...draftScenario.raw, name: val }, null, 2))
                       }}
-                      className="text-xs font-bold text-fg-bright bg-input border border-border px-2 py-0.5 rounded-xs w-full focus:outline-none focus:border-border-focus"
-                      placeholder="Scenario name..."
+                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-medium focus:border-border-focus focus:outline-none"
                     />
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-fg-muted font-mono truncate">
-                    <span>{draftScenario.id}.json</span>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button
-                    size="xs"
-                    variant="primary"
-                    onClick={handleRunScenario}
-                    disabled={isRunning}
-                    isLoading={isRunning}
-                    icon={<Play className="w-3.5 h-3.5 text-white fill-white" />}
-                    title="Execute this test scenario"
-                  >
-                    Run
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    onClick={handleSaveScenario}
-                    disabled={isSaving}
-                    isLoading={isSaving}
-                    icon={saveSuccess ? <Check className="w-3.5 h-3.5 text-success" /> : <Save className="w-3.5 h-3.5" />}
-                    title="Save scenario"
-                  />
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={handleDeleteScenario}
-                    icon={<Trash2 className="w-3.5 h-3.5 text-error" />}
-                    title="Delete scenario"
-                  />
-                </div>
-              </div>
-
-              {/* Scenario Context (Fixtures & Variables) Selector Card */}
-              <button
-                type="button"
-                onClick={() => setInspectorView("context")}
-                className={`w-full p-2 rounded-xs border text-left flex items-center justify-between transition cursor-pointer ${
-                  inspectorView === "context"
-                    ? "bg-editor border-primary text-fg-bright shadow-xs"
-                    : "bg-input/60 border-border text-fg hover:bg-hover"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Database className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-semibold">Scenario Context</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Badge variant="neutral" size="xs">
-                    {`${draftScenario.setup?.length ?? 0} Fixtures`}
-                  </Badge>
-                  <Badge variant="neutral" size="xs">
-                    {`${Object.keys(draftScenario.vars ?? {}).length} Vars`}
-                  </Badge>
-                </div>
-              </button>
-
-              {/* Steps Sequence Header & Add Buttons */}
-              <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-fg-bright">
-                      Test Steps
-                    </span>
-                    <Badge variant="neutral" size="xs">
-                      {draftScenario.steps.length}
-                    </Badge>
-                  </div>
-                  <span className="text-xs text-fg-muted font-medium">Add step:</span>
-                </div>
-
-                <div className="grid grid-cols-4 gap-1">
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    onClick={() => addStep("http")}
-                    title="Add Web API (HTTP) Step"
-                    className="text-[#9cdcfe] justify-center"
-                    icon={<Plus className="w-3 h-3 text-[#9cdcfe]" />}
-                  >
-                    API
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    onClick={() => addStep("web")}
-                    title="Add Browser Automation Step"
-                    className="text-[#4ec9b0] justify-center"
-                    icon={<Plus className="w-3 h-3 text-[#4ec9b0]" />}
-                  >
-                    Web
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    onClick={() => addStep("shell")}
-                    title="Add Command Line Step"
-                    className="text-[#dcdcaa] justify-center"
-                    icon={<Plus className="w-3 h-3 text-[#dcdcaa]" />}
-                  >
-                    Shell
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    onClick={() => addStep("mobile")}
-                    title="Add Mobile Step"
-                    className="text-[#89d185] justify-center"
-                    icon={<Plus className="w-3 h-3 text-[#89d185]" />}
-                  >
-                    App
-                  </Button>
-                </div>
-
-                <div className="flex items-center justify-between gap-1 pt-1 border-t border-border/40">
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => setIsPresetModalOpen(true)}
-                    className="flex-1 justify-center text-xs text-primary"
-                    icon={<Layers className="w-3 h-3 text-primary" />}
-                  >
-                    + Add Step from Preset
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Steps Stepper List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-              {draftScenario.steps.length === 0 ? (
-                <div className="p-4 text-center text-xs text-fg-muted">
-                  No steps defined. Click "+ API", "+ Web", or "+ Shell" above to add your first step.
-                </div>
-              ) : (
-                draftScenario.steps.map((st, idx) => {
-                  const isSelected = inspectorView === "step" && selectedStepIdx === idx
-                  const runs = getRunsForStep(scenarioStepRuns, draftScenario.id, st, idx)
-                  const latestRun = runs[0]
-
-                  let stepSummary = ""
-                  const driver = getTargetDriver(st.target)
-                  if (st.actions && st.actions.length > 0) {
-                    const actionNames = st.actions
-                      .map((a) => a.action)
-                      .slice(0, 3)
-                      .join(", ")
-                    stepSummary = `${st.actions.length} action(s): ${actionNames}${st.actions.length > 3 ? "..." : ""}`
-                  } else if (driver === "http") {
-                    stepSummary = `${st.method ?? "GET"} ${st.url ?? ""}`
-                  } else if (driver === "shell") {
-                    stepSummary = st.command ?? ""
-                  } else if (driver === "web") {
-                    if (st.action) {
-                      const act = st.action.toLowerCase()
-                      if (act === "navigate" || act === "goto") {
-                        stepSummary = `Navigate to ${st.url ?? st.value ?? "/"}`
-                      } else if (act === "click") {
-                        stepSummary = `Click ${st.selector ?? st.value ?? ""}`
-                      } else if (act === "fill" || act === "type") {
-                        stepSummary = `Type "${st.value ?? ""}" into ${st.selector ?? ""}`
-                      } else if (act === "press") {
-                        stepSummary = `Press ${st.key ?? st.value ?? "Enter"}`
-                      } else if (act === "wait_for" || act === "wait") {
-                        stepSummary = `Wait for ${st.selector ?? `${st.ms}ms`}`
-                      } else if (act === "assert_visible") {
-                        stepSummary = `Assert visible ${st.selector ?? ""}`
-                      } else if (act === "assert_text") {
-                        stepSummary = `Assert text "${st.value ?? ""}" in ${st.selector ?? ""}`
-                      } else if (act === "screenshot") {
-                        stepSummary = "Capture screenshot"
-                      } else if (act === "hover") {
-                        stepSummary = `Hover ${st.selector ?? ""}`
-                      } else if (act === "select") {
-                        stepSummary = `Select "${st.value ?? ""}" on ${st.selector ?? ""}`
-                      } else if (act === "check") {
-                        stepSummary = `Check ${st.selector ?? ""}`
-                      } else if (act === "uncheck") {
-                        stepSummary = `Uncheck ${st.selector ?? ""}`
-                      } else {
-                        stepSummary = `${st.action} ${st.selector ?? st.value ?? ""}`
-                      }
-                    } else {
-                      stepSummary = st.run ?? ""
-                    }
-                  } else if (driver === "mobile") {
-                    if (st.action) {
-                      const act = st.action.toLowerCase()
-                      if (act === "tap" || act === "click") {
-                        stepSummary = `Tap "${st.selector ?? st.value ?? ""}"`
-                      } else if (act === "type" || act === "input" || act === "fill") {
-                        stepSummary = `Type "${st.value ?? ""}"`
-                      } else if (act === "press") {
-                        stepSummary = `Press ${st.key ?? st.value ?? "BACK"}`
-                      } else if (act === "assert_visible") {
-                        stepSummary = `Assert visible "${st.selector ?? st.value ?? ""}"`
-                      } else if (act === "assert_not_visible") {
-                        stepSummary = `Assert not visible "${st.selector ?? st.value ?? ""}"`
-                      } else if (act === "swipe") {
-                        stepSummary = `Swipe ${st.key ?? "RIGHT"}`
-                      } else if (act === "launch") {
-                        stepSummary = "Launch App"
-                      } else if (act === "back") {
-                        stepSummary = "Press Back"
-                      } else {
-                        stepSummary = `${st.action} ${st.selector ?? st.value ?? ""}`
-                      }
-                    } else {
-                      stepSummary = st.flow ?? st.launch ?? ""
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        setSelectedStepIdx(idx)
-                        setInspectorView("step")
+                  <div className="space-y-1">
+                    <label className="text-xs text-fg-muted font-medium">Description:</label>
+                    <input
+                      type="text"
+                      value={draftScenario.description ?? ""}
+                      onChange={(e) => {
+                        const description = e.target.value
+                        updateDraft({
+                          ...draftScenario,
+                          description,
+                          raw: { ...draftScenario.raw, description },
+                        })
                       }}
-                      className={`p-2 rounded-xs border transition cursor-pointer flex flex-col gap-1.5 ${
-                        isSelected
-                          ? "bg-editor border-2 border-primary shadow-xs"
-                          : "bg-editor/50 border-border text-fg hover:bg-hover"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={`w-5 h-5 rounded-xs flex items-center justify-center font-mono text-xs font-semibold shrink-0 ${
-                              isSelected
-                                ? "bg-primary text-white"
-                                : "bg-input text-fg-muted border border-border"
+                      placeholder="What this scenario validates..."
+                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg focus:border-border-focus focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Setup Fixtures */}
+                  <div className="space-y-1.5 pt-1 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-fg-muted font-medium">Setup Fixtures:</label>
+                      {onNavigateToConfig && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToConfig("fixtures")}
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          Manage <ExternalLink className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(config?.fixtures ? Object.keys(config.fixtures) : []).map((fix) => {
+                        const isSet = draftScenario.setup?.includes(fix)
+                        return (
+                          <button
+                            key={fix}
+                            type="button"
+                            onClick={() => {
+                              const curr = draftScenario.setup ?? []
+                              const next = isSet ? curr.filter((f) => f !== fix) : [...curr, fix]
+                              const raw = { ...draftScenario.raw, setup: next }
+                              updateDraft({ ...draftScenario, setup: next, raw })
+                            }}
+                            className={`px-2 py-0.5 text-xs font-mono rounded-xs border transition cursor-pointer flex items-center gap-1 ${
+                              isSet
+                                ? "bg-primary/20 text-primary border-primary/50 font-semibold"
+                                : "bg-input text-fg-muted border-border hover:border-fg-muted"
                             }`}
                           >
-                            {idx + 1}
-                          </span>
-                          <span className="font-semibold text-xs text-fg-bright truncate">
-                            {st.name}
-                          </span>
-                        </div>
+                            {isSet && <Check className="w-3 h-3 text-primary" />}
+                            {fix}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
 
-                        {/* Recent Execution Badge */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {latestRun ? (
-                            <Badge
-                              size="xs"
-                              variant={
-                                latestRun.status === "PASSED"
-                                  ? "success"
-                                  : latestRun.status === "FAILED"
-                                    ? "danger"
-                                    : latestRun.status === "RUNNING"
-                                      ? "info"
-                                      : "neutral"
+                  {/* Scenario Variables */}
+                  <div className="space-y-1.5 pt-1 border-t border-border">
+                    <label className="text-xs text-fg-muted font-medium">Scenario Variables:</label>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {Object.entries(draftScenario.vars ?? {}).map(([key, val]) => (
+                        <div key={key} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1">
+                          <span className="text-xs font-mono text-primary truncate">{key}</span>
+                          <span className="text-xs font-mono text-fg-muted truncate">{String(val)}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextVars = { ...(draftScenario.vars ?? {}) }
+                              delete nextVars[key]
+                              const raw = { ...draftScenario.raw, vars: nextVars }
+                              updateDraft({ ...draftScenario, vars: nextVars, raw })
+                            }}
+                            className="p-1 text-fg-muted hover:text-error"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1 pt-1">
+                        <input
+                          type="text"
+                          placeholder="Var name"
+                          value={newVarKey}
+                          onChange={(e) => setNewVarKey(e.target.value)}
+                          className="px-1.5 py-0.5 text-xs rounded-xs bg-input border border-border text-primary font-mono focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Value"
+                          value={newVarVal}
+                          onChange={(e) => setNewVarVal(e.target.value)}
+                          className="px-1.5 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:outline-none"
+                        />
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          onClick={() => {
+                            if (newVarKey.trim()) {
+                              const nextVars = {
+                                ...(draftScenario.vars ?? {}),
+                                [newVarKey.trim()]: newVarVal,
                               }
-                            >
-                              {latestRun.status === "PASSED"
-                                ? "Passed"
-                                : latestRun.status === "FAILED"
-                                  ? "Failed"
-                                  : latestRun.status === "RUNNING"
-                                    ? "Running"
-                                    : "Idle"}
-                            </Badge>
-                          ) : (
-                            <Badge size="xs" variant={getTargetBadgeVariant(st.target)}>
-                              {capitalizeFirst(driver)}
-                            </Badge>
-                          )}
-                        </div>
+                              const raw = { ...draftScenario.raw, vars: nextVars }
+                              updateDraft({ ...draftScenario, vars: nextVars, raw })
+                              setNewVarKey("")
+                              setNewVarVal("")
+                            }
+                          }}
+                          disabled={!newVarKey.trim()}
+                        >
+                          Add
+                        </Button>
                       </div>
-
-                      {/* Subtitle / Driver details & execution stats */}
-                      <div className="flex items-center justify-between text-xs text-fg-muted pl-7">
-                        <span className="font-mono truncate max-w-[170px]" title={stepSummary}>
-                          {stepSummary || formatTargetLabel(st.target)}
-                        </span>
-                        {latestRun?.durationMs !== undefined && (
-                          <span className="font-mono text-xs text-fg-muted shrink-0">
-                            {latestRun.durationMs}ms
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Controls on hover / active */}
-                      {isSelected && (
-                        <div className="flex items-center justify-end gap-1 pt-1 border-t border-border/50">
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              moveStep(idx, "up")
-                            }}
-                            disabled={idx === 0}
-                            title="Move Up"
-                            icon={<ArrowUp className="w-3.5 h-3.5" />}
-                          />
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              moveStep(idx, "down")
-                            }}
-                            disabled={idx === draftScenario.steps.length - 1}
-                            title="Move Down"
-                            icon={<ArrowDown className="w-3.5 h-3.5" />}
-                          />
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              duplicateStep(idx)
-                            }}
-                            title="Duplicate Step"
-                            icon={<Copy className="w-3.5 h-3.5" />}
-                          />
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteStep(idx)
-                            }}
-                            title="Delete Step"
-                            icon={<Trash2 className="w-3.5 h-3.5 text-error" />}
-                          />
-                        </div>
-                      )}
                     </div>
-                  )
-                })
-              )}
-            </div>
-          </section>
+                  </div>
 
-          {/* ===================================================================== */}
-          {/* COLUMN 3: STEP INSPECTOR & TELEMETRY STUDIO (Flex-1)                  */}
-          {/* ===================================================================== */}
-          <section className="flex-1 flex flex-col bg-editor overflow-hidden">
-            {inspectorView === "step" && selectedStep ? (
-              <>
-                {/* Step Inspector Header */}
-                <div className="p-3 border-b border-border bg-titlebar flex items-center justify-between shrink-0 gap-4">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span className="px-2 py-0.5 rounded-xs bg-primary/20 text-primary border border-primary/40 font-mono text-xs font-semibold shrink-0">
-                      Step {selectedStepIdx + 1} of {draftScenario.steps.length}
-                    </span>
-                    <div className="flex-1 max-w-md min-w-0">
-                      <input
-                        type="text"
-                        value={selectedStep.name}
-                        onChange={(e) => updateStep(selectedStepIdx, { name: e.target.value })}
-                        className="w-full text-xs font-bold text-fg-bright bg-input border border-border px-2.5 py-1 rounded-xs focus:border-border-focus focus:outline-none"
-                        placeholder="Step name..."
-                      />
-                    </div>
-                    <Select
-                      size="xs"
-                      value={selectedStep.target}
-                      onChange={(val) => updateStep(selectedStepIdx, { target: val })}
-                      options={availableTargets.map((t) => ({
-                        value: t,
-                        label: formatTargetLabel(t),
-                      }))}
-                      className="w-40 shrink-0"
-                    />
-                    <Badge size="xs" variant={getTargetBadgeVariant(selectedStep.target)}>
-                      {capitalizeFirst(getTargetDriver(selectedStep.target))}
-                    </Badge>
+                  <div className="pt-2 border-t border-border flex justify-end">
                     <Button
                       size="xs"
-                      variant="ghost"
-                      onClick={() => {
-                        setNewPresetName(selectedStep.name)
-                        setNewPresetDesc("")
-                        setIsSavePresetModalOpen(true)
-                      }}
-                      className="text-primary hover:text-primary-hover shrink-0"
-                      title="Save this step as a reusable preset"
-                      icon={<BookmarkPlus className="w-3.5 h-3.5 text-primary" />}
+                      variant="danger"
+                      onClick={handleDeleteScenario}
+                      icon={<Trash2 className="w-3.5 h-3.5" />}
                     >
-                      Save as Preset
+                      Delete Scenario
                     </Button>
                   </div>
-
-                  {/* Sub-resource Navigation Tabs */}
-                  <div className="flex items-center bg-sidebar p-0.5 rounded-xs border border-border shrink-0">
-                    <TabButton
-                      variant="pills"
-                      active={stepTab === "runs"}
-                      onClick={() => setStepTab("runs")}
-                      icon={<Clock className="w-3.5 h-3.5" />}
-                    >
-                      Step Runs ({selectedStepRuns.length})
-                    </TabButton>
-                    <TabButton
-                      variant="pills"
-                      active={stepTab === "config"}
-                      onClick={() => setStepTab("config")}
-                      icon={<Layers className="w-3.5 h-3.5" />}
-                    >
-                      Configuration
-                    </TabButton>
-                    <TabButton
-                      variant="pills"
-                      active={stepTab === "json"}
-                      onClick={() => setStepTab("json")}
-                      icon={<Code2 className="w-3.5 h-3.5" />}
-                    >
-                      Raw JSON
-                    </TabButton>
-                  </div>
                 </div>
+              )}
+            </div>
 
-                {/* Step Details Content Body */}
-                <div className="flex-1 overflow-y-auto p-4 select-text">
-                  {/* TAB 1: STEP RUNS & TELEMETRY */}
-                  {stepTab === "runs" && (
-                    <div className="max-w-4xl mx-auto space-y-4">
-                      {/* Status Summary Banner */}
-                      {latestStepRun ? (
-                        <div
-                          className={`p-3 rounded-xs border flex items-center justify-between ${
-                            latestStepRun.status === "PASSED"
-                              ? "bg-success-bg/40 border-success-border text-fg-bright"
-                              : latestStepRun.status === "FAILED"
-                                ? "bg-error-bg/40 border-error-border text-fg-bright"
-                                : "bg-sidebar border-border text-fg-bright"
-                          }`}
-                        >
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs font-bold flex items-center gap-1.5">
-                              {latestStepRun.status === "PASSED" ? (
-                                <>
-                                  <CheckCircle2 className="w-4 h-4 text-success" />
-                                  Latest Step Execution Passed ({latestStepRun.durationMs}ms)
-                                </>
-                              ) : latestStepRun.status === "FAILED" ? (
-                                <>
-                                  <XCircle className="w-4 h-4 text-error" />
-                                  Latest Execution Failed (Attempt {latestStepRun.attempt})
-                                </>
-                              ) : (
-                                <>
-                                  <Activity className="w-4 h-4 text-info animate-spin" />
-                                  Step Execution In Progress
-                                </>
-                              )}
-                            </span>
-                            <span className="text-xs text-fg-muted">
-                              {latestStepRun.errorMessage
-                                ? latestStepRun.errorMessage
-                                : latestStepRun.statusCode
-                                  ? `Response Code: ${latestStepRun.statusCode}`
-                                  : `Recorded under run ${latestStepRun.runId}`}
-                            </span>
-                          </div>
-
-                          <Button
-                            size="xs"
-                            variant="secondary"
-                            onClick={handleRunScenario}
-                            disabled={isRunning}
-                            isLoading={isRunning}
-                            icon={<Play className="w-3.5 h-3.5 text-primary" />}
-                          >
-                            Run Scenario
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="p-3 rounded-xs border border-border bg-sidebar flex items-center justify-between">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-xs font-semibold text-fg-bright">
-                              No Runs Recorded Yet
-                            </span>
-                            <span className="text-xs text-fg-muted">
-                              Execute the scenario to collect step-level attempts, duration, and telemetry.
-                            </span>
-                          </div>
-                          <Button
-                            size="xs"
-                            variant="primary"
-                            onClick={handleRunScenario}
-                            disabled={isRunning}
-                            isLoading={isRunning}
-                            icon={<Play className="w-3.5 h-3.5" />}
-                          >
-                            Run Scenario
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Step Runs Table */}
-                      {selectedStepRuns.length > 0 ? (
-                        <div className="border border-border rounded-xs overflow-hidden bg-sidebar">
-                          <div className="px-3 py-2 border-b border-border bg-titlebar flex items-center justify-between">
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-xs font-semibold text-fg-bright">
-                                Execution History
-                              </span>
-                              <span className="text-xs text-fg-muted">
-                                Attempts and outcomes recorded in SQLite
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {isLoadingStepRuns && <Activity className="w-3.5 h-3.5 text-info animate-spin" />}
-                              <span className="text-xs text-fg-muted">
-                                {selectedStepRuns.length} {selectedStepRuns.length === 1 ? "run" : "runs"}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs">
-                              <thead className="bg-input/60 text-fg-muted border-b border-border text-xs uppercase font-semibold">
-                                <tr>
-                                  <th className="p-2.5">Run & Timestamp</th>
-                                  <th className="p-2.5">Attempt</th>
-                                  <th className="p-2.5">Status</th>
-                                  <th className="p-2.5">Duration</th>
-                                  <th className="p-2.5">Code / Result</th>
-                                  <th className="p-2.5 text-right">Details</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-border">
-                                {selectedStepRuns.map((r) => {
-                                  const dateStr = new Date(r.createdAt).toLocaleString(undefined, {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    second: "2-digit",
-                                  })
-                                  const isExpanded = expandedRunId === r.id
-                                  return (
-                                    <tr
-                                      key={r.id}
-                                      className={`hover:bg-hover/60 transition ${
-                                        r.status === "FAILED" ? "bg-error-bg/10" : ""
-                                      }`}
-                                    >
-                                      <td className="p-2.5 font-mono text-fg-bright">
-                                        <span className="block truncate max-w-[160px] font-semibold">
-                                          {r.runId}
-                                        </span>
-                                        <span className="block text-xs text-fg-muted font-sans">
-                                          {dateStr}
-                                        </span>
-                                      </td>
-                                      <td className="p-2.5 font-mono">
-                                        Attempt {r.attempt}
-                                        {r.iteration > 1 ? ` (Iter ${r.iteration})` : ""}
-                                      </td>
-                                      <td className="p-2.5">
-                                        <Badge
-                                          size="xs"
-                                          variant={
-                                            r.status === "PASSED"
-                                              ? "success"
-                                              : r.status === "FAILED"
-                                                ? "danger"
-                                                : r.status === "RUNNING"
-                                                  ? "info"
-                                                  : "neutral"
-                                          }
-                                        >
-                                          {r.status === "PASSED"
-                                            ? "Passed"
-                                            : r.status === "FAILED"
-                                              ? "Failed"
-                                              : r.status === "RUNNING"
-                                                ? "Running"
-                                                : "Cancelled"}
-                                        </Badge>
-                                      </td>
-                                      <td className="p-2.5 font-mono">
-                                        {r.durationMs !== undefined ? `${r.durationMs}ms` : "-"}
-                                      </td>
-                                      <td className="p-2.5 font-mono">
-                                        {r.statusCode !== undefined ? (
-                                          <span
-                                            className={
-                                              r.statusCode >= 200 && r.statusCode < 300
-                                                ? "text-success font-semibold"
-                                                : "text-error font-semibold"
-                                            }
-                                          >
-                                            Code {r.statusCode}
-                                          </span>
-                                        ) : (
-                                          "-"
-                                        )}
-                                      </td>
-                                      <td className="p-2.5 text-right">
-                                        <button
-                                          type="button"
-                                          onClick={() => setExpandedRunId(isExpanded ? null : r.id)}
-                                          className="text-xs text-primary hover:underline cursor-pointer font-medium"
-                                        >
-                                          {isExpanded ? "Hide" : "Inspect"}
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ) : (
-                        <EmptyState
-                          title="No Historical Runs For This Step"
-                          description="Run the scenario using the 'Run' button above to generate telemetry for this step."
-                          icon={<Clock className="w-8 h-8 text-fg-muted" />}
-                        />
-                      )}
-
-                      {/* Expanded Run Detail Inspector */}
-                      {expandedRunId && (
-                        (() => {
-                          const targetRun = selectedStepRuns.find((r) => r.id === expandedRunId)
-                          if (!targetRun) return null
-                          return (
-                            <Panel variant="sidebar" className="p-3 space-y-2 border-border-focus">
-                              <div className="flex items-center justify-between pb-2 border-b border-border">
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="text-xs font-semibold text-fg-bright">
-                                    Execution Trace: {targetRun.id}
-                                  </span>
-                                  <span className="text-xs text-fg-muted">
-                                    Attempt {targetRun.attempt} &bull; Status: {targetRun.status}
-                                  </span>
-                                </div>
-                                <Button
-                                  size="xs"
-                                  variant="ghost"
-                                  onClick={() => setExpandedRunId(null)}
-                                  icon={<X className="w-3.5 h-3.5" />}
-                                />
-                              </div>
-
-                              {targetRun.errorMessage && (
-                                <div className="space-y-1">
-                                  <span className="text-xs font-semibold text-error">
-                                    Error Message / Trace:
-                                  </span>
-                                  <pre className="p-2.5 rounded-xs bg-editor border border-error-border text-error font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-                                    {targetRun.errorMessage}
-                                  </pre>
-                                </div>
-                              )}
-
-                              {Boolean(targetRun.resultData) && (
-                                <div className="space-y-1">
-                                  <span className="text-xs font-semibold text-fg-bright">
-                                    Result Data / Response:
-                                  </span>
-                                  <pre className="p-2.5 rounded-xs bg-editor border border-border text-fg font-mono text-xs overflow-x-auto">
-                                    {typeof targetRun.resultData === "string"
-                                      ? targetRun.resultData
-                                      : JSON.stringify(targetRun.resultData, null, 2)}
-                                  </pre>
-                                </div>
-                              )}
-                            </Panel>
-                          )
-                        })()
-                      )}
+            {/* Stepper Steps List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+              {draftScenario.steps.map((st, idx) => {
+                const isSelected = selectedStepIdx === idx
+                const actionsCount = st.actions?.length ?? 0
+                const actionsSummary = st.actions?.slice(0, 3).map((a) => a.action).join(", ")
+                return (
+                  <div
+                    key={st.id || idx}
+                    onClick={() => {
+                      setSelectedStepIdx(idx)
+                      setShowScenarioSettings(false)
+                    }}
+                    className={`p-2.5 rounded-xs border transition cursor-pointer flex flex-col gap-1.5 ${
+                      isSelected
+                        ? "bg-sidebar border-primary shadow-xs"
+                        : "bg-sidebar border-border hover:border-fg-muted/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-xs font-mono font-semibold text-fg-muted shrink-0">
+                          #{idx + 1}
+                        </span>
+                        <span className="text-xs font-medium text-fg-bright truncate">
+                          {st.name}
+                        </span>
+                      </div>
+                      <Badge variant={getTargetBadgeVariant(st.target)} size="xs">
+                        {capitalize(st.target)}
+                      </Badge>
                     </div>
-                  )}
 
-                  {/* TAB 2: STEP CONFIGURATION */}
-                  {stepTab === "config" && (
-                    <div className="max-w-4xl mx-auto space-y-4">
-                      {/* Driver Configuration Fields */}
-                      {(() => {
-                        const stepDriver = getTargetDriver(selectedStep.target)
-                        return (
-                          <div className="space-y-3">
-                            {/* HTTP Driver Form */}
-                            {stepDriver === "http" && (
-                              <Panel variant="sidebar" className="p-3 space-y-3">
-                                <div className="flex flex-col gap-0.5">
-                                  <label className="text-xs font-semibold text-fg-bright">
-                                    Web API Endpoint (HTTP)
-                                  </label>
-                                  <span className="text-xs text-fg-muted">
-                                    Request method and destination path
+                    <div className="flex items-center justify-between text-xs text-fg-muted">
+                      <span className="truncate">
+                        {actionsCount > 0
+                          ? `${actionsCount} action(s): ${actionsSummary}${actionsCount > 3 ? "..." : ""}`
+                          : st.url || st.command || "Configured step"}
+                      </span>
+                      <div
+                        className="flex items-center gap-0.5 opacity-60 hover:opacity-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => moveStep(idx, "up")}
+                          disabled={idx === 0}
+                          className="p-1 text-fg-muted hover:text-fg disabled:opacity-30 cursor-pointer"
+                          title="Move step up"
+                        >
+                          <ArrowUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveStep(idx, "down")}
+                          disabled={idx === draftScenario.steps.length - 1}
+                          className="p-1 text-fg-muted hover:text-fg disabled:opacity-30 cursor-pointer"
+                          title="Move step down"
+                        >
+                          <ArrowDown className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => duplicateStep(idx)}
+                          className="p-1 text-fg-muted hover:text-primary cursor-pointer"
+                          title="Duplicate step"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteStep(idx)}
+                          className="p-1 text-fg-muted hover:text-error cursor-pointer"
+                          title="Delete step"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Add Step Toolbar */}
+            <div className="p-2 border-t border-border bg-sidebar flex items-center gap-1.5">
+              <Button
+                size="xs"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => addStep("web")}
+                icon={<Globe className="w-3.5 h-3.5 text-[#4ec9b0]" />}
+              >
+                + Web
+              </Button>
+              <Button
+                size="xs"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => addStep("mobile")}
+                icon={<Smartphone className="w-3.5 h-3.5 text-[#ce9178]" />}
+              >
+                + Mobile
+              </Button>
+              <Button
+                size="xs"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => addStep("http")}
+                icon={<Code className="w-3.5 h-3.5 text-[#9cdcfe]" />}
+              >
+                + API
+              </Button>
+              <Button
+                size="xs"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => addStep("shell")}
+                icon={<Terminal className="w-3.5 h-3.5 text-[#dcdcaa]" />}
+              >
+                + Shell
+              </Button>
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            title="No Scenario Selected"
+            description="Select a scenario from the left column or create a new one."
+            icon={<Layers className="w-8 h-8 text-fg-muted" />}
+          />
+        )}
+      </section>
+
+      {/* ========================================================================= */}
+      {/* COLUMN 3: STEP INSPECTOR & ACTIONS EDITOR                                 */}
+      {/* ========================================================================= */}
+      <section className="flex-1 flex flex-col bg-sidebar overflow-hidden">
+        {draftScenario && selectedStep ? (
+          <>
+            {/* Inspector Top Bar */}
+            <div className="px-4 py-2.5 border-b border-border bg-titlebar flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="text-xs font-mono font-bold text-primary shrink-0">
+                  Step #{selectedStepIdx + 1}
+                </span>
+                <input
+                  type="text"
+                  value={selectedStep.name}
+                  onChange={(e) => updateStep(selectedStepIdx, { name: e.target.value })}
+                  placeholder="Step milestone name..."
+                  className="px-2 py-1 text-xs font-semibold text-fg-bright bg-input border border-border rounded-xs focus:border-border-focus focus:outline-none flex-1 max-w-md"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => {
+                    setNewPresetName(selectedStep.name)
+                    setNewPresetDesc("")
+                    setIsSavePresetModalOpen(true)
+                  }}
+                  icon={<Copy className="w-3.5 h-3.5 text-primary" />}
+                >
+                  Save as Preset
+                </Button>
+
+                <div className="flex items-center bg-input p-0.5 rounded-xs border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setInspectorMode("designer")}
+                    className={`px-2.5 py-1 text-xs rounded-xs font-medium transition cursor-pointer ${
+                      inspectorMode === "designer"
+                        ? "bg-primary text-white"
+                        : "text-fg-muted hover:text-fg"
+                    }`}
+                  >
+                    Actions & Config
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspectorMode("json")}
+                    className={`px-2.5 py-1 text-xs rounded-xs font-medium transition cursor-pointer ${
+                      inspectorMode === "json"
+                        ? "bg-primary text-white"
+                        : "text-fg-muted hover:text-fg"
+                    }`}
+                  >
+                    Raw JSON
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Inspector Body */}
+            <div className="flex-1 overflow-y-auto p-4 select-text">
+              {inspectorMode === "designer" ? (
+                <div className="max-w-4xl mx-auto space-y-4">
+                  {/* Step Platform & Target */}
+                  <Panel variant="sidebar" className="p-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-fg-muted uppercase tracking-wider font-medium">
+                          Platform Target:
+                        </label>
+                        <Select
+                          size="xs"
+                          value={selectedStep.target}
+                          onChange={(val) => {
+                            const newDriver = getTargetDriver(val)
+                            const currentDriver = getTargetDriver(selectedStep.target)
+                            if (newDriver !== currentDriver) {
+                              if (newDriver === "web") {
+                                updateStep(selectedStepIdx, {
+                                  target: val,
+                                  actions: [{ id: `act_${Date.now()}_1`, action: "navigate", url: "/" }],
+                                })
+                              } else if (newDriver === "mobile") {
+                                updateStep(selectedStepIdx, {
+                                  target: val,
+                                  actions: [{ id: `act_${Date.now()}_1`, action: "tap", selector: "Button" }],
+                                })
+                              } else if (newDriver === "http") {
+                                updateStep(selectedStepIdx, {
+                                  target: val,
+                                  method: "GET",
+                                  url: "/api/test",
+                                  actions: undefined,
+                                })
+                              } else {
+                                updateStep(selectedStepIdx, {
+                                  target: val,
+                                  command: "echo 'hello'",
+                                  actions: undefined,
+                                })
+                              }
+                            } else {
+                              updateStep(selectedStepIdx, { target: val })
+                            }
+                          }}
+                          options={availableTargets.map((t) => ({
+                            value: t,
+                            label: `${capitalize(t)} (${capitalize(getTargetDriver(t))})`,
+                          }))}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-0.5 justify-center">
+                        <span className="text-xs text-fg-muted">Driver runtime:</span>
+                        <span className="text-xs font-mono font-semibold text-fg-bright">
+                          {capitalize(stepDriver)} Driver
+                        </span>
+                      </div>
+                    </div>
+                  </Panel>
+
+                  {/* ========================================================================= */}
+                  {/* COMPOSITE STEP ACTIONS (Web & Mobile)                                    */}
+                  {/* ========================================================================= */}
+                  {isWebOrMobile && (
+                    <Panel variant="sidebar" className="p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
+                            {stepDriver === "web" ? (
+                              <Globe className="w-3.5 h-3.5 text-[#4ec9b0]" />
+                            ) : (
+                              <Smartphone className="w-3.5 h-3.5 text-[#ce9178]" />
+                            )}
+                            Step Actions Sequence
+                          </label>
+                          <span className="text-xs text-fg-muted">
+                            Ordered atomic {stepDriver} actions executed sequentially in this step
+                          </span>
+                        </div>
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          onClick={() => addStepAction(selectedStepIdx)}
+                          icon={<Plus className="w-3.5 h-3.5 text-primary" />}
+                        >
+                          Add Action
+                        </Button>
+                      </div>
+
+                      {/* Actions List */}
+                      <div className="space-y-2.5">
+                        {(selectedStep.actions ?? []).map((act, actIdx) => {
+                          const actionOptions =
+                            stepDriver === "web" ? WEB_ACTION_OPTIONS : MOBILE_ACTION_OPTIONS
+                          const isWeb = stepDriver === "web"
+                          const actType = act.action ?? (isWeb ? "navigate" : "tap")
+
+                          return (
+                            <div
+                              key={act.id || actIdx}
+                              className="p-3 rounded-xs border border-border bg-input/40 space-y-2.5"
+                            >
+                              {/* Action Header */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-1">
+                                  <span className="text-xs font-mono font-bold text-fg-muted shrink-0">
+                                    #{actIdx + 1}
                                   </span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
                                   <Select
                                     size="xs"
-                                    value={selectedStep.method ?? "GET"}
-                                    onChange={(val) =>
-                                      updateStep(selectedStepIdx, { method: val })
-                                    }
-                                    options={[
-                                      { value: "GET", label: "GET" },
-                                      { value: "POST", label: "POST" },
-                                      { value: "PUT", label: "PUT" },
-                                      { value: "PATCH", label: "PATCH" },
-                                      { value: "DELETE", label: "DELETE" },
-                                    ]}
-                                    className="w-28 font-bold text-info"
-                                  />
-                                  <input
-                                    type="text"
-                                    placeholder="URL Address / Path e.g. /v1/users"
-                                    value={selectedStep.url ?? ""}
-                                    onChange={(e) =>
-                                      updateStep(selectedStepIdx, { url: e.target.value })
-                                    }
-                                    className="flex-1 px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    value={actType}
+                                    onChange={(val) => {
+                                      updateStepAction(selectedStepIdx, actIdx, { action: val })
+                                    }}
+                                    options={actionOptions}
+                                    className="w-56"
                                   />
                                 </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => moveStepAction(selectedStepIdx, actIdx, "up")}
+                                    disabled={actIdx === 0}
+                                    className="p-1 text-fg-muted hover:text-fg disabled:opacity-20 cursor-pointer"
+                                    title="Move action up"
+                                  >
+                                    <ArrowUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveStepAction(selectedStepIdx, actIdx, "down")}
+                                    disabled={actIdx === (selectedStep.actions?.length ?? 1) - 1}
+                                    className="p-1 text-fg-muted hover:text-fg disabled:opacity-20 cursor-pointer"
+                                    title="Move action down"
+                                  >
+                                    <ArrowDown className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteStepAction(selectedStepIdx, actIdx)}
+                                    className="p-1 text-fg-muted hover:text-error cursor-pointer"
+                                    title="Delete action"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
 
-                                {["POST", "PUT", "PATCH"].includes(selectedStep.method ?? "") && (
-                                  <div className="space-y-1 pt-1 border-t border-border/50">
-                                    <label className="text-xs text-fg-muted font-medium uppercase tracking-wider">
-                                      Request Payload (JSON):
+                              {/* Action Inputs */}
+                              <div className="space-y-2 pt-1 border-t border-border/60">
+                                {/* Web: Navigate */}
+                                {isWeb && (actType === "navigate" || actType === "goto") && (
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">
+                                      URL / Path:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={act.url ?? act.value ?? ""}
+                                      onChange={(e) =>
+                                        updateStepAction(selectedStepIdx, actIdx, {
+                                          url: e.target.value,
+                                        })
+                                      }
+                                      placeholder="e.g. /login, /checkout, or https://example.com"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Web: Click, Hover, Check, Uncheck, Assert Visible */}
+                                {isWeb &&
+                                  [
+                                    "click",
+                                    "hover",
+                                    "check",
+                                    "uncheck",
+                                    "assert_visible",
+                                  ].includes(actType) && (
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Element Selector:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. button[type='submit'], #login-btn, .nav-item"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                  )}
+
+                                {/* Web: Fill / Type */}
+                                {isWeb && (actType === "fill" || actType === "type") && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Element Selector:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. #email, input[name='username']"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Input Value:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.value ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. admin@example.com"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Web: Press Key */}
+                                {isWeb && actType === "press" && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Key to Press:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.key ?? act.value ?? "Enter"}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            key: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. Enter, Tab, Escape"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Selector (Optional):
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. #search-input (default: page)"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Web: Assert Text */}
+                                {isWeb && actType === "assert_text" && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Element Selector:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. .status-badge, #message"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Expected Text:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.value ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. Order Placed Successfully"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Web: Select Dropdown */}
+                                {isWeb && actType === "select" && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Select Element:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. select#country"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Option Value / Label:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.value ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. US, admin"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Web & Mobile: Wait / Delay */}
+                                {["wait_for", "wait"].includes(actType) && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Wait for Selector (Optional):
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. .spinner or #modal"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Delay (ms):
+                                      </label>
+                                      <NumberInput
+                                        size="xs"
+                                        value={act.ms ?? 1000}
+                                        onChange={(val) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            ms: val,
+                                          })
+                                        }
+                                        min={100}
+                                        step={500}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Web: Screenshot */}
+                                {isWeb && actType === "screenshot" && (
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">
+                                      Screenshot File Path (Optional):
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={act.value ?? ""}
+                                      onChange={(e) =>
+                                        updateStepAction(selectedStepIdx, actIdx, {
+                                          value: e.target.value,
+                                        })
+                                      }
+                                      placeholder="Leave blank for automatic run artifact capture"
+                                      className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Web: JavaScript Expression */}
+                                {isWeb && actType === "eval" && (
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">
+                                      JavaScript Expression:
                                     </label>
                                     <textarea
-                                      rows={3}
-                                      value={
-                                        bodyDrafts[selectedStepIdx] !== undefined
-                                          ? bodyDrafts[selectedStepIdx]
-                                          : selectedStep.body !== undefined
-                                            ? typeof selectedStep.body === "string"
-                                              ? selectedStep.body
-                                              : JSON.stringify(selectedStep.body, null, 2)
-                                            : ""
+                                      rows={2}
+                                      value={act.value ?? ""}
+                                      onChange={(e) =>
+                                        updateStepAction(selectedStepIdx, actIdx, {
+                                          value: e.target.value,
+                                        })
                                       }
-                                      onChange={(e) => {
-                                        const val = e.target.value
-                                        setBodyDrafts((prev) => ({ ...prev, [selectedStepIdx]: val }))
-                                        try {
-                                          const parsed = JSON.parse(val)
-                                          updateStep(selectedStepIdx, { body: parsed })
-                                        } catch {
-                                          if (!val.trim()) {
-                                            updateStep(selectedStepIdx, { body: undefined })
-                                          }
-                                        }
-                                      }}
-                                      placeholder='{"amount": 100}'
+                                      placeholder="e.g. document.title, window.scrollTo(0, 500)"
                                       className="w-full p-2 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                                     />
                                   </div>
                                 )}
 
-                                {/* HTTP Request Headers */}
-                                <div className="pt-2 border-t border-border/50 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs text-fg-muted font-semibold uppercase tracking-wider">
-                                      Request Headers ({Object.keys(selectedStep.headers ?? {}).length})
-                                    </label>
-                                    <Button
-                                      size="xs"
-                                      variant="ghost"
-                                      onClick={() => addStepHeader(selectedStepIdx)}
-                                      icon={<Plus className="w-3.5 h-3.5" />}
-                                    >
-                                      Add Header
-                                    </Button>
-                                  </div>
-                                  {selectedStep.headers && Object.keys(selectedStep.headers).length > 0 && (
-                                    <div className="space-y-1.5">
-                                      {Object.entries(selectedStep.headers).map(([hKey, hVal], hIdx) => (
-                                        <div key={hIdx} className="flex items-center gap-1.5">
-                                          <input
-                                            type="text"
-                                            value={hKey}
-                                            onChange={(e) =>
-                                              updateStepHeader(selectedStepIdx, hIdx, e.target.value, hVal)
-                                            }
-                                            placeholder="Header name"
-                                            className="w-40 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                          />
-                                          <span className="text-fg-muted font-mono">:</span>
-                                          <input
-                                            type="text"
-                                            value={hVal}
-                                            onChange={(e) =>
-                                              updateStepHeader(selectedStepIdx, hIdx, hKey, e.target.value)
-                                            }
-                                            placeholder="Header value"
-                                            className="flex-1 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                          />
-                                          <Button
-                                            size="xs"
-                                            variant="ghost"
-                                            onClick={() => deleteStepHeader(selectedStepIdx, hIdx)}
-                                            icon={<X className="w-3.5 h-3.5 text-error" />}
-                                          />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Response Value Extraction */}
-                                <div className="pt-2 border-t border-border/50 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs text-fg-muted font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                                      <Variable className="w-3.5 h-3.5 text-secondary" />
-                                      Extract Variables ({Object.keys(selectedStep.extract ?? {}).length})
-                                    </label>
-                                    <Button
-                                      size="xs"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        const baseName = `var_${Object.keys(selectedStep.extract ?? {}).length + 1}`
-                                        updateStepExtract(selectedStepIdx, baseName, "data[0].id")
-                                      }}
-                                      icon={<Plus className="w-3.5 h-3.5" />}
-                                    >
-                                      Add Extraction
-                                    </Button>
-                                  </div>
-                                  {selectedStep.extract && Object.keys(selectedStep.extract).length > 0 && (
-                                    <div className="space-y-1.5">
-                                      {Object.entries(selectedStep.extract).map(([varName, jsonPath]) => (
-                                        <div key={varName} className="grid grid-cols-[1fr_auto_1.4fr_auto] items-center gap-2">
-                                          <input
-                                            type="text"
-                                            value={varName}
-                                            onChange={(e) =>
-                                              updateStepExtract(selectedStepIdx, e.target.value, jsonPath, varName)
-                                            }
-                                            className="px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-secondary font-mono focus:border-border-focus focus:outline-none"
-                                          />
-                                          <span className="text-fg-muted font-mono">&larr;</span>
-                                          <input
-                                            type="text"
-                                            value={jsonPath}
-                                            onChange={(e) =>
-                                              updateStepExtract(selectedStepIdx, varName, e.target.value)
-                                            }
-                                            className="px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                          />
-                                          <Button
-                                            size="xs"
-                                            variant="ghost"
-                                            onClick={() => deleteStepExtract(selectedStepIdx, varName)}
-                                            icon={<X className="w-3.5 h-3.5 text-error" />}
-                                          />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </Panel>
-                            )}
-
-                            {/* Shell Driver Form */}
-                            {stepDriver === "shell" && (
-                              <Panel variant="sidebar" className="p-3 space-y-3">
-                                <div className="flex flex-col gap-0.5">
-                                  <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
-                                    <Terminal className="w-3.5 h-3.5 text-warning" />
-                                    Command Line Execution (Shell)
-                                  </label>
-                                  <span className="text-xs text-fg-muted">
-                                    Terminal command executed on test host
-                                  </span>
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="text-xs text-fg-muted uppercase tracking-wider font-medium">
-                                    Command:
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={selectedStep.command ?? ""}
-                                    onChange={(e) =>
-                                      updateStep(selectedStepIdx, { command: e.target.value })
-                                    }
-                                    placeholder="e.g. ./scripts/seed.sh --clean"
-                                    className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-warning font-mono focus:border-border-focus focus:outline-none"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="text-xs text-fg-muted uppercase tracking-wider font-medium">
-                                    Working Directory (CWD):
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={selectedStep.cwd ?? ""}
-                                    onChange={(e) =>
-                                      updateStep(selectedStepIdx, { cwd: e.target.value })
-                                    }
-                                    placeholder="Relative directory (optional)"
-                                    className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                  />
-                                </div>
-                              </Panel>
-                            )}
-
-                            {/* Mobile or Web Composite Actions Panel */}
-                            {(stepDriver === "web" || stepDriver === "mobile") && (() => {
-                              const currentActions: StepAction[] =
-                                selectedStep.actions && selectedStep.actions.length > 0
-                                  ? selectedStep.actions
-                                  : selectedStep.action
-                                    ? [
-                                        {
-                                          id: "act_init",
-                                          action: selectedStep.action,
-                                          selector: selectedStep.selector,
-                                          value: selectedStep.value as string | undefined,
-                                          url: selectedStep.url,
-                                          key: selectedStep.key,
-                                          ms: selectedStep.ms,
-                                        },
-                                      ]
-                                    : []
-
-                              const isWeb = stepDriver === "web"
-                              const defaultAction = isWeb ? "navigate" : "tap"
-
-                              return (
-                                <Panel variant="sidebar" className="p-3 space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex flex-col gap-0.5">
-                                      <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
-                                        {isWeb ? (
-                                          <Globe className="w-3.5 h-3.5 text-[#4ec9b0]" />
-                                        ) : (
-                                          <Smartphone className="w-3.5 h-3.5 text-success" />
-                                        )}
-                                        {isWeb ? "Web Browser Actions" : "Mobile App Actions"}
+                                {/* Mobile: Tap, Assert Visible */}
+                                {!isWeb &&
+                                  [
+                                    "tap",
+                                    "click",
+                                    "assert_visible",
+                                    "assert_not_visible",
+                                  ].includes(actType) && (
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Element Text, Label, or ID:
                                       </label>
-                                      <span className="text-xs text-fg-muted">
-                                        Ordered execution actions performed within this step ({currentActions.length})
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        size="xs"
-                                        variant="primary"
-                                        onClick={() => addStepAction(selectedStepIdx, defaultAction)}
-                                        icon={<Plus className="w-3.5 h-3.5" />}
-                                      >
-                                        Add Action
-                                      </Button>
-                                    </div>
-                                  </div>
-
-                                  {/* Ordered Actions List */}
-                                  {currentActions.length === 0 ? (
-                                    <div className="p-4 text-center text-xs text-fg-muted border border-dashed border-border rounded-xs space-y-2">
-                                      <p>No actions defined for this step yet.</p>
-                                      <Button
-                                        size="xs"
-                                        variant="secondary"
-                                        onClick={() => addStepAction(selectedStepIdx, defaultAction)}
-                                        icon={<Plus className="w-3.5 h-3.5" />}
-                                      >
-                                        Add First Action
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      {currentActions.map((act, actIdx) => {
-                                        const actionType = act.action.toLowerCase()
-                                        return (
-                                          <div
-                                            key={act.id ?? actIdx}
-                                            className="p-2.5 rounded-xs border border-border bg-input/40 space-y-2 hover:border-border-focus/60 transition-colors"
-                                          >
-                                            {/* Action Card Top Bar */}
-                                            <div className="flex items-center justify-between gap-2">
-                                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                <span className="px-1.5 py-0.5 rounded-xs bg-sidebar border border-border font-mono text-xs font-semibold text-fg-bright shrink-0">
-                                                  #{actIdx + 1}
-                                                </span>
-                                                <Select
-                                                  size="xs"
-                                                  value={actionType}
-                                                  onChange={(val) => {
-                                                    updateActionItem(selectedStepIdx, actIdx, {
-                                                      action: val,
-                                                      url: val === "navigate" ? (act.url ?? "/") : undefined,
-                                                    })
-                                                  }}
-                                                  options={isWeb ? WEB_ACTION_OPTIONS : MOBILE_ACTION_OPTIONS}
-                                                  className="w-48 shrink-0 font-medium"
-                                                />
-                                                <input
-                                                  type="text"
-                                                  value={act.name ?? ""}
-                                                  onChange={(e) =>
-                                                    updateActionItem(selectedStepIdx, actIdx, { name: e.target.value })
-                                                  }
-                                                  placeholder="Label / note (optional)"
-                                                  className="flex-1 px-2 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-sans focus:border-border-focus focus:outline-none"
-                                                />
-                                              </div>
-
-                                              <div className="flex items-center gap-1 shrink-0">
-                                                <Button
-                                                  size="xs"
-                                                  variant="ghost"
-                                                  disabled={actIdx === 0}
-                                                  onClick={() => moveActionItem(selectedStepIdx, actIdx, "up")}
-                                                  title="Move action up"
-                                                  icon={<ArrowUp className="w-3 h-3" />}
-                                                />
-                                                <Button
-                                                  size="xs"
-                                                  variant="ghost"
-                                                  disabled={actIdx === currentActions.length - 1}
-                                                  onClick={() => moveActionItem(selectedStepIdx, actIdx, "down")}
-                                                  title="Move action down"
-                                                  icon={<ArrowDown className="w-3 h-3" />}
-                                                />
-                                                <Button
-                                                  size="xs"
-                                                  variant="ghost"
-                                                  onClick={() => deleteActionItem(selectedStepIdx, actIdx)}
-                                                  title="Delete action"
-                                                  icon={<Trash2 className="w-3.5 h-3.5 text-error" />}
-                                                />
-                                              </div>
-                                            </div>
-
-                                            {/* Action Specific Fields */}
-                                            <div className="pt-1.5 border-t border-border/40">
-                                              {/* Web: Navigate */}
-                                              {isWeb && (actionType === "navigate" || actionType === "goto") && (
-                                                <div className="space-y-1">
-                                                  <label className="text-xs text-fg-muted font-medium">Destination URL / Path:</label>
-                                                  <input
-                                                    type="text"
-                                                    value={act.url ?? act.value ?? ""}
-                                                    onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { url: e.target.value })}
-                                                    placeholder="e.g. /login, /dashboard, https://example.com"
-                                                    className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                  />
-                                                </div>
-                                              )}
-
-                                              {/* Web: Click, Hover, Check, Uncheck, Assert Visible */}
-                                              {isWeb && ["click", "hover", "check", "uncheck", "assert_visible"].includes(actionType) && (
-                                                <div className="space-y-1">
-                                                  <label className="text-xs text-fg-muted font-medium">Target Element Selector:</label>
-                                                  <input
-                                                    type="text"
-                                                    value={act.selector ?? (typeof act.value === "string" ? act.value : "")}
-                                                    onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                    placeholder="e.g. button[type='submit'], #login-btn, .nav-item"
-                                                    className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                  />
-                                                </div>
-                                              )}
-
-                                              {/* Web: Fill / Type */}
-                                              {isWeb && ["fill", "type"].includes(actionType) && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Element Selector:</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.selector ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                      placeholder="e.g. #username, input[name='email']"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Text Value to Enter:</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.value ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { value: e.target.value })}
-                                                      placeholder="e.g. admin@example.com"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Web: Press Key */}
-                                              {isWeb && actionType === "press" && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Key to Press:</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.key ?? (typeof act.value === "string" ? act.value : "Enter")}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { key: e.target.value })}
-                                                      placeholder="e.g. Enter, Escape, Tab, ArrowDown"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Element Selector (Optional):</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.selector ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                      placeholder="Default: active keyboard element"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Web: Wait For */}
-                                              {isWeb && (actionType === "wait_for" || actionType === "wait") && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Wait for Selector (Optional):</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.selector ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                      placeholder="e.g. .dashboard, #results"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Or Timeout (ms):</label>
-                                                    <NumberInput
-                                                      size="xs"
-                                                      value={act.ms ?? 1000}
-                                                      onChange={(val) => updateActionItem(selectedStepIdx, actIdx, { ms: val })}
-                                                      min={50}
-                                                      step={500}
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Web: Assert Text */}
-                                              {isWeb && actionType === "assert_text" && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Element Selector:</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.selector ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                      placeholder="e.g. h1.page-title, .status-msg"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Expected Text Contains:</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.value ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { value: e.target.value })}
-                                                      placeholder="e.g. Welcome back, Total: $100"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Web: Select */}
-                                              {isWeb && (actionType === "select" || actionType === "select_option") && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Dropdown Selector:</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.selector ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                      placeholder="e.g. select#country"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Option Value to Select:</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.value ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { value: e.target.value })}
-                                                      placeholder="e.g. US, admin"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Web: Screenshot */}
-                                              {isWeb && actionType === "screenshot" && (
-                                                <div className="space-y-1">
-                                                  <label className="text-xs text-fg-muted font-medium">Screenshot File Path (Optional):</label>
-                                                  <input
-                                                    type="text"
-                                                    value={act.value ?? ""}
-                                                    onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { value: e.target.value })}
-                                                    placeholder="Leave blank for automatic run artifact capture"
-                                                    className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                  />
-                                                </div>
-                                              )}
-
-                                              {/* Web: Eval / Script */}
-                                              {isWeb && (actionType === "eval" || actionType === "script") && (
-                                                <div className="space-y-1">
-                                                  <label className="text-xs text-fg-muted font-medium">JavaScript Expression / Script:</label>
-                                                  <textarea
-                                                    rows={2}
-                                                    value={act.value ?? ""}
-                                                    onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { value: e.target.value })}
-                                                    placeholder="e.g. document.title, window.scrollTo(0, 500)"
-                                                    className="w-full p-2 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                  />
-                                                </div>
-                                              )}
-
-                                              {/* Mobile: Tap, Assert Visible, Assert Not Visible */}
-                                              {!isWeb && ["tap", "click", "assert_visible", "assert_not_visible"].includes(actionType) && (
-                                                <div className="space-y-1">
-                                                  <label className="text-xs text-fg-muted font-medium">Element Text, Label, or ID:</label>
-                                                  <input
-                                                    type="text"
-                                                    value={act.selector ?? (typeof act.value === "string" ? act.value : "")}
-                                                    onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                    placeholder="e.g. Sign In, btn_submit, or com.app:id/title"
-                                                    className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                  />
-                                                </div>
-                                              )}
-
-                                              {/* Mobile: Type */}
-                                              {!isWeb && (actionType === "type" || actionType === "input" || actionType === "fill") && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Tap First (Optional Selector):</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.selector ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                      placeholder="e.g. Email Input field"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Text to Input:</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.value ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { value: e.target.value })}
-                                                      placeholder="e.g. user@example.com"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Mobile: Press Key */}
-                                              {!isWeb && (actionType === "press" || actionType === "presskey") && (
-                                                <div className="space-y-1">
-                                                  <label className="text-xs text-fg-muted font-medium">Hardware Key Name:</label>
-                                                  <Select
-                                                    size="xs"
-                                                    value={act.key ?? (typeof act.value === "string" ? act.value : "BACK")}
-                                                    onChange={(val) => updateActionItem(selectedStepIdx, actIdx, { key: val })}
-                                                    options={[
-                                                      { value: "BACK", label: "BACK" },
-                                                      { value: "ENTER", label: "ENTER" },
-                                                      { value: "HOME", label: "HOME" },
-                                                      { value: "TAB", label: "TAB" },
-                                                    ]}
-                                                  />
-                                                </div>
-                                              )}
-
-                                              {/* Mobile: Swipe */}
-                                              {!isWeb && actionType === "swipe" && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">From Element (Optional):</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.selector ?? (typeof act.value === "string" ? act.value : "")}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                      placeholder="e.g. CardItem"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Swipe Direction:</label>
-                                                    <Select
-                                                      size="xs"
-                                                      value={act.key ?? "RIGHT"}
-                                                      onChange={(val) => updateActionItem(selectedStepIdx, actIdx, { key: val })}
-                                                      options={[
-                                                        { value: "RIGHT", label: "Right" },
-                                                        { value: "LEFT", label: "Left" },
-                                                        { value: "UP", label: "Up" },
-                                                        { value: "DOWN", label: "Down" },
-                                                      ]}
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Mobile: Wait */}
-                                              {!isWeb && (actionType === "wait" || actionType === "wait_for") && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Wait for Element (Optional):</label>
-                                                    <input
-                                                      type="text"
-                                                      value={act.selector ?? ""}
-                                                      onChange={(e) => updateActionItem(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                                      placeholder="e.g. Welcome Screen"
-                                                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-1">
-                                                    <label className="text-xs text-fg-muted font-medium">Or Timeout (ms):</label>
-                                                    <NumberInput
-                                                      size="xs"
-                                                      value={act.ms ?? 1000}
-                                                      onChange={(val) => updateActionItem(selectedStepIdx, actIdx, { ms: val })}
-                                                      min={100}
-                                                      step={500}
-                                                    />
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Mobile: Launch App */}
-                                              {!isWeb && actionType === "launch" && (
-                                                <div className="text-xs text-fg-muted">
-                                                  Launches the application on the mobile device.
-                                                </div>
-                                              )}
-
-                                              {/* Mobile: Back or HideKeyboard or Stop */}
-                                              {!isWeb && ["back", "hidekeyboard", "stop"].includes(actionType) && (
-                                                <div className="text-xs text-fg-muted font-mono">
-                                                  {actionType === "back" ? "Triggers Android back button" : actionType === "hidekeyboard" ? "Dismisses virtual keyboard" : "Stops application process"}
-                                                </div>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )
-                                      })}
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? act.value ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. Sign In, btn_submit, or com.app:id/title"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
                                     </div>
                                   )}
 
-                                  {/* Advanced Script Fallbacks */}
-                                  <div className="pt-2 border-t border-border/40">
-                                    <details className="text-xs text-fg-muted group">
-                                      <summary className="cursor-pointer font-medium hover:text-fg select-none">
-                                        {isWeb ? "Advanced: Custom TypeScript Module" : "Advanced: Legacy YAML Flow File"}
-                                      </summary>
-                                      <div className="pt-2">
-                                        {isWeb ? (
-                                          <div className="space-y-1">
-                                            <label className="text-xs text-fg-muted font-medium">Module Name in modules folder:</label>
-                                            <input
-                                              type="text"
-                                              value={selectedStep.run ?? ""}
-                                              onChange={(e) => updateStep(selectedStepIdx, { run: e.target.value || undefined })}
-                                              placeholder="e.g. checkoutStep (overrides declarative actions if set)"
-                                              className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                            />
-                                          </div>
-                                        ) : (
-                                          <div className="space-y-1">
-                                            <label className="text-xs text-fg-muted font-medium">Flow YAML File in flows folder:</label>
-                                            <input
-                                              type="text"
-                                              value={selectedStep.flow ?? ""}
-                                              onChange={(e) => updateStep(selectedStepIdx, { flow: e.target.value || undefined })}
-                                              placeholder="e.g. login.yaml (overrides declarative actions if set)"
-                                              className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
-                                            />
-                                          </div>
-                                        )}
-                                      </div>
-                                    </details>
-                                  </div>
-                                </Panel>
-                              )
-                            })()}
-
-                            {/* Execution & Retry Policy */}
-                            <Panel variant="sidebar" className="p-3 space-y-3">
-                              <div className="flex flex-col gap-0.5">
-                                <label className="text-xs font-semibold text-fg-bright">
-                                  Execution & Retry Policy
-                                </label>
-                                <span className="text-xs text-fg-muted">
-                                  Timeout limit and automated retries upon failure
-                                </span>
-                              </div>
-
-                              <div className="grid grid-cols-3 gap-3">
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-xs text-fg-muted">Timeout (ms)</span>
-                                  <NumberInput
-                                    size="xs"
-                                    value={selectedStep.timeout_ms ?? 5000}
-                                    onChange={(val) =>
-                                      updateStep(selectedStepIdx, { timeout_ms: val })
-                                    }
-                                    min={500}
-                                    max={120000}
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-xs text-fg-muted">Max Retries</span>
-                                  <NumberInput
-                                    size="xs"
-                                    value={selectedStep.retry?.times ?? 0}
-                                    onChange={(val) =>
-                                      updateStep(selectedStepIdx, {
-                                        retry: {
-                                          times: val ?? 0,
-                                          delay_ms: selectedStep.retry?.delay_ms ?? 1000,
-                                        },
-                                      })
-                                    }
-                                    min={0}
-                                    max={10}
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-xs text-fg-muted">Retry Delay (ms)</span>
-                                  <NumberInput
-                                    size="xs"
-                                    value={selectedStep.retry?.delay_ms ?? 1000}
-                                    onChange={(val) =>
-                                      updateStep(selectedStepIdx, {
-                                        retry: {
-                                          times: selectedStep.retry?.times ?? 0,
-                                          delay_ms: val ?? 1000,
-                                        },
-                                      })
-                                    }
-                                    min={100}
-                                    max={60000}
-                                  />
-                                </div>
-                              </div>
-                            </Panel>
-
-                            {/* Step Assertions Form */}
-                            <Panel variant="sidebar" className="p-3 space-y-3">
-                              <div className="flex flex-col gap-0.5">
-                                <label className="text-xs font-semibold text-fg-bright">
-                                  Step Assertions
-                                </label>
-                                <span className="text-xs text-fg-muted">
-                                  Verification criteria evaluated when step finishes
-                                </span>
-                              </div>
-
-                              <div className="space-y-2">
-                                {stepDriver === "http" && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-fg-muted w-36">Expected Status Code:</span>
-                                    <NumberInput
-                                      size="xs"
-                                      value={selectedStep.assert?.status ?? 200}
-                                      onChange={(val) =>
-                                        updateStep(selectedStepIdx, {
-                                          assert: {
-                                            ...(selectedStep.assert ?? {}),
-                                            status: val,
-                                          },
-                                        })
-                                      }
-                                      min={100}
-                                      max={599}
-                                      className="w-32"
-                                    />
+                                {/* Mobile: Type Text */}
+                                {!isWeb && (actType === "type" || actType === "fill") && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Tap First (Optional Selector):
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. Input Field Selector"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Text to Type:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.value ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        placeholder="e.g. hello world"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
                                   </div>
                                 )}
 
-                                {stepDriver === "shell" && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-fg-muted w-36">Expected Exit Code:</span>
-                                    <NumberInput
+                                {/* Mobile: Swipe */}
+                                {!isWeb && actType === "swipe" && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        Swipe Direction:
+                                      </label>
+                                      <Select
+                                        size="xs"
+                                        value={act.key ?? "RIGHT"}
+                                        onChange={(val) =>
+                                          updateStepAction(selectedStepIdx, actIdx, { key: val })
+                                        }
+                                        options={[
+                                          { value: "RIGHT", label: "Swipe Right" },
+                                          { value: "LEFT", label: "Swipe Left" },
+                                          { value: "UP", label: "Swipe Up" },
+                                          { value: "DOWN", label: "Swipe Down" },
+                                        ]}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-xs text-fg-muted font-medium">
+                                        From Element (Optional):
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={act.selector ?? ""}
+                                        onChange={(e) =>
+                                          updateStepAction(selectedStepIdx, actIdx, {
+                                            selector: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Element to start swipe from"
+                                        className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Mobile: Press Key */}
+                                {!isWeb && actType === "press" && (
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-fg-muted font-medium">
+                                      Key Name:
+                                    </label>
+                                    <Select
                                       size="xs"
-                                      value={selectedStep.assert?.exit_code ?? 0}
+                                      value={act.key ?? "BACK"}
                                       onChange={(val) =>
-                                        updateStep(selectedStepIdx, {
-                                          assert: {
-                                            ...(selectedStep.assert ?? {}),
-                                            exit_code: val,
-                                          },
-                                        })
+                                        updateStepAction(selectedStepIdx, actIdx, { key: val })
                                       }
-                                      min={0}
-                                      max={255}
-                                      className="w-32"
+                                      options={[
+                                        { value: "BACK", label: "Back Key" },
+                                        { value: "ENTER", label: "Enter Key" },
+                                        { value: "HOME", label: "Home Key" },
+                                        { value: "TAB", label: "Tab Key" },
+                                      ]}
                                     />
                                   </div>
                                 )}
                               </div>
-                            </Panel>
-                          </div>
-                        )
-                      })()}
-                    </div>
-                  )}
-
-                  {/* TAB 3: STEP RAW JSON */}
-                  {stepTab === "json" && (
-                    <div className="max-w-4xl mx-auto space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-                          Step JSON Payload
-                        </span>
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => {
-                            navigator.clipboard.writeText(JSON.stringify(selectedStep, null, 2))
-                            toastSuccess("Step JSON copied", "Copied")
-                          }}
-                          icon={<Copy className="w-3.5 h-3.5" />}
-                        >
-                          Copy
-                        </Button>
-                      </div>
-                      <pre className="p-3 rounded-xs border border-border bg-sidebar font-mono text-xs text-fg overflow-x-auto whitespace-pre-wrap">
-                        {JSON.stringify(selectedStep, null, 2)}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : inspectorView === "context" ? (
-              /* ================================================================= */
-              /* SCENARIO CONTEXT (Fixtures, Variables, Full JSON)                 */
-              /* ================================================================= */
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="p-3 border-b border-border bg-titlebar flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-2.5">
-                    <Database className="w-4 h-4 text-primary" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold text-fg-bright">
-                        Scenario Setup & Context
-                      </span>
-                      <span className="text-xs text-fg-muted">
-                        Fixtures and scenario variables applied across all steps
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center bg-sidebar p-0.5 rounded-xs border border-border">
-                    <TabButton
-                      variant="pills"
-                      active={contextTab === "fixtures"}
-                      onClick={() => setContextTab("fixtures")}
-                    >
-                      Setup Fixtures ({draftScenario.setup?.length ?? 0})
-                    </TabButton>
-                    <TabButton
-                      variant="pills"
-                      active={contextTab === "vars"}
-                      onClick={() => setContextTab("vars")}
-                    >
-                      Variables ({Object.keys(draftScenario.vars ?? {}).length})
-                    </TabButton>
-                    <TabButton
-                      variant="pills"
-                      active={contextTab === "json"}
-                      onClick={() => setContextTab("json")}
-                    >
-                      Scenario JSON
-                    </TabButton>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 select-text">
-                  <div className="max-w-4xl mx-auto space-y-4">
-                    {/* Setup Fixtures */}
-                    {contextTab === "fixtures" && (
-                      <Panel variant="sidebar" className="p-3 space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex flex-col gap-0.5">
-                            <label className="text-xs font-semibold text-fg-bright">
-                              Setup Fixtures
-                            </label>
-                            <span className="text-xs text-fg-muted">
-                              Fixtures execute sequentially before Step 1 starts
-                            </span>
-                          </div>
-                          {onNavigateToConfig && (
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => onNavigateToConfig("fixtures")}
-                              icon={<ExternalLink className="w-3.5 h-3.5" />}
-                            >
-                              Manage Fixtures
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {(config?.fixtures ?? []).map((fix) => {
-                            const isSelected = draftScenario.setup?.includes(fix)
-                            return (
-                              <button
-                                key={fix}
-                                type="button"
-                                onClick={() => toggleSetupFixture(fix)}
-                                className={`px-2.5 py-1 text-xs font-mono rounded-xs border transition flex items-center gap-1.5 cursor-pointer ${
-                                  isSelected
-                                    ? "bg-primary/20 text-primary border-primary/50 font-semibold"
-                                    : "bg-input text-fg-muted border-border hover:border-fg-muted/40"
-                                }`}
-                              >
-                                {isSelected && <Check className="w-3.5 h-3.5 text-primary" />}
-                                {fix}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </Panel>
-                    )}
-
-                    {/* Scenario Variables */}
-                    {contextTab === "vars" && (
-                      <Panel variant="sidebar" className="p-3 space-y-3">
-                        <div className="flex flex-col gap-0.5">
-                          <label className="text-xs font-semibold text-fg-bright">
-                            Scenario Variables
-                          </label>
-                          <span className="text-xs text-fg-muted">
-                            Values available throughout steps in this scenario
-                          </span>
-                        </div>
-
-                        <div className="space-y-2">
-                          {Object.entries(draftScenario.vars ?? {}).map(([key, val]) => (
-                            <div key={key} className="grid grid-cols-[1fr_1.2fr_auto] items-center gap-2">
-                              <input
-                                type="text"
-                                value={key}
-                                onChange={(e) => updateScenarioVar(e.target.value, String(val), key)}
-                                className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono"
-                              />
-                              <input
-                                type="text"
-                                value={typeof val === "object" ? JSON.stringify(val) : String(val)}
-                                onChange={(e) => updateScenarioVar(key, e.target.value)}
-                                className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono"
-                              />
-                              <Button
-                                size="xs"
-                                variant="ghost"
-                                onClick={() => deleteScenarioVar(key)}
-                                icon={<Trash2 className="w-3.5 h-3.5 text-error" />}
-                              />
                             </div>
-                          ))}
+                          )
+                        })}
+                      </div>
 
-                          <div className="grid grid-cols-[1fr_1.2fr_auto] items-center gap-2 pt-2 border-t border-border">
-                            <input
-                              type="text"
-                              placeholder="New variable name..."
-                              value={newVarKey}
-                              onChange={(e) => setNewVarKey(e.target.value)}
-                              className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Initial value..."
-                              value={newVarVal}
-                              onChange={(e) => setNewVarVal(e.target.value)}
-                              className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono"
-                            />
-                            <Button
-                              size="xs"
-                              variant="secondary"
-                              onClick={() => {
-                                if (newVarKey.trim()) {
-                                  updateScenarioVar(newVarKey, newVarVal)
-                                  setNewVarKey("")
-                                  setNewVarVal("")
-                                }
-                              }}
-                              disabled={!newVarKey.trim()}
-                              icon={<Plus className="w-3.5 h-3.5" />}
-                            >
-                              Add
-                            </Button>
-                          </div>
-                        </div>
-                      </Panel>
-                    )}
+                      {/* Prominent + Add Action Button */}
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        className="w-full justify-center py-2 border-dashed"
+                        onClick={() => addStepAction(selectedStepIdx)}
+                        icon={<Plus className="w-3.5 h-3.5 text-primary" />}
+                      >
+                        + Add Action to Step
+                      </Button>
+                    </Panel>
+                  )}
 
-                    {/* Scenario JSON */}
-                    {contextTab === "json" && (
-                      <div className="space-y-2">
-                        {jsonError && (
-                          <div className="p-2.5 rounded-xs bg-error-bg border border-error-border text-xs text-error font-mono">
-                            {jsonError}
-                          </div>
-                        )}
-                        <textarea
-                          rows={20}
-                          value={jsonText}
-                          onChange={(e) => {
-                            setJsonText(e.target.value)
-                            try {
-                              const parsed = JSON.parse(e.target.value)
-                              setDraftScenario((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      name: parsed.name ?? prev.name,
-                                      description: parsed.description ?? prev.description,
-                                      steps: parsed.steps ?? [],
-                                      setup: parsed.setup ?? [],
-                                      vars: parsed.vars ?? {},
-                                      raw: parsed,
-                                    }
-                                  : null,
-                              )
-                              setJsonError(null)
-                            } catch (err) {
-                              setJsonError((err as Error).message)
+                  {/* ========================================================================= */}
+                  {/* HTTP API REQUEST CONFIGURATION                                            */}
+                  {/* ========================================================================= */}
+                  {stepDriver === "http" && (
+                    <Panel variant="sidebar" className="p-3 space-y-3">
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
+                          <Code className="w-3.5 h-3.5 text-[#9cdcfe]" />
+                          HTTP API Request
+                        </label>
+                        <span className="text-xs text-fg-muted">
+                          REST endpoint request configuration
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-[100px_1fr] gap-2">
+                        <div className="space-y-1">
+                          <label className="text-xs text-fg-muted font-medium">Method:</label>
+                          <Select
+                            size="xs"
+                            value={selectedStep.method ?? "GET"}
+                            onChange={(val) =>
+                              updateStep(selectedStepIdx, { method: val })
                             }
-                          }}
-                          className="w-full p-3 rounded-xs bg-sidebar border border-border text-xs font-mono text-fg focus:border-border-focus focus:outline-none"
+                            options={[
+                              { value: "GET", label: "GET" },
+                              { value: "POST", label: "POST" },
+                              { value: "PUT", label: "PUT" },
+                              { value: "PATCH", label: "PATCH" },
+                              { value: "DELETE", label: "DELETE" },
+                            ]}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-fg-muted font-medium">URL / Endpoint:</label>
+                          <input
+                            type="text"
+                            value={selectedStep.url ?? ""}
+                            onChange={(e) => updateStep(selectedStepIdx, { url: e.target.value })}
+                            placeholder="e.g. /api/users or https://api.example.com/v1"
+                            className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Request Body */}
+                      {["POST", "PUT", "PATCH"].includes(selectedStep.method ?? "") && (
+                        <div className="space-y-1">
+                          <label className="text-xs text-fg-muted font-medium">
+                            Request Body (JSON):
+                          </label>
+                          <textarea
+                            rows={4}
+                            value={
+                              typeof selectedStep.body === "object"
+                                ? JSON.stringify(selectedStep.body, null, 2)
+                                : String(selectedStep.body ?? "")
+                            }
+                            onChange={(e) => {
+                              try {
+                                const parsed = JSON.parse(e.target.value)
+                                updateStep(selectedStepIdx, { body: parsed })
+                              } catch {
+                                updateStep(selectedStepIdx, { body: e.target.value })
+                              }
+                            }}
+                            placeholder='{"key": "value"}'
+                            className="w-full p-2.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                          />
+                        </div>
+                      )}
+                    </Panel>
+                  )}
+
+                  {/* ========================================================================= */}
+                  {/* SHELL COMMAND CONFIGURATION                                              */}
+                  {/* ========================================================================= */}
+                  {stepDriver === "shell" && (
+                    <Panel variant="sidebar" className="p-3 space-y-3">
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-xs font-semibold text-fg-bright flex items-center gap-1.5">
+                          <Terminal className="w-3.5 h-3.5 text-[#dcdcaa]" />
+                          Shell Command
+                        </label>
+                        <span className="text-xs text-fg-muted">
+                          Local command executed in project shell
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs text-fg-muted font-medium">Command:</label>
+                        <input
+                          type="text"
+                          value={selectedStep.command ?? ""}
+                          onChange={(e) => updateStep(selectedStepIdx, { command: e.target.value })}
+                          placeholder="e.g. pnpm run seed, docker compose up -d"
+                          className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
                         />
                       </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <EmptyState
-                title="Select a Step to Inspect"
-                description="Click on any step from the center sequence column to view its telemetry, configure driver options, or inspect its JSON definition."
-                icon={<Layers className="w-8 h-8 text-fg-muted" />}
-              />
-            )}
-          </section>
-        </>
-      )}
 
-      {/* Modal: Insert Step Preset */}
+                      <div className="space-y-1">
+                        <label className="text-xs text-fg-muted font-medium">
+                          Working Directory (Optional):
+                        </label>
+                        <input
+                          type="text"
+                          value={selectedStep.cwd ?? ""}
+                          onChange={(e) => updateStep(selectedStepIdx, { cwd: e.target.value })}
+                          placeholder="Default: workspace root"
+                          className="w-full px-2.5 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                        />
+                      </div>
+                    </Panel>
+                  )}
+
+                  {/* Execution & Retry Policy */}
+                  <Panel variant="sidebar" className="p-3 space-y-3">
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-xs font-semibold text-fg-bright">
+                        Execution & Retry Policy
+                      </label>
+                      <span className="text-xs text-fg-muted">
+                        Timeout limit and automated retries upon failure
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-fg-muted">Timeout (ms)</span>
+                        <NumberInput
+                          size="xs"
+                          value={selectedStep.timeout_ms ?? 15000}
+                          onChange={(val) => updateStep(selectedStepIdx, { timeout_ms: val })}
+                          min={500}
+                          max={120000}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-fg-muted">Max Retries</span>
+                        <NumberInput
+                          size="xs"
+                          value={selectedStep.retry?.times ?? 0}
+                          onChange={(val) =>
+                            updateStep(selectedStepIdx, {
+                              retry: {
+                                times: val ?? 0,
+                                delay_ms: selectedStep.retry?.delay_ms ?? 1000,
+                              },
+                            })
+                          }
+                          min={0}
+                          max={10}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-fg-muted">Retry Delay (ms)</span>
+                        <NumberInput
+                          size="xs"
+                          value={selectedStep.retry?.delay_ms ?? 1000}
+                          onChange={(val) =>
+                            updateStep(selectedStepIdx, {
+                              retry: {
+                                times: selectedStep.retry?.times ?? 0,
+                                delay_ms: val ?? 1000,
+                              },
+                            })
+                          }
+                          min={100}
+                          max={60000}
+                        />
+                      </div>
+                    </div>
+                  </Panel>
+
+                  {/* Step Assertions Form */}
+                  <Panel variant="sidebar" className="p-3 space-y-3">
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-xs font-semibold text-fg-bright">
+                        Step Assertions
+                      </label>
+                      <span className="text-xs text-fg-muted">
+                        Verification criteria evaluated when step finishes
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {stepDriver === "http" && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-fg-muted w-36">Expected Status Code:</span>
+                          <NumberInput
+                            size="xs"
+                            value={selectedStep.assert?.status ?? 200}
+                            onChange={(val) =>
+                              updateStep(selectedStepIdx, {
+                                assert: { ...(selectedStep.assert ?? {}), status: val },
+                              })
+                            }
+                            min={100}
+                            max={599}
+                            className="w-32"
+                          />
+                        </div>
+                      )}
+
+                      {stepDriver === "shell" && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-fg-muted w-36">Expected Exit Code:</span>
+                          <NumberInput
+                            size="xs"
+                            value={selectedStep.assert?.exit_code ?? 0}
+                            onChange={(val) =>
+                              updateStep(selectedStepIdx, {
+                                assert: { ...(selectedStep.assert ?? {}), exit_code: val },
+                              })
+                            }
+                            min={0}
+                            max={255}
+                            className="w-32"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-fg-muted w-36">Output Contains:</span>
+                        <input
+                          type="text"
+                          value={selectedStep.assert?.output_contains ?? ""}
+                          onChange={(e) =>
+                            updateStep(selectedStepIdx, {
+                              assert: {
+                                ...(selectedStep.assert ?? {}),
+                                output_contains: e.target.value || undefined,
+                              },
+                            })
+                          }
+                          placeholder="Optional substring match..."
+                          className="flex-1 px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </Panel>
+                </div>
+              ) : (
+                /* RAW JSON VIEW */
+                <div className="max-w-4xl mx-auto space-y-2">
+                  {jsonError && (
+                    <div className="p-2.5 rounded-xs bg-error-bg border border-error-border text-xs text-error font-mono">
+                      {jsonError}
+                    </div>
+                  )}
+                  <textarea
+                    rows={22}
+                    value={jsonText}
+                    onChange={(e) => {
+                      setJsonText(e.target.value)
+                      try {
+                        const parsed = JSON.parse(e.target.value)
+                        setDraftScenario((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                name: parsed.name ?? prev.name,
+                                description: parsed.description ?? prev.description,
+                                steps: parsed.steps ?? [],
+                                setup: parsed.setup ?? [],
+                                vars: parsed.vars ?? {},
+                                raw: parsed,
+                              }
+                            : null,
+                        )
+                        setJsonError(null)
+                      } catch (err) {
+                        setJsonError((err as Error).message)
+                      }
+                    }}
+                    className="w-full p-3 rounded-xs bg-titlebar border border-border text-xs font-mono text-fg focus:border-border-focus focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            title="Select a Step to Inspect"
+            description="Click on any step from the center sequence column to configure its actions, driver options, and assertions."
+            icon={<Layers className="w-8 h-8 text-fg-muted" />}
+          />
+        )}
+      </section>
+
+      {/* ========================================================================= */}
+      {/* MODAL: INSERT STEP PRESET                                                 */}
+      {/* ========================================================================= */}
       <Modal
         isOpen={isPresetModalOpen}
         onClose={() => setIsPresetModalOpen(false)}
         title="Insert Reusable Step Preset"
-        description="Select a pre-configured step to insert into your scenario"
+        description="Select a pre-configured step template to insert into your scenario"
         maxWidth="lg"
       >
         <div className="space-y-3">
           {stepPresets.length === 0 ? (
             <div className="p-6 text-center text-xs text-fg-muted space-y-1">
               <p className="font-semibold text-fg-bright">No Step Presets Saved Yet</p>
-              <p>Configure a step in any scenario and click "Save as Preset" in the step inspector header to create reusable templates.</p>
+              <p>Configure a step in any scenario and click "Save as Preset" to build reusable templates.</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -2797,7 +1844,7 @@ export function ScenarioBuilder({
                         {preset.name}
                       </span>
                       <Badge variant={getTargetBadgeVariant(preset.target)} size="xs">
-                        {capitalizeFirst(preset.target)}
+                        {capitalize(preset.target)}
                       </Badge>
                       <Badge variant="neutral" size="xs">
                         {preset.step.actions?.length ?? 1} {(preset.step.actions?.length ?? 1) === 1 ? "Action" : "Actions"}
@@ -2832,7 +1879,9 @@ export function ScenarioBuilder({
         </div>
       </Modal>
 
-      {/* Modal: Save as Step Preset */}
+      {/* ========================================================================= */}
+      {/* MODAL: SAVE AS STEP PRESET                                                */}
+      {/* ========================================================================= */}
       <Modal
         isOpen={isSavePresetModalOpen}
         onClose={() => {
@@ -2897,14 +1946,14 @@ export function ScenarioBuilder({
           <div className="p-2.5 rounded-xs bg-sidebar border border-border text-xs text-fg-muted flex items-center justify-between">
             <span>Target Platform:</span>
             <span className="font-semibold text-fg-bright">
-              {capitalizeFirst(selectedStep?.target || "None")}
+              {capitalize(selectedStep?.target || "None")}
             </span>
           </div>
 
           <div className="p-2.5 rounded-xs bg-sidebar border border-border text-xs text-fg-muted flex items-center justify-between">
             <span>Actions Configured:</span>
             <span className="font-semibold text-fg-bright">
-              {selectedStep?.actions?.length ?? (selectedStep?.action ? 1 : 0)} Action(s)
+              {selectedStep?.actions?.length ?? 0} Action(s)
             </span>
           </div>
         </div>

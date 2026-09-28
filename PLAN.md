@@ -1,45 +1,36 @@
-# Plan: Composite Step Actions & Reusable Step Presets (Option B)
+# Plan: Clean Scenario Studio & Direct Composite Actions
 
 ## Overview
-This initiative transitions `e2e-orchestrator` to a **Composite Step Architecture** with zero-code orchestration, SQLite persistence, and JSON portability:
-- **Scenario**: Contains milestone/phase **Steps** (e.g., *"Admin Web Login"*, *"Seed Inventory"*, *"Verify Notification"*).
-- **Composite Step (`step.actions`)**: Each step contains an ordered array of execution **Actions** (`StepAction[]`) such as `navigate`, `fill`, `click`, `wait_for`, `tap`, `swipe`.
-- **Reusable Step Presets (`step_presets`)**: A Preset is a reusable **Step** template. Saved presets are stored directly in SQLite (`step_presets` table) and dual-written to `.e2e/presets/<id>.json` on disk for Git versioning and export/import portability.
-- **Scenario Studio UI**: Provides an intuitive Actions Inspector for each Step (add, edit, reorder, delete actions) and a 1-click Preset workflow ("Save Step as Preset" and "Add Step from Preset").
+Based on user feedback, streamline the Scenario Studio into a clean, dedicated authoring tool and eliminate all backward-compatibility cruft:
+1. **Dedicated Authoring Focus**: Remove all execution-related features from Scenario Studio (no run histories, no step run telemetry, no run buttons). Execution is exclusively owned by the **Runner** tab (`RunnerView`).
+2. **Immediate Step Actions UI**: When inspecting a step, the **Step Actions** list is immediately visible as the primary interface (no tabs hiding it, no defaulting to empty run logs).
+3. **Zero Backward-Compatibility Debt**:
+   - Web & Mobile steps exclusively execute `step.actions: StepAction[]`.
+   - Remove legacy fallback branches (`step.run`, `step.flow`, single `step.action` legacy fields) from drivers and UI.
+   - Remove mobile YAML flows explorer and editor from Scenario Studio.
 
 ---
 
 ## Progress Checklist
 
-- [x] **Phase 1: Database Schema & Presets Layer (`src/db.ts`)**
-  - [x] Define `StepAction` type (`id`, `name`, `action`, `selector`, `value`, `url`, `key`, `ms`).
-  - [x] Extend `Step` interface with `actions?: StepAction[]`.
-  - [x] Define `StepPreset` type (`id`, `name`, `description`, `target`, `step`, `createdAt`, `updatedAt`).
-  - [x] Add `step_presets` table in `openDatabase()`.
-  - [x] Implement `getStepPresets(db)`, `getStepPreset(db, id)`, `saveStepPreset(db, preset)`, `deleteStepPreset(db, id)`.
+- [x] **Phase 1: Driver Simplification (`src/drivers/web.ts` & `src/drivers/mobile.ts`)**
+  - [x] `WebDriver.run()`: Execute `step.actions` directly as an ordered action sequence. Remove legacy fallback code for `step.run` / single `step.action`.
+  - [x] `MobileDriver.run()`: Execute `step.actions` directly via `executeAction()`. Remove legacy fallback code for `step.flow` / single `step.action`.
+  - [x] Remove `step.action`, `step.selector`, etc. legacy validation requirements from `src/scenario.ts` and `schema/v1/scenario.schema.json`.
 
-- [x] **Phase 2: Driver Execution Loops (`src/drivers/web.ts` & `src/drivers/mobile.ts`)**
-  - [x] In `WebDriver.run()`: sequentially execute `step.actions` if present, with error attribution (action index + name), falling back to single `step.action` or `step.run`.
-  - [x] In `MobileDriver.run()`: sequentially execute `step.actions` if present, with error attribution, falling back to single `step.action` or `step.flow`.
+- [x] **Phase 2: Clean Scenario Studio UI (`ui/src/components/ScenarioBuilder.tsx`)**
+  - [x] Remove all run telemetry states and effects (`scenarioStepRuns`, `fetchStepRuns`, `latestStepRun`, `stepTab === "runs"`).
+  - [x] Remove "Run Scenario" button and run status indicators from Scenario Studio header.
+  - [x] Remove mobile flow files explorer and draftFlow state (mobile uses pure declarative step actions).
+  - [x] Render **Step Actions** directly and prominently inside the Step Inspector for Web and Mobile targets:
+    - Clear action list with card-based inputs (Action dropdown, Target/Selector, Value/Text, URL, Key, Timeout/Delay ms).
+    - Up/down reordering buttons and delete action button.
+    - Prominent `+ Add Action` button at the bottom of the actions list.
+  - [x] Keep Step Inspector focused on: Step Name & Target selector, Step Actions list (or HTTP / Shell config), Retry/Timeout policy, Assertions, and "Save as Preset".
 
-- [x] **Phase 3: Schema Validation & Presets Seeding (`schema/` & `src/scenario.ts`)**
-  - [x] Update `schema/v1/scenario.schema.json` with `actions: StepAction[]`.
-  - [x] Update `src/scenario.ts` to allow `actions` in `DRIVER_FIELDS` and `hasRequired` checks.
-  - [x] Implement `getOrSeedPresets(config)` for SQLite + `.e2e/presets/*.json` file synchronization.
-
-- [x] **Phase 4: Backend API Endpoints (`src/server.ts`)**
-  - [x] `GET /api/presets`: Return all step presets (SQLite + seeded files).
-  - [x] `POST /api/presets`: Save preset to SQLite and dual-write to `.e2e/presets/<id>.json`.
-  - [x] `DELETE /api/presets/:id`: Delete preset from SQLite and remove `.e2e/presets/<id>.json`.
-
-- [x] **Phase 5: Frontend UI & Presets Workflow (`ui/`)**
-  - [x] Update `ui/src/types.ts` (`StepAction`, `StepPreset`) and `ui/src/api.ts` (`fetchStepPresets`, `saveStepPreset`, `deleteStepPreset`).
-  - [x] In `ScenarioBuilder.tsx` Step Inspector: render ordered Actions list with "+ Add Action", edit action type/fields, reorder (Up/Down), and delete.
-  - [x] In `ScenarioBuilder.tsx` Step Inspector Header: add "Save Step as Preset" dialog/action.
-  - [x] In `ScenarioBuilder.tsx` Stepper Header: add "+ From Preset" dialog to insert pre-configured steps.
-
-- [x] **Phase 6: Domain Documentation & Automated Verification**
-  - [x] Synchronize `docs/domain/scenarios.md` with composite steps and presets schema.
-  - [x] Add unit tests in `test/db.test.ts` for composite actions and presets dual-write.
+- [x] **Phase 3: Domain Documentation & Automated Verification**
+  - [x] Update `docs/domain/scenarios.md` to reflect direct composite actions without legacy fallbacks.
+  - [x] Update tests in `test/scenario.test.ts` and `test/db.test.ts`.
   - [x] Run `pnpm exec biome check --write`.
   - [x] Run `pnpm run check` and `pnpm test`.
+  - [x] Run `pnpm run build:ui`.
