@@ -20,7 +20,7 @@ export function Panel({
 
   return (
     <div
-      className={`${bgStyles[variant]} ${bordered ? "border border-border" : ""} rounded-sm overflow-hidden ${className}`}
+      className={`${bgStyles[variant]} ${bordered ? "border border-border" : ""} rounded-sm ${className}`}
       {...props}
     >
       {children}
@@ -46,7 +46,7 @@ export function PanelHeader({
 }: PanelHeaderProps) {
   return (
     <div
-      className={`px-3 py-2 border-b border-border bg-titlebar/50 flex items-center justify-between gap-3 ${className}`}
+      className={`px-3 py-2 border-b border-border bg-titlebar/50 flex items-center justify-between gap-3 rounded-t-sm ${className}`}
       {...props}
     >
       {children || (

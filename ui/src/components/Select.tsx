@@ -81,6 +81,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
 
     const [isOpen, setIsOpen] = useState(false)
     const [highlightedIndex, setHighlightedIndex] = useState(-1)
+    const [openUpward, setOpenUpward] = useState(false)
 
     // Find current option
     const selectedOption = options.find((opt) => opt.value === currentValue)
@@ -95,6 +96,15 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       }
       document.addEventListener("mousedown", handleClickOutside)
       return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [isOpen])
+
+    // Detect if dropdown should flip upwards when space below is tight
+    useEffect(() => {
+      if (!isOpen || !containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      setOpenUpward(spaceBelow < 220 && spaceAbove > spaceBelow)
     }, [isOpen])
 
     const handleSelect = (val: string) => {
@@ -173,7 +183,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             forwardedRef.current = node
           }
         }}
-        className={`relative flex flex-col gap-1 ${hasCustomWidth ? "" : "w-full"} ${className}`}
+        className={`relative flex flex-col gap-1 ${isOpen ? "z-30" : ""} ${hasCustomWidth ? "" : "w-full"} ${className}`}
       >
         {label && (
           <label className="text-xs font-medium text-fg-muted select-none">
@@ -213,7 +223,9 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           <div
             role="listbox"
             tabIndex={-1}
-            className={`absolute top-full left-0 mt-1 min-w-full w-max max-w-xs z-50 bg-sidebar border border-border-light rounded-xs shadow-2xl py-1 max-h-60 overflow-y-auto select-none ${
+            className={`absolute ${
+              openUpward ? "bottom-full mb-1" : "top-full mt-1"
+            } left-0 min-w-full w-max max-w-xs z-50 bg-sidebar border border-border-light rounded-xs shadow-2xl shadow-black/80 py-1 max-h-60 overflow-y-auto select-none ${
               mono ? "font-mono" : ""
             } ${menuClassName}`}
           >
