@@ -109,6 +109,7 @@ export function EnvVariablesEditor({ rows, onChange, disabled }: EnvVariablesEdi
               <div key={row.id} className="flex items-center gap-2">
                 <div className="flex-1">
                   <Input
+                    size="xs"
                     value={row.key}
                     onChange={(e) => handleUpdate(row.id, "key", e.target.value)}
                     placeholder="e.g. API_KEY"
@@ -119,6 +120,7 @@ export function EnvVariablesEditor({ rows, onChange, disabled }: EnvVariablesEdi
                 <span className="text-fg-muted font-mono select-none text-xs">=</span>
                 <div className="flex-1">
                   <Input
+                    size="xs"
                     value={row.value}
                     onChange={(e) => handleUpdate(row.id, "value", e.target.value)}
                     placeholder="e.g. secret_val"
@@ -129,7 +131,7 @@ export function EnvVariablesEditor({ rows, onChange, disabled }: EnvVariablesEdi
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="xs"
                   onClick={() => handleRemove(row.id)}
                   disabled={disabled}
                   title="Remove variable"

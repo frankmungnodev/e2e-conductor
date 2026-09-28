@@ -595,6 +595,7 @@ export function ScenarioBuilder({
       <section className="w-64 border-r border-border bg-sidebar flex flex-col shrink-0">
         <div className="p-3 border-b border-border space-y-2">
           <Input
+            size="sm"
             icon={<Search className="w-3.5 h-3.5" />}
             placeholder="Search scenarios..."
             value={searchQuery}
@@ -847,6 +848,7 @@ export function ScenarioBuilder({
                 </span>
                 <div className="flex-1 max-w-md">
                   <Input
+                    size="sm"
                     value={selectedStep.name}
                     onChange={(e) => updateStep(selectedStepIdx, { name: e.target.value })}
                     placeholder="Step milestone name..."
@@ -1034,25 +1036,25 @@ export function ScenarioBuilder({
                                 <div className="space-y-2">
                                   <div className="grid grid-cols-[1fr_130px] gap-2 items-start">
                                     <Input
+                                      size="xs"
                                       label="URL / Endpoint"
                                       value={act.url ?? ""}
                                       onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { url: e.target.value })}
                                       placeholder="e.g. /api/users or https://api.example.com"
                                       mono
                                     />
-                                    <div className="flex flex-col gap-1.5 w-full">
-                                      <label className="text-xs font-semibold text-fg-bright">Expected Status</label>
-                                      <NumberInput
-                                        size="xs"
-                                        value={act.status ?? 200}
-                                        onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { status: val })}
-                                        min={100}
-                                        max={599}
-                                      />
-                                    </div>
+                                    <NumberInput
+                                      size="xs"
+                                      label="Expected Status"
+                                      value={act.status ?? 200}
+                                      onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { status: val })}
+                                      min={100}
+                                      max={599}
+                                    />
                                   </div>
                                   {["http_post", "http_put", "http_patch"].includes(actType) && (
                                     <Textarea
+                                      size="xs"
                                       label="Request Body (JSON)"
                                       rows={3}
                                       value={typeof act.body === "object" ? JSON.stringify(act.body, null, 2) : String(act.body ?? "")}
@@ -1075,6 +1077,7 @@ export function ScenarioBuilder({
                               {actType === "shell" && (
                                 <div className="space-y-2">
                                   <Input
+                                    size="xs"
                                     label="Shell Command"
                                     value={act.command ?? (typeof act.value === "string" ? act.value : "")}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { command: e.target.value })}
@@ -1083,22 +1086,21 @@ export function ScenarioBuilder({
                                   />
                                   <div className="grid grid-cols-[1fr_130px] gap-2 items-start">
                                     <Input
+                                      size="xs"
                                       label="Working Directory (Optional)"
                                       value={act.cwd ?? ""}
                                       onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { cwd: e.target.value })}
                                       placeholder="Default: workspace root"
                                       mono
                                     />
-                                    <div className="flex flex-col gap-1.5 w-full">
-                                      <label className="text-xs font-semibold text-fg-bright">Expected Exit Code</label>
-                                      <NumberInput
-                                        size="xs"
-                                        value={act.exit_code ?? 0}
-                                        onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { exit_code: val })}
-                                        min={0}
-                                        max={255}
-                                      />
-                                    </div>
+                                    <NumberInput
+                                      size="xs"
+                                      label="Expected Exit Code"
+                                      value={act.exit_code ?? 0}
+                                      onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { exit_code: val })}
+                                      min={0}
+                                      max={255}
+                                    />
                                   </div>
                                 </div>
                               )}
@@ -1106,6 +1108,7 @@ export function ScenarioBuilder({
                               {/* Web: Navigate */}
                               {(actType === "navigate" || actType === "goto") && (
                                 <Input
+                                  size="xs"
                                   label="URL / Path"
                                   value={act.url ?? act.value ?? ""}
                                   onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { url: e.target.value })}
@@ -1117,6 +1120,7 @@ export function ScenarioBuilder({
                               {/* Web: Click, Hover, Check, Uncheck, Assert Visible */}
                               {["click", "hover", "check", "uncheck", "assert_visible"].includes(actType) && (
                                 <Input
+                                  size="xs"
                                   label="Element Selector"
                                   value={act.selector ?? ""}
                                   onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
@@ -1129,6 +1133,7 @@ export function ScenarioBuilder({
                               {(actType === "fill" || (stepDriver === "web" && actType === "type")) && (
                                 <div className="grid grid-cols-2 gap-2">
                                   <Input
+                                    size="xs"
                                     label="Element Selector"
                                     value={act.selector ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
@@ -1136,6 +1141,7 @@ export function ScenarioBuilder({
                                     mono
                                   />
                                   <Input
+                                    size="xs"
                                     label="Input Value"
                                     value={act.value ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
@@ -1149,6 +1155,7 @@ export function ScenarioBuilder({
                               {stepDriver === "web" && actType === "press" && (
                                 <div className="grid grid-cols-2 gap-2">
                                   <Input
+                                    size="xs"
                                     label="Key to Press"
                                     value={act.key ?? act.value ?? "Enter"}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { key: e.target.value })}
@@ -1156,6 +1163,7 @@ export function ScenarioBuilder({
                                     mono
                                   />
                                   <Input
+                                    size="xs"
                                     label="Selector (Optional)"
                                     value={act.selector ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
@@ -1169,6 +1177,7 @@ export function ScenarioBuilder({
                               {actType === "assert_text" && (
                                 <div className="grid grid-cols-2 gap-2">
                                   <Input
+                                    size="xs"
                                     label="Element Selector"
                                     value={act.selector ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
@@ -1176,6 +1185,7 @@ export function ScenarioBuilder({
                                     mono
                                   />
                                   <Input
+                                    size="xs"
                                     label="Expected Text"
                                     value={act.value ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
@@ -1189,6 +1199,7 @@ export function ScenarioBuilder({
                               {actType === "select" && (
                                 <div className="grid grid-cols-2 gap-2">
                                   <Input
+                                    size="xs"
                                     label="Select Element"
                                     value={act.selector ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
@@ -1196,6 +1207,7 @@ export function ScenarioBuilder({
                                     mono
                                   />
                                   <Input
+                                    size="xs"
                                     label="Option Value / Label"
                                     value={act.value ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
@@ -1209,28 +1221,28 @@ export function ScenarioBuilder({
                               {["wait_for", "wait"].includes(actType) && (
                                 <div className="grid grid-cols-2 gap-2 items-start">
                                   <Input
+                                    size="xs"
                                     label="Wait for Selector (Optional)"
                                     value={act.selector ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
                                     placeholder="e.g. .spinner or #modal"
                                     mono
                                   />
-                                  <div className="flex flex-col gap-1.5 w-full">
-                                    <label className="text-xs font-semibold text-fg-bright">Delay (ms)</label>
-                                    <NumberInput
-                                      size="xs"
-                                      value={act.ms ?? 1000}
-                                      onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { ms: val })}
-                                      min={100}
-                                      step={500}
-                                    />
-                                  </div>
+                                  <NumberInput
+                                    size="xs"
+                                    label="Delay (ms)"
+                                    value={act.ms ?? 1000}
+                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { ms: val })}
+                                    min={100}
+                                    step={500}
+                                  />
                                 </div>
                               )}
 
                               {/* Web: Screenshot */}
                               {actType === "screenshot" && (
                                 <Input
+                                  size="xs"
                                   label="Screenshot File Path (Optional)"
                                   value={act.value ?? ""}
                                   onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
@@ -1242,6 +1254,7 @@ export function ScenarioBuilder({
                               {/* Web: JavaScript Expression */}
                               {actType === "eval" && (
                                 <Textarea
+                                  size="xs"
                                   label="JavaScript Expression"
                                   rows={2}
                                   value={act.value ?? ""}
@@ -1254,6 +1267,7 @@ export function ScenarioBuilder({
                               {/* Mobile: Tap, Assert Visible */}
                               {stepDriver === "mobile" && ["tap", "click", "assert_visible", "assert_not_visible"].includes(actType) && (
                                 <Input
+                                  size="xs"
                                   label="Element Text, Label, or ID"
                                   value={act.selector ?? act.value ?? ""}
                                   onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
@@ -1266,6 +1280,7 @@ export function ScenarioBuilder({
                               {stepDriver === "mobile" && (actType === "type" || actType === "fill") && (
                                 <div className="grid grid-cols-2 gap-2">
                                   <Input
+                                    size="xs"
                                     label="Tap First (Optional Selector)"
                                     value={act.selector ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
@@ -1273,6 +1288,7 @@ export function ScenarioBuilder({
                                     mono
                                   />
                                   <Input
+                                    size="xs"
                                     label="Text to Type"
                                     value={act.value ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
@@ -1285,21 +1301,20 @@ export function ScenarioBuilder({
                               {/* Mobile: Swipe */}
                               {stepDriver === "mobile" && actType === "swipe" && (
                                 <div className="grid grid-cols-2 gap-2 items-start">
-                                  <div className="flex flex-col gap-1.5 w-full">
-                                    <label className="text-xs font-semibold text-fg-bright">Swipe Direction</label>
-                                    <Select
-                                      size="xs"
-                                      value={act.key ?? "RIGHT"}
-                                      onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { key: val })}
-                                      options={[
-                                        { value: "RIGHT", label: "Swipe Right" },
-                                        { value: "LEFT", label: "Swipe Left" },
-                                        { value: "UP", label: "Swipe Up" },
-                                        { value: "DOWN", label: "Swipe Down" },
-                                      ]}
-                                    />
-                                  </div>
+                                  <Select
+                                    size="xs"
+                                    label="Swipe Direction"
+                                    value={act.key ?? "RIGHT"}
+                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { key: val })}
+                                    options={[
+                                      { value: "RIGHT", label: "Swipe Right" },
+                                      { value: "LEFT", label: "Swipe Left" },
+                                      { value: "UP", label: "Swipe Up" },
+                                      { value: "DOWN", label: "Swipe Down" },
+                                    ]}
+                                  />
                                   <Input
+                                    size="xs"
                                     label="From Element (Optional)"
                                     value={act.selector ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
@@ -1311,20 +1326,18 @@ export function ScenarioBuilder({
 
                               {/* Mobile: Press Key */}
                               {stepDriver === "mobile" && actType === "press" && (
-                                <div className="space-y-1">
-                                  <label className="text-xs text-fg-muted font-medium">Key Name:</label>
-                                  <Select
-                                    size="xs"
-                                    value={act.key ?? "BACK"}
-                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { key: val })}
-                                    options={[
-                                      { value: "BACK", label: "Back Key" },
-                                      { value: "ENTER", label: "Enter Key" },
-                                      { value: "HOME", label: "Home Key" },
-                                      { value: "TAB", label: "Tab Key" },
-                                    ]}
-                                  />
-                                </div>
+                                <Select
+                                  size="xs"
+                                  label="Key Name"
+                                  value={act.key ?? "BACK"}
+                                  onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { key: val })}
+                                  options={[
+                                    { value: "BACK", label: "Back Key" },
+                                    { value: "ENTER", label: "Enter Key" },
+                                    { value: "HOME", label: "Home Key" },
+                                    { value: "TAB", label: "Tab Key" },
+                                  ]}
+                                />
                               )}
                             </div>
                           </div>
@@ -1340,7 +1353,7 @@ export function ScenarioBuilder({
                       onClick={() => addStepAction(selectedStepIdx)}
                       icon={<Plus className="w-3.5 h-3.5 text-primary" />}
                     >
-                      + Add Action to Step
+                      Add Action to Step
                     </Button>
                   </Panel>
 
@@ -1356,50 +1369,44 @@ export function ScenarioBuilder({
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs text-fg-muted">Timeout (ms)</span>
-                        <NumberInput
-                          size="xs"
-                          value={selectedStep.timeout_ms ?? 15000}
-                          onChange={(val) => updateStep(selectedStepIdx, { timeout_ms: val })}
-                          min={500}
-                          max={120000}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs text-fg-muted">Max Retries</span>
-                        <NumberInput
-                          size="xs"
-                          value={selectedStep.retry?.times ?? 0}
-                          onChange={(val) =>
-                            updateStep(selectedStepIdx, {
-                              retry: {
-                                times: val ?? 0,
-                                delay_ms: selectedStep.retry?.delay_ms ?? 1000,
-                              },
-                            })
-                          }
-                          min={0}
-                          max={10}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs text-fg-muted">Retry Delay (ms)</span>
-                        <NumberInput
-                          size="xs"
-                          value={selectedStep.retry?.delay_ms ?? 1000}
-                          onChange={(val) =>
-                            updateStep(selectedStepIdx, {
-                              retry: {
-                                times: selectedStep.retry?.times ?? 0,
-                                delay_ms: val ?? 1000,
-                              },
-                            })
-                          }
-                          min={100}
-                          max={60000}
-                        />
-                      </div>
+                      <NumberInput
+                        size="xs"
+                        label="Timeout (ms)"
+                        value={selectedStep.timeout_ms ?? 15000}
+                        onChange={(val) => updateStep(selectedStepIdx, { timeout_ms: val })}
+                        min={500}
+                        max={120000}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Max Retries"
+                        value={selectedStep.retry?.times ?? 0}
+                        onChange={(val) =>
+                          updateStep(selectedStepIdx, {
+                            retry: {
+                              times: val ?? 0,
+                              delay_ms: selectedStep.retry?.delay_ms ?? 1000,
+                            },
+                          })
+                        }
+                        min={0}
+                        max={10}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Retry Delay (ms)"
+                        value={selectedStep.retry?.delay_ms ?? 1000}
+                        onChange={(val) =>
+                          updateStep(selectedStepIdx, {
+                            retry: {
+                              times: selectedStep.retry?.times ?? 0,
+                              delay_ms: val ?? 1000,
+                            },
+                          })
+                        }
+                        min={100}
+                        max={60000}
+                      />
                     </div>
                   </Panel>
                 </div>
@@ -1554,14 +1561,16 @@ export function ScenarioBuilder({
       >
         <div className="space-y-3">
           <Input
-            label="Preset Name:"
+            size="sm"
+            label="Preset Name"
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
             placeholder="e.g. Admin Web Login, Seed Database"
           />
 
           <Input
-            label="Description (Optional):"
+            size="sm"
+            label="Description (Optional)"
             value={newPresetDesc}
             onChange={(e) => setNewPresetDesc(e.target.value)}
             placeholder="Brief description of what this step accomplishes"
@@ -1618,7 +1627,8 @@ export function ScenarioBuilder({
         {draftScenario && (
           <div className="space-y-4">
             <Input
-              label="Scenario Name:"
+              size="sm"
+              label="Scenario Name"
               value={draftScenario.name}
               onChange={(e) => {
                 const name = e.target.value
@@ -1631,7 +1641,8 @@ export function ScenarioBuilder({
             />
 
             <Input
-              label="Description:"
+              size="sm"
+              label="Description"
               value={draftScenario.description ?? ""}
               onChange={(e) => {
                 const description = e.target.value

@@ -209,12 +209,23 @@ Fallback view for empty scenarios, zero run results, or missing artifacts.
 - **Location**: `ui/src/components/EmptyState.tsx`
 
 ### `<Input>`
-Text input controls with unified focus rings and validation error indicators.
+Text input controls with unified focus rings, icon slots, and validation error indicators.
 - **Location**: `ui/src/components/FormControls.tsx`
+- **Sizes**: `xs` (24px, matches `Button`/`Select`/`NumberInput` `xs`) | `sm` (28px, default) | `md` (32px)
+- **Props**: `size?: "xs" | "sm" | "md"`, `label?: string`, `error?: string`, `helperText?: string`, `icon?: ReactNode`, `mono?: boolean`
+
+```tsx
+import { Input } from "./FormControls.tsx"
+
+<Input size="xs" label="Element Selector" value={selector} onChange={setSelector} mono />
+<Input size="sm" icon={<Search className="w-3.5 h-3.5" />} placeholder="Search..." />
+```
 
 ### `<Textarea>`
 Multiline text inputs with unified focus rings, monospace code support, and validation error indicators.
 - **Location**: `ui/src/components/FormControls.tsx`
+- **Sizes**: `xs` | `sm` (default) | `md`
+- **Props**: `size?: "xs" | "sm" | "md"`, `label?: string`, `error?: string`, `helperText?: string`, `mono?: boolean`, `rows?: number`
 
 ---
 
