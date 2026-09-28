@@ -9,15 +9,15 @@ import {
   FilePlus2,
   Globe,
   Layers,
+  Loader2,
   Plus,
-  Save,
   Search,
   Settings,
   Smartphone,
   Terminal,
   Trash2,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { deleteStepPreset, fetchStepPresets, saveStepPreset } from "../api.ts"
 import type { ConfigMeta, FlowItem, ScenarioItem, ScenarioStep, StepAction, StepPreset } from "../types.ts"
 import { Badge, type BadgeVariant } from "./Badge.tsx"
@@ -127,6 +127,10 @@ export function ScenarioBuilder({
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [jsonText, setJsonText] = useState("")
   const [jsonError, setJsonError] = useState<string | null>(null)
+  const isDirtyRef = useRef(false)
+  const isInitialMount = useRef(true)
+  const draftScenarioRef = useRef<ScenarioItem | null>(null)
+  draftScenarioRef.current = draftScenario
 
   const { error: toastError, success: toastSuccess, info: toastInfo } = useToast()
 
@@ -177,9 +181,88 @@ export function ScenarioBuilder({
     }
   }, [scenarios, selectedScenarioId])
 
-  const selectScenario = (id: string) => {
+  // Save Scenario (Auto-saved)
+  const handleSaveScenario = async (targetScenario = draftScenario) => {
+    if (!targetScenario) return
+    setIsSaving(true)
+    try {
+      let content = {
+        ...targetScenario.raw,
+        name: targetScenario.name,
+        description: targetScenario.description,
+        setup: targetScenario.setup,
+        vars: targetScenario.vars,
+        steps: targetScenario.steps,
+      }
+      if (inspectorMode === "json") {
+        try {
+          content = JSON.parse(jsonText)
+        } catch (e) {
+          setJsonError((e as Error).message)
+          setIsSaving(false)
+          return
+        }
+      }
+      const res = await onSaveScenario(targetScenario.id, content)
+      if (res) {
+        setDraftScenario((prev) =>
+          prev && prev.id === targetScenario.id
+            ? { ...prev, isValid: res.isValid, errors: res.errors }
+            : prev,
+        )
+      }
+      isDirtyRef.current = false
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 1500)
+    } catch (e) {
+      toastError((e as Error).message, "Failed to save scenario")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    if (!isDirtyRef.current || !draftScenario) return
+
+    const timer = setTimeout(() => {
+      handleSaveScenario(draftScenario)
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [draftScenario, inspectorMode, jsonText])
+
+  // Flush unsaved changes on unmount
+  useEffect(() => {
+    return () => {
+      if (isDirtyRef.current && draftScenarioRef.current) {
+        const scenario = draftScenarioRef.current
+        const content = {
+          ...scenario.raw,
+          name: scenario.name,
+          description: scenario.description,
+          setup: scenario.setup,
+          vars: scenario.vars,
+          steps: scenario.steps,
+        }
+        onSaveScenario(scenario.id, content).catch(() => {})
+      }
+    }
+  }, [onSaveScenario])
+
+  const selectScenario = async (id: string) => {
     const sc = scenarios.find((s) => s.id === id)
     if (!sc) return
+
+    if (isDirtyRef.current && draftScenario && draftScenario.id !== id) {
+      await handleSaveScenario(draftScenario)
+    }
+    isDirtyRef.current = false
+
     setSelectedScenarioId(id)
     const cloned = JSON.parse(JSON.stringify(sc)) as ScenarioItem
 
@@ -232,59 +315,49 @@ export function ScenarioBuilder({
     setJsonError(null)
   }
 
-  const createNewScenario = () => {
+  const createNewScenario = async () => {
     const newId = `scenario_${Date.now().toString().slice(-4)}`
-    const defaultTarget = availableTargets.find((t) => getTargetDriver(t) === "web") ?? "web"
     const newSc: ScenarioItem = {
       id: newId,
       file: `${newId}.json`,
       name: "New Scenario",
       description: "Description of test scenario",
-      steps: [
-        {
-          name: "Open Application",
-          target: defaultTarget,
-          actions: [
-            {
-              id: `act_${Date.now()}_1`,
-              action: "navigate",
-              url: "/",
-            },
-          ],
-        },
-      ],
+      steps: [],
       setup: [],
       vars: {},
-      targets: [defaultTarget],
+      targets: [],
       isValid: true,
       errors: [],
       raw: {
         name: "New Scenario",
         description: "Description of test scenario",
-        steps: [
-          {
-            name: "Open Application",
-            target: defaultTarget,
-            actions: [
-              {
-                id: `act_${Date.now()}_1`,
-                action: "navigate",
-                url: "/",
-              },
-            ],
-          },
-        ],
+        steps: [],
       },
     }
-    setDraftScenario(newSc)
-    setSelectedScenarioId(newId)
-    setSelectedStepIdx(0)
-    setShowScenarioSettings(false)
-    setJsonText(JSON.stringify(newSc.raw, null, 2))
-    setJsonError(null)
+    isDirtyRef.current = false
+    try {
+      setIsSaving(true)
+      const res = await onSaveScenario(newId, newSc.raw)
+      if (res) {
+        newSc.isValid = res.isValid
+        newSc.errors = res.errors
+      }
+      setDraftScenario(newSc)
+      setSelectedScenarioId(newId)
+      setSelectedStepIdx(0)
+      setShowScenarioSettings(false)
+      setJsonText(JSON.stringify(newSc.raw, null, 2))
+      setJsonError(null)
+      toastSuccess(`Scenario "${newSc.name}" created`, "Created")
+    } catch (e) {
+      toastError((e as Error).message, "Failed to create scenario")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const updateDraft = (newScenario: ScenarioItem) => {
+    isDirtyRef.current = true
     setDraftScenario(newScenario)
     setJsonText(JSON.stringify(newScenario.raw, null, 2))
   }
@@ -503,44 +576,6 @@ export function ScenarioBuilder({
     }
   }
 
-  // Save Scenario
-  const handleSaveScenario = async () => {
-    if (!draftScenario) return
-    setIsSaving(true)
-    try {
-      let content = {
-        ...draftScenario.raw,
-        name: draftScenario.name,
-        description: draftScenario.description,
-        setup: draftScenario.setup,
-        vars: draftScenario.vars,
-        steps: draftScenario.steps,
-      }
-      if (inspectorMode === "json") {
-        try {
-          content = JSON.parse(jsonText)
-        } catch (e) {
-          setJsonError((e as Error).message)
-          setIsSaving(false)
-          return
-        }
-      }
-      const res = await onSaveScenario(draftScenario.id, content)
-      if (res) {
-        setDraftScenario((prev) =>
-          prev ? { ...prev, isValid: res.isValid, errors: res.errors } : null,
-        )
-      }
-      setSaveSuccess(true)
-      toastSuccess(`Scenario "${draftScenario.name}" saved`, "Saved")
-      setTimeout(() => setSaveSuccess(false), 2000)
-    } catch (e) {
-      toastError((e as Error).message, "Failed to save scenario")
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   const handleDeleteScenario = async () => {
     if (!draftScenario) return
     if (!confirm(`Are you sure you want to delete scenario "${draftScenario.id}"?`)) return
@@ -608,6 +643,7 @@ export function ScenarioBuilder({
             variant="secondary"
             className="w-full justify-center"
             onClick={createNewScenario}
+            isLoading={isSaving}
             icon={<FilePlus2 className="w-3.5 h-3.5 text-primary" />}
           >
             New Scenario
@@ -657,16 +693,17 @@ export function ScenarioBuilder({
                   {draftScenario.steps.length} sequential milestone steps
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Button
-                  size="xs"
-                  variant={saveSuccess ? "primary" : "secondary"}
-                  onClick={handleSaveScenario}
-                  isLoading={isSaving}
-                  icon={<Save className="w-3.5 h-3.5" />}
-                >
-                  {saveSuccess ? "Saved" : "Save"}
-                </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                {isSaving && (
+                  <span className="text-xs text-fg-muted flex items-center gap-1 font-mono">
+                    <Loader2 className="w-3 h-3 animate-spin text-primary" /> Saving...
+                  </span>
+                )}
+                {!isSaving && saveSuccess && (
+                  <span className="text-xs text-success flex items-center gap-1 font-mono">
+                    <Check className="w-3 h-3 text-success" /> Saved
+                  </span>
+                )}
                 <Button
                   size="xs"
                   variant="ghost"
@@ -694,7 +731,13 @@ export function ScenarioBuilder({
 
             {/* Stepper Steps List */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-              {draftScenario.steps.map((st, idx) => {
+              {draftScenario.steps.length === 0 ? (
+                <div className="p-6 text-center text-xs text-fg-muted space-y-1.5 my-auto">
+                  <p className="font-semibold text-fg-bright">No Steps in Scenario</p>
+                  <p>Add a step below or insert one from presets to build your workflow.</p>
+                </div>
+              ) : (
+                draftScenario.steps.map((st, idx) => {
                 const isSelected = selectedStepIdx === idx
                 const actionsCount = st.actions?.length ?? 0
                 const actionsSummary = st.actions?.slice(0, 3).map((a) => a.action).join(", ")
@@ -777,8 +820,9 @@ export function ScenarioBuilder({
                     </div>
                   </div>
                 )
-              })}
-            </div>
+              })
+            )}
+          </div>
 
             {/* Add Step Toolbar */}
             <div className="p-2 border-t border-border bg-sidebar flex items-center gap-1.5">
@@ -1420,6 +1464,7 @@ export function ScenarioBuilder({
                       setJsonText(e.target.value)
                       try {
                         const parsed = JSON.parse(e.target.value)
+                        isDirtyRef.current = true
                         setDraftScenario((prev) =>
                           prev
                             ? {
@@ -1446,8 +1491,12 @@ export function ScenarioBuilder({
           </>
         ) : (
           <EmptyState
-            title="Select a Step to Inspect"
-            description="Click on any step from the center sequence column to configure its actions, driver options, and assertions."
+            title={draftScenario && draftScenario.steps.length === 0 ? "No Steps to Inspect" : "Select a Step to Inspect"}
+            description={
+              draftScenario && draftScenario.steps.length === 0
+                ? "Add your first step using the buttons in the sequence column or insert a preset."
+                : "Click on any step from the center sequence column to configure its actions, driver options, and assertions."
+            }
             icon={<Layers className="w-8 h-8 text-fg-muted" />}
           />
         )}
