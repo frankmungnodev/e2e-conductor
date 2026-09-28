@@ -614,19 +614,21 @@ export function ScenarioBuilder({
               <div
                 key={sc.id}
                 onClick={() => selectScenario(sc.id)}
-                className={`p-2.5 rounded-xs border transition cursor-pointer flex items-center justify-between gap-2 ${
+                className={`p-2.5 rounded-xs border transition cursor-pointer flex flex-col gap-1.5 ${
                   isSelected
                     ? "bg-primary/10 border-primary text-fg-bright font-medium"
                     : "bg-sidebar border-transparent hover:bg-hover hover:border-border text-fg"
                 }`}
               >
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-xs truncate font-medium">{sc.name}</span>
+                <span className="text-xs truncate font-medium leading-tight" title={sc.name}>
+                  {sc.name}
+                </span>
+                <div className="flex items-center justify-between gap-2 min-w-0">
                   <span className="text-xs text-fg-muted font-mono truncate">{sc.id}</span>
+                  <Badge variant="neutral" size="xs">
+                    {sc.steps.length} {sc.steps.length === 1 ? "Step" : "Steps"}
+                  </Badge>
                 </div>
-                <Badge variant="neutral" size="xs">
-                  {sc.steps.length} {sc.steps.length === 1 ? "Step" : "Steps"}
-                </Badge>
               </div>
             )
           })}

@@ -32,10 +32,10 @@ export function Badge({
   className = "",
   ...props
 }: BadgeProps) {
-  const baseStyles = "inline-flex items-center font-medium border select-none rounded capitalize"
+  const baseStyles = "inline-flex items-center font-medium border select-none rounded capitalize shrink-0 whitespace-nowrap"
 
   const sizeStyles: Record<BadgeSize, string> = {
-    xs: "text-xs px-1.5 py-0.5 gap-1 leading-none",
+    xs: "text-xs px-1.5 py-0.5 gap-1 leading-tight",
     sm: "text-xs px-2 py-0.5 gap-1.5 leading-tight",
     md: "text-xs px-2.5 py-1 gap-1.5 leading-normal",
   }
