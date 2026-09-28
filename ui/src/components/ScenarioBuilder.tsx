@@ -672,11 +672,11 @@ export function ScenarioBuilder({
               </div>
             </div>
 
-            {/* Scenario Global Settings Toggle */}
+            {/* Scenario Global Settings Trigger */}
             <div className="p-2 border-b border-border bg-sidebar/50">
               <button
                 type="button"
-                onClick={() => setShowScenarioSettings(!showScenarioSettings)}
+                onClick={() => setShowScenarioSettings(true)}
                 className="w-full px-2.5 py-1.5 text-xs rounded-xs flex items-center justify-between text-fg-muted hover:text-fg hover:bg-hover transition cursor-pointer"
               >
                 <span className="flex items-center gap-1.5 font-medium">
@@ -684,164 +684,9 @@ export function ScenarioBuilder({
                   Scenario Settings & Fixtures
                 </span>
                 <span className="text-xs text-fg-muted font-mono">
-                  {showScenarioSettings ? "Hide" : "Edit"}
+                  Edit
                 </span>
               </button>
-
-              {showScenarioSettings && (
-                <div className="mt-2 p-2.5 rounded-xs border border-border bg-sidebar space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-muted font-medium">Scenario Name:</label>
-                    <input
-                      type="text"
-                      value={draftScenario.name}
-                      onChange={(e) => {
-                        const name = e.target.value
-                        updateDraft({
-                          ...draftScenario,
-                          name,
-                          raw: { ...draftScenario.raw, name },
-                        })
-                      }}
-                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-medium focus:border-border-focus focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs text-fg-muted font-medium">Description:</label>
-                    <input
-                      type="text"
-                      value={draftScenario.description ?? ""}
-                      onChange={(e) => {
-                        const description = e.target.value
-                        updateDraft({
-                          ...draftScenario,
-                          description,
-                          raw: { ...draftScenario.raw, description },
-                        })
-                      }}
-                      placeholder="What this scenario validates..."
-                      className="w-full px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg focus:border-border-focus focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Setup Fixtures */}
-                  <div className="space-y-1.5 pt-1 border-t border-border">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs text-fg-muted font-medium">Setup Fixtures:</label>
-                      {onNavigateToConfig && (
-                        <button
-                          type="button"
-                          onClick={() => onNavigateToConfig("fixtures")}
-                          className="text-xs text-primary hover:underline flex items-center gap-1"
-                        >
-                          Manage <ExternalLink className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {availableFixtures.length === 0 ? (
-                        <span className="text-xs text-fg-muted italic">No fixtures configured</span>
-                      ) : (
-                        availableFixtures.map((fix) => {
-                          const isSet = draftScenario.setup?.includes(fix)
-                          return (
-                            <button
-                              key={fix}
-                              type="button"
-                              onClick={() => {
-                                const curr = draftScenario.setup ?? []
-                                const next = isSet ? curr.filter((f) => f !== fix) : [...curr, fix]
-                                const raw = { ...draftScenario.raw, setup: next }
-                                updateDraft({ ...draftScenario, setup: next, raw })
-                              }}
-                              className={`px-2 py-0.5 text-xs font-mono rounded-xs border transition cursor-pointer flex items-center gap-1 ${
-                                isSet
-                                  ? "bg-primary/20 text-primary border-primary/50 font-semibold"
-                                  : "bg-input text-fg-muted border-border hover:border-fg-muted"
-                              }`}
-                            >
-                              {isSet && <Check className="w-3 h-3 text-primary" />}
-                              {fix}
-                            </button>
-                          )
-                        })
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Scenario Variables */}
-                  <div className="space-y-1.5 pt-1 border-t border-border">
-                    <label className="text-xs text-fg-muted font-medium">Scenario Variables:</label>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {Object.entries(draftScenario.vars ?? {}).map(([key, val]) => (
-                        <div key={key} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1">
-                          <span className="text-xs font-mono text-primary truncate">{key}</span>
-                          <span className="text-xs font-mono text-fg-muted truncate">{String(val)}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nextVars = { ...(draftScenario.vars ?? {}) }
-                              delete nextVars[key]
-                              const raw = { ...draftScenario.raw, vars: nextVars }
-                              updateDraft({ ...draftScenario, vars: nextVars, raw })
-                            }}
-                            className="p-1 text-fg-muted hover:text-error"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                      <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1 pt-1">
-                        <input
-                          type="text"
-                          placeholder="Var name"
-                          value={newVarKey}
-                          onChange={(e) => setNewVarKey(e.target.value)}
-                          className="px-1.5 py-0.5 text-xs rounded-xs bg-input border border-border text-primary font-mono focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Value"
-                          value={newVarVal}
-                          onChange={(e) => setNewVarVal(e.target.value)}
-                          className="px-1.5 py-0.5 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:outline-none"
-                        />
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          onClick={() => {
-                            if (newVarKey.trim()) {
-                              const nextVars = {
-                                ...(draftScenario.vars ?? {}),
-                                [newVarKey.trim()]: newVarVal,
-                              }
-                              const raw = { ...draftScenario.raw, vars: nextVars }
-                              updateDraft({ ...draftScenario, vars: nextVars, raw })
-                              setNewVarKey("")
-                              setNewVarVal("")
-                            }
-                          }}
-                          disabled={!newVarKey.trim()}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-border flex justify-end">
-                    <Button
-                      size="xs"
-                      variant="danger"
-                      onClick={handleDeleteScenario}
-                      icon={<Trash2 className="w-3.5 h-3.5" />}
-                    >
-                      Delete Scenario
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Stepper Steps List */}
@@ -1803,6 +1648,186 @@ export function ScenarioBuilder({
             </span>
           </div>
         </div>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL: SCENARIO SETTINGS & FIXTURES                                        */}
+      {/* ========================================================================= */}
+      <Modal
+        isOpen={showScenarioSettings && !!draftScenario}
+        onClose={() => setShowScenarioSettings(false)}
+        title="Scenario Settings & Fixtures"
+        description="Configure scenario metadata, setup fixtures, and scenario variables"
+        maxWidth="lg"
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <Button
+              size="xs"
+              variant="danger"
+              onClick={() => {
+                setShowScenarioSettings(false)
+                handleDeleteScenario()
+              }}
+              icon={<Trash2 className="w-3.5 h-3.5" />}
+            >
+              Delete Scenario
+            </Button>
+            <Button
+              size="xs"
+              variant="primary"
+              onClick={() => setShowScenarioSettings(false)}
+            >
+              Done
+            </Button>
+          </div>
+        }
+      >
+        {draftScenario && (
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs text-fg-muted font-medium">Scenario Name:</label>
+              <input
+                type="text"
+                value={draftScenario.name}
+                onChange={(e) => {
+                  const name = e.target.value
+                  updateDraft({
+                    ...draftScenario,
+                    name,
+                    raw: { ...draftScenario.raw, name },
+                  })
+                }}
+                className="w-full px-2.5 py-1.5 text-xs rounded-xs bg-input border border-border text-fg font-medium focus:border-border-focus focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-fg-muted font-medium">Description:</label>
+              <input
+                type="text"
+                value={draftScenario.description ?? ""}
+                onChange={(e) => {
+                  const description = e.target.value
+                  updateDraft({
+                    ...draftScenario,
+                    description,
+                    raw: { ...draftScenario.raw, description },
+                  })
+                }}
+                placeholder="What this scenario validates..."
+                className="w-full px-2.5 py-1.5 text-xs rounded-xs bg-input border border-border text-fg focus:border-border-focus focus:outline-none"
+              />
+            </div>
+
+            {/* Setup Fixtures */}
+            <div className="space-y-1.5 pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-fg-muted font-medium">Setup Fixtures:</label>
+                {onNavigateToConfig && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowScenarioSettings(false)
+                      onNavigateToConfig("fixtures")
+                    }}
+                    className="text-xs text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    Manage Fixtures <ExternalLink className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {availableFixtures.length === 0 ? (
+                  <span className="text-xs text-fg-muted italic">No fixtures configured</span>
+                ) : (
+                  availableFixtures.map((fix) => {
+                    const isSet = draftScenario.setup?.includes(fix)
+                    return (
+                      <button
+                        key={fix}
+                        type="button"
+                        onClick={() => {
+                          const curr = draftScenario.setup ?? []
+                          const next = isSet ? curr.filter((f) => f !== fix) : [...curr, fix]
+                          const raw = { ...draftScenario.raw, setup: next }
+                          updateDraft({ ...draftScenario, setup: next, raw })
+                        }}
+                        className={`px-2 py-0.5 text-xs font-mono rounded-xs border transition cursor-pointer flex items-center gap-1 ${
+                          isSet
+                            ? "bg-primary/20 text-primary border-primary/50 font-semibold"
+                            : "bg-input text-fg-muted border-border hover:border-fg-muted"
+                        }`}
+                      >
+                        {isSet && <Check className="w-3 h-3 text-primary" />}
+                        {fix}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Scenario Variables */}
+            <div className="space-y-1.5 pt-2 border-t border-border">
+              <label className="text-xs text-fg-muted font-medium">Scenario Variables:</label>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {Object.entries(draftScenario.vars ?? {}).map(([key, val]) => (
+                  <div key={key} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5 p-1 rounded-xs bg-sidebar border border-border">
+                    <span className="text-xs font-mono text-primary truncate">{key}</span>
+                    <span className="text-xs font-mono text-fg-muted truncate">{String(val)}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVars = { ...(draftScenario.vars ?? {}) }
+                        delete nextVars[key]
+                        const raw = { ...draftScenario.raw, vars: nextVars }
+                        updateDraft({ ...draftScenario, vars: nextVars, raw })
+                      }}
+                      className="p-1 text-fg-muted hover:text-error transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5 pt-1">
+                  <input
+                    type="text"
+                    placeholder="Var name"
+                    value={newVarKey}
+                    onChange={(e) => setNewVarKey(e.target.value)}
+                    className="px-2 py-1 text-xs rounded-xs bg-input border border-border text-primary font-mono focus:border-border-focus focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Value"
+                    value={newVarVal}
+                    onChange={(e) => setNewVarVal(e.target.value)}
+                    className="px-2 py-1 text-xs rounded-xs bg-input border border-border text-fg font-mono focus:border-border-focus focus:outline-none"
+                  />
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    onClick={() => {
+                      if (newVarKey.trim()) {
+                        const nextVars = {
+                          ...(draftScenario.vars ?? {}),
+                          [newVarKey.trim()]: newVarVal,
+                        }
+                        const raw = { ...draftScenario.raw, vars: nextVars }
+                        updateDraft({ ...draftScenario, vars: nextVars, raw })
+                        setNewVarKey("")
+                        setNewVarVal("")
+                      }
+                    }}
+                    disabled={!newVarKey.trim()}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )
