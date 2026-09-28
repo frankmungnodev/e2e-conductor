@@ -1,36 +1,52 @@
-# Plan: Clean Scenario Studio & Direct Composite Actions
+# Implementation Plan: Universal Step Actions & Scenario Studio Refactor
 
-## Overview
-Based on user feedback, streamline the Scenario Studio into a clean, dedicated authoring tool and eliminate all backward-compatibility cruft:
-1. **Dedicated Authoring Focus**: Remove all execution-related features from Scenario Studio (no run histories, no step run telemetry, no run buttons). Execution is exclusively owned by the **Runner** tab (`RunnerView`).
-2. **Immediate Step Actions UI**: When inspecting a step, the **Step Actions** list is immediately visible as the primary interface (no tabs hiding it, no defaulting to empty run logs).
-3. **Zero Backward-Compatibility Debt**:
-   - Web & Mobile steps exclusively execute `step.actions: StepAction[]`.
-   - Remove legacy fallback branches (`step.run`, `step.flow`, single `step.action` legacy fields) from drivers and UI.
-   - Remove mobile YAML flows explorer and editor from Scenario Studio.
+## Objective
+Provide an intuitive, clean, and reliable **Scenario Studio** exclusively dedicated to authoring and configuring scenarios, with prominent **Step Actions Sequence** across all driver types (Web, Mobile, HTTP, Shell), without backward-compatibility cruft. All test execution telemetry, run history, and run triggers are segregated exclusively in the **Runner** tab.
 
 ---
 
-## Progress Checklist
+## Architecture Summary
+1. **Universal Step Actions**: Every step across all drivers (`web`, `mobile`, `http`, `shell`) supports an ordered array of `actions: StepAction[]`.
+   - **Web**: `navigate`, `click`, `fill`, `type`, `press`, `wait_for`, `assert_visible`, `assert_text`, `hover`, `select`, `check`, `uncheck`, `screenshot`, `eval`.
+   - **Mobile**: `tap`, `type`, `press`, `swipe`, `assert_visible`, `assert_not_visible`, `wait_for`, `back`, `hidekeyboard`, `launch`, `stop`.
+   - **HTTP**: `http_get`, `http_post`, `http_put`, `http_patch`, `http_delete` (with `url`, `headers`, `body`, and expected `status`).
+   - **Shell**: `shell` (with `command`, `cwd`, and expected `exit_code`).
+2. **Dedicated Scenario Studio**: Clean 3-pane layout:
+   - Left: Scenario search & selection list (`4 Steps` badge in Title Case, `+ New Scenario`).
+   - Center: Milestone step sequence cards with driver badges, action summaries, step reordering, duplication, deletion, and quick-add buttons.
+   - Right: Step Inspector featuring the **Step Actions Sequence** card prominently at the top, followed by Execution & Retry Policy.
+3. **Execution Separation**: Scenario Studio contains zero run buttons or run history tables. The **Runner** tab (`RunnerView`) handles all execution controls, multi-scenario selection, execution live stream, and execution logs.
+4. **Resilient Dual-Write & Validation**:
+   - Schema validation (`schema/v1/scenario.schema.json`) and scenario validation (`src/scenario.ts`) fully accept `actions` across all targets.
+   - Dual-write saves simultaneously to SQLite (`.e2e/e2e.db`) and filesystem (`.e2e/scenarios/<id>.json`).
+   - Step presets saved to SQLite and dual-written to `.e2e/presets/<id>.json`.
 
-- [x] **Phase 1: Driver Simplification (`src/drivers/web.ts` & `src/drivers/mobile.ts`)**
-  - [x] `WebDriver.run()`: Execute `step.actions` directly as an ordered action sequence. Remove legacy fallback code for `step.run` / single `step.action`.
-  - [x] `MobileDriver.run()`: Execute `step.actions` directly via `executeAction()`. Remove legacy fallback code for `step.flow` / single `step.action`.
-  - [x] Remove `step.action`, `step.selector`, etc. legacy validation requirements from `src/scenario.ts` and `schema/v1/scenario.schema.json`.
+---
 
-- [x] **Phase 2: Clean Scenario Studio UI (`ui/src/components/ScenarioBuilder.tsx`)**
-  - [x] Remove all run telemetry states and effects (`scenarioStepRuns`, `fetchStepRuns`, `latestStepRun`, `stepTab === "runs"`).
-  - [x] Remove "Run Scenario" button and run status indicators from Scenario Studio header.
-  - [x] Remove mobile flow files explorer and draftFlow state (mobile uses pure declarative step actions).
-  - [x] Render **Step Actions** directly and prominently inside the Step Inspector for Web and Mobile targets:
-    - Clear action list with card-based inputs (Action dropdown, Target/Selector, Value/Text, URL, Key, Timeout/Delay ms).
-    - Up/down reordering buttons and delete action button.
-    - Prominent `+ Add Action` button at the bottom of the actions list.
-  - [x] Keep Step Inspector focused on: Step Name & Target selector, Step Actions list (or HTTP / Shell config), Retry/Timeout policy, Assertions, and "Save as Preset".
+## Status & Progress Checklist
 
-- [x] **Phase 3: Domain Documentation & Automated Verification**
-  - [x] Update `docs/domain/scenarios.md` to reflect direct composite actions without legacy fallbacks.
-  - [x] Update tests in `test/scenario.test.ts` and `test/db.test.ts`.
-  - [x] Run `pnpm exec biome check --write`.
-  - [x] Run `pnpm run check` and `pnpm test`.
-  - [x] Run `pnpm run build:ui`.
+- [x] **Backend & Drivers**:
+  - [x] Extend `src/drivers/http.ts` to execute sequential composite `actions` (`http_get`, `http_post`, etc.).
+  - [x] Extend `src/drivers/shell.ts` to execute sequential composite `actions` (`shell` commands).
+  - [x] Update `src/drivers/web.ts` and `src/drivers/mobile.ts` to directly evaluate `step.actions`.
+  - [x] Update JSON Schema `schema/v1/scenario.schema.json` allowing `StepAction` HTTP and shell fields.
+  - [x] Update `src/scenario.ts` `DRIVER_FIELDS` and `hasRequired` validation across all drivers.
+  - [x] Update `src/db.ts` and `ui/src/types.ts` types for universal `StepAction`.
+
+- [x] **Scenario Studio UI (`ui/src/components/ScenarioBuilder.tsx`)**:
+  - [x] Strip all run-related UI, attempt counts, execution logs, and flow editor sidebars.
+  - [x] Prominently display **Step Actions Sequence** at the top of the Step Inspector for all drivers.
+  - [x] Add interactive action cards with type dropdown, inputs, move up/down, and delete.
+  - [x] Add prominent `+ Add Action to Step` button.
+  - [x] Add auto-migration in `selectScenario` ensuring every step initializes an `actions` array.
+  - [x] Synchronize `draftScenario.raw` and `draftScenario.steps` on save.
+  - [x] Add startup connection retry in `ui/src/App.tsx` for resilient Vite dev proxy loading.
+
+- [x] **Verification & Documentation**:
+  - [x] Visual verification in Playwright browser confirming Step Actions panel on all steps.
+  - [x] Visual verification confirming scenario save persists without errors.
+  - [x] Verify Runner tab maintains full execution workflow.
+  - [x] Update domain documentation in `docs/domain/scenarios.md`.
+  - [x] Update unit test suite in `test/scenario.test.ts` (all 60 tests pass).
+  - [x] Pass `pnpm exec biome check --write`, `pnpm run check`, and `pnpm run build:ui`.
+  - [x] Commit and push to branch `feat/web-gui`.
