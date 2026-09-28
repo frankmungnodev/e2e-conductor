@@ -174,9 +174,10 @@ import { Panel, PanelHeader, PanelBody } from "./Panel.tsx"
 ```
 
 ### `<Modal>`
-Accessible dialog overlay with blurred backdrop, click-outside dismissal, Escape key handler, and customizable max width.
+Accessible dialog overlay with blurred backdrop, click-outside dismissal, Escape key handler, and customizable max width. Modals and dialogs are preferred for forms, creation workflows, and editing tasks across the app (suited for a desktop-style application rather than a web page).
 - **Location**: `ui/src/components/Modal.tsx`
 - **Props**: `isOpen: boolean`, `onClose: () => void`, `title?: string`, `maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl"`
+- **Form Input Column Limit**: The maximum number of columns for form inputs inside a modal MUST be 2 (NEVER 3 or more text inputs horizontally side-by-side; 3 horizontal text inputs look cramped and degrade usability).
 
 ```tsx
 import { Modal } from "./Modal.tsx"
@@ -216,7 +217,7 @@ Text input controls with unified focus rings and validation error indicators.
 ## 3. Rules & Guidelines for AI Coding Agents
 
 1. **Use Existing Primitives**: Always reuse components from `ui/src/components/` (`Button`, `Badge`, `Select`, `NumberInput`, `Checkbox`, `Panel`, `Modal`, `EmptyState`, `TabButton`) instead of writing raw HTML elements or bespoke controls.
-2. **`Tabs` & `TabButton`**: Segmented pill tabs for sub-resource navigation. All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`). If a tab uses an icon, ensure the icon color is compatible with the selected state (never hardcode `text-primary` on active pill tabs so the icon doesn't disappear into `bg-primary`).
+2. **`Tabs` & `TabButton`**: Segmented pill tabs (`variant="pills"`) for sub-resource navigation. All tabs MUST be combined and synchronized with URL query parameters (e.g. `?tab=...`). If a tab uses an icon, ensure the icon color is compatible with the tab's selected/active state. For `variant="pills"` tabs, the active state uses `bg-primary text-white`. Never hardcode `text-primary` or colors matching the active background without handling the active state (e.g. use conditional classes like `active ? "text-white" : "text-primary"` or omit explicit text color classes so the icon inherits `currentColor`/`text-white` when selected). An icon must never become invisible or blend into the active tab background.
 3. **Capitalized Badges**: Every badge text MUST be capitalized using Title Case (capitalize the first character of each word, e.g. `Passed`, `Failed`, `Running`, `Idle`, not all-caps) across all screens and components.
 4. **Use Design Tokens**: Use the theme tokens (`bg-editor`, `bg-sidebar`, `bg-input`, `border-border`, `border-border-focus`, `text-fg`, `text-fg-muted`, `text-primary`, etc.). Never introduce arbitrary hardcoded hex color codes in component styles.
 5. **High Density**: The orchestrator GUI is a developer tool. Favor compact spacing (`gap-1.5`, `py-1`, `text-xs`), clear visual boundaries (`border border-border`), and monospace fonts for IDs, file paths, durations, and code identifiers.
@@ -225,3 +226,4 @@ Text input controls with unified focus rings and validation error indicators.
 8. **Clean, Human-Centric Copy (No Internal Jargon)**: NEVER expose internal runtime implementation details, scoping namespaces, or compiler prefixes (such as `ctx.`, `scope.`, `raw.`, `vars.`, or `json_match`) in user-facing UI labels, descriptions, subtitles, or placeholders (e.g. NEVER write "Reference in steps as ${ctx.varName}" or "Bearer ${ctx.token}"). Always use plain, natural, user-centric terminology (e.g. "Scenario Variables", "Default values and variables used throughout this scenario").
 9. **Imports**: Import components directly from their file in `ui/src/components/` (e.g. `import { Button } from "./Button.tsx"`).
 10. **Quality & Linting**: Always run `pnpm run lint` and verify there are no Biome diagnostics after any UI modification.
+11. **Forms & Modals**: Modals and dialogs are preferred for forms, creation workflows, and editing tasks in this application (suited for a desktop-style application rather than a web page). The maximum number of columns for form inputs inside a modal MUST be 2 (NEVER 3 or more text inputs horizontally side-by-side; 3 horizontal text inputs look cramped and degrade usability).
