@@ -152,8 +152,13 @@ describe("loadScenarios", () => {
             target: "web",
             actions: [
               { action: "navigate", url: "/login" },
+              { action: "set_viewport", width: 1920, height: 1080 },
               { action: "fill", selector: "#user", value: "alice" },
               { action: "click", selector: "#submit" },
+              { action: "drag_and_drop", selector: "#item-1", target_selector: "#cart" },
+              { action: "check", selector: "#terms" },
+              { action: "assert_checked", selector: "#terms" },
+              { action: "wait_for_url", url: "**/checkout" },
             ],
           },
           {
@@ -174,7 +179,7 @@ describe("loadScenarios", () => {
     assert.equal(loaded[0].name, "Composite Scenario")
     assert.equal(loaded[0].steps[0].actions?.length, 2)
     assert.equal(loaded[0].steps[1].actions?.length, 1)
-    assert.equal(loaded[0].steps[2].actions?.length, 3)
+    assert.equal(loaded[0].steps[2].actions?.length, 8)
     assert.equal(loaded[0].steps[3].actions?.length, 3)
   })
 })

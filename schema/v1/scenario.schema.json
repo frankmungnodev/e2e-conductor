@@ -82,6 +82,9 @@
           "type": "integer",
           "description": "web or mobile: duration in milliseconds for wait or delay"
         },
+        "target_selector": { "type": "string", "description": "web: target element selector for drag and drop" },
+        "width": { "type": "integer", "description": "web: viewport width for set_viewport" },
+        "height": { "type": "integer", "description": "web: viewport height for set_viewport" },
         "run": { "type": "string", "description": "web: step module name in the target's modules folder" },
         "flow": { "type": "string", "description": "mobile: YAML flow file in the target's flows folder" },
         "launch": {
@@ -114,10 +117,14 @@
           "description": "Action name (e.g. navigate, click, fill, press, wait_for, tap, type, swipe, launch, http_get, http_post, shell)"
         },
         "selector": { "type": "string" },
+        "target_selector": { "type": "string", "description": "Target element selector for drag and drop" },
         "value": {},
         "url": { "type": "string" },
         "key": { "type": "string" },
         "ms": { "type": "integer" },
+        "timeout_ms": { "type": "integer", "description": "Action timeout override in milliseconds" },
+        "width": { "type": "integer", "description": "Viewport width for set_viewport" },
+        "height": { "type": "integer", "description": "Viewport height for set_viewport" },
         "method": { "type": "string" },
         "headers": { "type": "object", "additionalProperties": { "type": "string" } },
         "body": {},

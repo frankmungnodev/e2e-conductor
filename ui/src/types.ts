@@ -10,10 +10,14 @@ export type StepAction = {
   name?: string
   action: string
   selector?: string
+  target_selector?: string
   value?: string
   url?: string
   key?: string
   ms?: number
+  timeout_ms?: number
+  width?: number
+  height?: number
   method?: string
   headers?: Record<string, string>
   body?: unknown
@@ -38,9 +42,12 @@ export type ScenarioStep = {
   body?: unknown
   action?: string
   selector?: string
+  target_selector?: string
   value?: string
   key?: string
   ms?: number
+  width?: number
+  height?: number
   run?: string
   flow?: string
   launch?: "fresh" | "restart"

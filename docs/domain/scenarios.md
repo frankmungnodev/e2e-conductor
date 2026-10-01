@@ -81,15 +81,25 @@ Each action in `step.actions` executes sequentially within the step's driver ses
 - `id`: Optional client-side action ID.
 - `name`: Human-readable label for this specific action.
 - `action`: Specific driver action keyword:
-  - **Web**: `navigate`, `click`, `fill`, `press`, `wait_for`, `assert_visible`, `assert_text`, `hover`, `select`, `check`, `uncheck`, `screenshot`, `eval`.
+  - **Web (Playwright)**:
+    - *Navigation*: `navigate` (`goto`), `reload`, `go_back`, `go_forward`
+    - *Mouse & Locator*: `click`, `dblclick`, `hover`, `focus`, `clear`, `drag_and_drop`, `scroll_into_view`
+    - *Keyboard & Forms*: `fill`, `type`, `press`, `check`, `uncheck`, `select` (`select_option`), `upload_file` (`set_input_files`)
+    - *Waiting*: `wait_for` (`wait`), `wait_for_url`, `wait_for_load_state`
+    - *Assertions*: `assert_visible`, `assert_not_visible` (`assert_hidden`), `assert_text`, `assert_not_text`, `assert_value`, `assert_checked`, `assert_not_checked`, `assert_disabled`, `assert_enabled`, `assert_url`, `assert_title`
+    - *Viewport & Utilities*: `set_viewport`, `screenshot`, `eval` (`script`)
   - **Mobile**: `tap`, `type`, `press`, `swipe`, `assert_visible`, `assert_not_visible`, `wait_for`, `back`, `hidekeyboard`, `launch`, `stop`.
   - **HTTP**: `http_get`, `http_post`, `http_put`, `http_patch`, `http_delete`.
   - **Shell**: `shell`.
 - `selector`: CSS selector, XPath, or mobile element label/resource ID.
-- `value`: Text input value, expected assertion text, or script content.
+- `target_selector`: Target element selector for drag and drop interactions.
+- `value`: Text input value, expected assertion text, file path, or script content.
 - `url`: Destination URL for web navigation or HTTP requests.
 - `key`: Keyboard key (`Enter`, `Tab`, `Escape`, `BACK`, `HOME`) or swipe direction (`RIGHT`, `LEFT`, `UP`, `DOWN`).
 - `ms`: Delay duration or timeout in milliseconds.
+- `timeout_ms`: Action-specific timeout override in milliseconds.
+- `width`: Viewport width in pixels for `set_viewport`.
+- `height`: Viewport height in pixels for `set_viewport`.
 - `command`: Shell command string executed with `sh -c`.
 - `cwd`: Shell working directory, relative to config folder.
 - `method`: HTTP request method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).

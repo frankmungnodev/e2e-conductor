@@ -50,7 +50,13 @@ CREATE TABLE IF NOT EXISTS platforms (
 
 ### Web (`type: "web"`)
 - **Driver**: `"web"` (`WebTarget` in `src/config.ts`) powered by Playwright.
-- **Declarative Actions**: Executes browser actions directly (`navigate`, `click`, `fill`, `press`, `wait_for`, `assert_visible`, `assert_text`, `hover`, `screenshot`) without requiring code files.
+- **Declarative Actions**: Executes full Playwright browser automation directly through UI configuration without requiring code files:
+  - *Navigation*: `navigate`, `reload`, `go_back`, `go_forward`
+  - *Mouse & Locator*: `click`, `dblclick`, `hover`, `focus`, `clear`, `drag_and_drop`, `scroll_into_view`
+  - *Keyboard & Forms*: `fill`, `type`, `press`, `check`, `uncheck`, `select`, `upload_file`
+  - *Waiting*: `wait_for`, `wait_for_url`, `wait_for_load_state`
+  - *Assertions*: `assert_visible`, `assert_not_visible`, `assert_text`, `assert_not_text`, `assert_value`, `assert_checked`, `assert_not_checked`, `assert_disabled`, `assert_enabled`, `assert_url`, `assert_title`
+  - *Viewport & Utilities*: `set_viewport`, `screenshot`, `eval`
 - **Modules (Optional)**: Optional directory of TypeScript step files (default `.e2e/modules`) exporting a `WebStep` function for custom script execution.
 - **Service Dependency**: Must link to a backing HTTP service for its base URL.
 - **Options**: `headless` (toggle browser UI) and `slowMo` (delay per action for visual debugging).

@@ -21,7 +21,7 @@ export type { Assert, Scenario, Step, StepPreset }
 /** Fields each driver accepts on top of the common step fields. */
 const DRIVER_FIELDS: Record<string, string[]> = {
   http: ["actions", "method", "url", "headers", "body"],
-  web: ["actions", "action", "selector", "value", "key", "url", "ms", "run", "params"],
+  web: ["actions", "action", "selector", "target_selector", "value", "key", "url", "ms", "width", "height", "run", "params"],
   mobile: ["actions", "action", "selector", "value", "key", "ms", "flow", "launch", "params"],
   shell: ["actions", "command", "cwd"],
 }

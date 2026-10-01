@@ -15,10 +15,14 @@ export type StepAction = {
   name?: string
   action: string
   selector?: string
+  target_selector?: string
   value?: string
   url?: string
   key?: string
   ms?: number
+  timeout_ms?: number
+  width?: number
+  height?: number
   method?: string
   headers?: Record<string, string>
   body?: unknown
@@ -45,9 +49,12 @@ export type Step = {
   // declarative actions (web & mobile single action fallback)
   action?: string
   selector?: string
+  target_selector?: string
   value?: string
   key?: string
   ms?: number
+  width?: number
+  height?: number
   // web / mobile fallback
   run?: string
   flow?: string

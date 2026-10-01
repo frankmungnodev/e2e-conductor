@@ -38,17 +38,45 @@ import { TabButton, useUrlTab } from "./Tabs.tsx"
 import { useToast } from "./Toast.tsx"
 
 const WEB_ACTION_OPTIONS = [
+  // Navigation & Page Lifecycle
   { value: "navigate", label: "Navigate to URL" },
+  { value: "reload", label: "Reload Page" },
+  { value: "go_back", label: "Go Back (History)" },
+  { value: "go_forward", label: "Go Forward (History)" },
+  // Mouse & Element Interaction
   { value: "click", label: "Click Element" },
-  { value: "fill", label: "Fill / Type Text" },
-  { value: "press", label: "Press Key (e.g. Enter)" },
-  { value: "wait_for", label: "Wait for Element or Timeout" },
-  { value: "assert_visible", label: "Assert Element Visible" },
-  { value: "assert_text", label: "Assert Element Contains Text" },
+  { value: "dblclick", label: "Double Click Element" },
   { value: "hover", label: "Hover over Element" },
-  { value: "select", label: "Select Dropdown Option" },
-  { value: "check", label: "Check Checkbox" },
+  { value: "focus", label: "Focus Element" },
+  { value: "clear", label: "Clear Input / Textarea" },
+  { value: "drag_and_drop", label: "Drag and Drop" },
+  { value: "scroll_into_view", label: "Scroll into View" },
+  // Keyboard & Forms
+  { value: "fill", label: "Fill Text (Replace)" },
+  { value: "type", label: "Type Text (Keystrokes)" },
+  { value: "press", label: "Press Key (e.g. Enter)" },
+  { value: "check", label: "Check Checkbox / Radio" },
   { value: "uncheck", label: "Uncheck Checkbox" },
+  { value: "select", label: "Select Dropdown Option" },
+  { value: "upload_file", label: "Upload File" },
+  // Waiting & Synchronization
+  { value: "wait_for", label: "Wait for Element or Timeout" },
+  { value: "wait_for_url", label: "Wait for URL" },
+  { value: "wait_for_load_state", label: "Wait for Load State" },
+  // Assertions
+  { value: "assert_visible", label: "Assert Element Visible" },
+  { value: "assert_not_visible", label: "Assert Element Not Visible" },
+  { value: "assert_text", label: "Assert Element Contains Text" },
+  { value: "assert_not_text", label: "Assert Element Does Not Contain Text" },
+  { value: "assert_value", label: "Assert Input Value" },
+  { value: "assert_checked", label: "Assert Checkbox Checked" },
+  { value: "assert_not_checked", label: "Assert Checkbox Unchecked" },
+  { value: "assert_disabled", label: "Assert Element Disabled" },
+  { value: "assert_enabled", label: "Assert Element Enabled" },
+  { value: "assert_url", label: "Assert URL Contains" },
+  { value: "assert_title", label: "Assert Page Title Contains" },
+  // Viewport & Utilities
+  { value: "set_viewport", label: "Set Viewport Size" },
   { value: "screenshot", label: "Capture Screenshot" },
   { value: "eval", label: "Evaluate JavaScript" },
 ]
@@ -451,6 +479,9 @@ export function ScenarioBuilder({
       url: actType === "navigate" || actType.startsWith("http_") ? "/" : undefined,
       command: actType === "shell" ? "echo 'Step execution'" : undefined,
       selector: actType === "tap" ? "Button" : undefined,
+      width: actType === "set_viewport" ? 1280 : undefined,
+      height: actType === "set_viewport" ? 720 : undefined,
+      ms: actType === "wait_for" || actType === "wait" ? 1000 : undefined,
     }
     const currentActions = step.actions ?? []
     updateStep(stepIdx, { actions: [...currentActions, newAction] })
@@ -1104,7 +1135,7 @@ export function ScenarioBuilder({
                                     updateStepAction(selectedStepIdx, actIdx, { action: val })
                                   }}
                                   options={actionOptions}
-                                  className="w-56"
+                                  className="w-72"
                                 />
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
@@ -1221,27 +1252,107 @@ export function ScenarioBuilder({
                                 <Input
                                   size="xs"
                                   label="URL / Path"
-                                  value={act.url ?? act.value ?? ""}
-                                  onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { url: e.target.value })}
+                                  value={act.url ?? (typeof act.value === "string" ? act.value : "")}
+                                  onChange={(e) =>
+                                    updateStepAction(selectedStepIdx, actIdx, {
+                                      url: e.target.value,
+                                      value: e.target.value,
+                                    })
+                                  }
                                   placeholder="e.g. /login, /checkout, or https://example.com"
                                   mono
                                 />
                               )}
 
-                              {/* Web: Click, Hover, Check, Uncheck, Assert Visible */}
-                              {["click", "hover", "check", "uncheck", "assert_visible"].includes(actType) && (
-                                <Input
-                                  size="xs"
-                                  label="Element Selector"
-                                  value={act.selector ?? ""}
-                                  onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                  placeholder="e.g. button[type='submit'], #login-btn, .nav-item"
-                                  mono
-                                />
+                              {/* Web: Reload Page */}
+                              {stepDriver === "web" && actType === "reload" && (
+                                <div className="flex flex-col gap-1 p-2 rounded-xs border border-border/40 bg-input/20">
+                                  <span className="text-xs font-medium text-fg">Reload Active Page</span>
+                                  <span className="text-xs text-fg-muted">Reloads the current browser page and waits for it to refresh.</span>
+                                </div>
                               )}
 
+                              {/* Web: Go Back */}
+                              {stepDriver === "web" && actType === "go_back" && (
+                                <div className="flex flex-col gap-1 p-2 rounded-xs border border-border/40 bg-input/20">
+                                  <span className="text-xs font-medium text-fg">Navigate Back in History</span>
+                                  <span className="text-xs text-fg-muted">Navigates the browser back one step in session history.</span>
+                                </div>
+                              )}
+
+                              {/* Web: Go Forward */}
+                              {stepDriver === "web" && actType === "go_forward" && (
+                                <div className="flex flex-col gap-1 p-2 rounded-xs border border-border/40 bg-input/20">
+                                  <span className="text-xs font-medium text-fg">Navigate Forward in History</span>
+                                  <span className="text-xs text-fg-muted">Navigates the browser forward one step in session history.</span>
+                                </div>
+                              )}
+
+                              {/* Web: Single Element Selector Actions */}
+                              {stepDriver === "web" &&
+                                [
+                                  "click",
+                                  "dblclick",
+                                  "hover",
+                                  "focus",
+                                  "clear",
+                                  "scroll_into_view",
+                                  "check",
+                                  "uncheck",
+                                  "assert_visible",
+                                  "assert_not_visible",
+                                  "assert_hidden",
+                                  "assert_checked",
+                                  "assert_not_checked",
+                                  "assert_disabled",
+                                  "assert_enabled",
+                                ].includes(actType) && (
+                                  <Input
+                                    size="xs"
+                                    label={
+                                      actType === "click"
+                                        ? "Element Selector"
+                                        : actType === "dblclick"
+                                          ? "Element Selector to Double Click"
+                                          : actType === "hover"
+                                            ? "Element Selector to Hover"
+                                            : actType === "focus"
+                                              ? "Element Selector to Focus"
+                                              : actType === "clear"
+                                                ? "Input / Textarea Selector to Clear"
+                                                : actType === "scroll_into_view"
+                                                  ? "Element Selector to Scroll into View"
+                                                  : actType === "check"
+                                                    ? "Checkbox / Radio Selector to Check"
+                                                    : actType === "uncheck"
+                                                      ? "Checkbox Selector to Uncheck"
+                                                      : actType === "assert_visible"
+                                                        ? "Element Selector to Assert Visible"
+                                                        : actType === "assert_not_visible" || actType === "assert_hidden"
+                                                          ? "Element Selector to Assert Hidden / Not Visible"
+                                                          : actType === "assert_checked"
+                                                            ? "Checkbox Selector to Assert Checked"
+                                                            : actType === "assert_not_checked"
+                                                              ? "Checkbox Selector to Assert Unchecked"
+                                                              : actType === "assert_disabled"
+                                                                ? "Element Selector to Assert Disabled"
+                                                                : "Element Selector to Assert Enabled"
+                                    }
+                                    value={act.selector ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                    placeholder={
+                                      actType.includes("check")
+                                        ? "e.g. input[type='checkbox']#agree, #remember-me"
+                                        : actType === "clear"
+                                          ? "e.g. input#username, textarea#comment"
+                                          : "e.g. button[type='submit'], #login-btn, .nav-item"
+                                    }
+                                    mono
+                                  />
+                                )}
+
                               {/* Web: Fill / Type */}
-                              {(actType === "fill" || (stepDriver === "web" && actType === "type")) && (
+                              {stepDriver === "web" && (actType === "fill" || actType === "type") && (
                                 <div className="grid grid-cols-2 gap-2">
                                   <Input
                                     size="xs"
@@ -1253,10 +1364,59 @@ export function ScenarioBuilder({
                                   />
                                   <Input
                                     size="xs"
-                                    label="Input Value"
+                                    label={actType === "fill" ? "Input Value (Replace)" : "Text to Type (Keystrokes)"}
                                     value={act.value ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
                                     placeholder="e.g. admin@example.com"
+                                    mono
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: Drag and Drop */}
+                              {stepDriver === "web" && actType === "drag_and_drop" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Input
+                                    size="xs"
+                                    label="Source Element Selector"
+                                    value={act.selector ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                    placeholder="e.g. #draggable-item, .card"
+                                    mono
+                                  />
+                                  <Input
+                                    size="xs"
+                                    label="Target Drop Selector"
+                                    value={act.target_selector ?? (typeof act.value === "string" ? act.value : "")}
+                                    onChange={(e) =>
+                                      updateStepAction(selectedStepIdx, actIdx, {
+                                        target_selector: e.target.value,
+                                        value: e.target.value,
+                                      })
+                                    }
+                                    placeholder="e.g. #dropzone, .target-column"
+                                    mono
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: Upload File */}
+                              {stepDriver === "web" && (actType === "upload_file" || actType === "set_input_files") && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Input
+                                    size="xs"
+                                    label="File Input Selector"
+                                    value={act.selector ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                    placeholder="e.g. input[type='file'], #avatar-upload"
+                                    mono
+                                  />
+                                  <Input
+                                    size="xs"
+                                    label="File Path on Disk"
+                                    value={act.value ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                    placeholder="e.g. ./fixtures/sample.pdf"
                                     mono
                                   />
                                 </div>
@@ -1268,9 +1428,9 @@ export function ScenarioBuilder({
                                   <Input
                                     size="xs"
                                     label="Key to Press"
-                                    value={act.key ?? act.value ?? "Enter"}
+                                    value={act.key ?? (typeof act.value === "string" ? act.value : "Enter")}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { key: e.target.value })}
-                                    placeholder="e.g. Enter, Tab, Escape"
+                                    placeholder="e.g. Enter, Tab, Escape, ArrowDown"
                                     mono
                                   />
                                   <Input
@@ -1284,8 +1444,8 @@ export function ScenarioBuilder({
                                 </div>
                               )}
 
-                              {/* Web: Assert Text */}
-                              {actType === "assert_text" && (
+                              {/* Web: Assert Text & Assert Not Text */}
+                              {stepDriver === "web" && (actType === "assert_text" || actType === "assert_not_text") && (
                                 <div className="grid grid-cols-2 gap-2">
                                   <Input
                                     size="xs"
@@ -1297,7 +1457,7 @@ export function ScenarioBuilder({
                                   />
                                   <Input
                                     size="xs"
-                                    label="Expected Text"
+                                    label={actType === "assert_text" ? "Expected Text (Contains)" : "Forbidden Text (Must Not Contain)"}
                                     value={act.value ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
                                     placeholder="e.g. Order Placed Successfully"
@@ -1306,15 +1466,66 @@ export function ScenarioBuilder({
                                 </div>
                               )}
 
-                              {/* Web: Select Dropdown */}
-                              {actType === "select" && (
+                              {/* Web: Assert Input Value */}
+                              {stepDriver === "web" && actType === "assert_value" && (
                                 <div className="grid grid-cols-2 gap-2">
                                   <Input
                                     size="xs"
-                                    label="Select Element"
+                                    label="Input / Textarea Selector"
                                     value={act.selector ?? ""}
                                     onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
-                                    placeholder="e.g. select#country"
+                                    placeholder="e.g. input#username, select#country"
+                                    mono
+                                  />
+                                  <Input
+                                    size="xs"
+                                    label="Expected Value"
+                                    value={act.value ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                    placeholder="e.g. admin"
+                                    mono
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: Assert Page URL */}
+                              {stepDriver === "web" && actType === "assert_url" && (
+                                <Input
+                                  size="xs"
+                                  label="Expected URL Substring"
+                                  value={act.url ?? (typeof act.value === "string" ? act.value : "")}
+                                  onChange={(e) =>
+                                    updateStepAction(selectedStepIdx, actIdx, {
+                                      url: e.target.value,
+                                      value: e.target.value,
+                                    })
+                                  }
+                                  placeholder="e.g. /dashboard or https://example.com"
+                                  mono
+                                />
+                              )}
+
+                              {/* Web: Assert Page Title */}
+                              {stepDriver === "web" && actType === "assert_title" && (
+                                <Input
+                                  size="xs"
+                                  label="Expected Page Title Substring"
+                                  value={act.value ?? ""}
+                                  onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { value: e.target.value })}
+                                  placeholder="e.g. Dashboard - Acme App"
+                                  mono
+                                />
+                              )}
+
+                              {/* Web: Select Dropdown */}
+                              {stepDriver === "web" && (actType === "select" || actType === "select_option") && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Input
+                                    size="xs"
+                                    label="Select Element Selector"
+                                    value={act.selector ?? ""}
+                                    onChange={(e) => updateStepAction(selectedStepIdx, actIdx, { selector: e.target.value })}
+                                    placeholder="e.g. select#country, select[name='role']"
                                     mono
                                   />
                                   <Input
@@ -1346,6 +1557,82 @@ export function ScenarioBuilder({
                                     onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { ms: val })}
                                     min={100}
                                     step={500}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: Wait for URL */}
+                              {stepDriver === "web" && actType === "wait_for_url" && (
+                                <div className="grid grid-cols-2 gap-2 items-start">
+                                  <Input
+                                    size="xs"
+                                    label="URL Pattern / Substring"
+                                    value={act.url ?? (typeof act.value === "string" ? act.value : "")}
+                                    onChange={(e) =>
+                                      updateStepAction(selectedStepIdx, actIdx, {
+                                        url: e.target.value,
+                                        value: e.target.value,
+                                      })
+                                    }
+                                    placeholder="e.g. **/dashboard, /orders/**"
+                                    mono
+                                  />
+                                  <NumberInput
+                                    size="xs"
+                                    label="Timeout (ms)"
+                                    value={act.timeout_ms ?? 15000}
+                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { timeout_ms: val })}
+                                    min={500}
+                                    step={1000}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: Wait for Load State */}
+                              {stepDriver === "web" && actType === "wait_for_load_state" && (
+                                <div className="grid grid-cols-2 gap-2 items-start">
+                                  <Select
+                                    size="xs"
+                                    label="Load State Event"
+                                    value={typeof act.value === "string" ? act.value : "load"}
+                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { value: val })}
+                                    options={[
+                                      { value: "load", label: "load (Full Page Loaded)" },
+                                      { value: "domcontentloaded", label: "domcontentloaded (DOM Content Ready)" },
+                                      { value: "networkidle", label: "networkidle (No Network Requests for 500ms)" },
+                                    ]}
+                                  />
+                                  <NumberInput
+                                    size="xs"
+                                    label="Timeout (ms)"
+                                    value={act.timeout_ms ?? 15000}
+                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { timeout_ms: val })}
+                                    min={500}
+                                    step={1000}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Web: Set Viewport Size */}
+                              {stepDriver === "web" && actType === "set_viewport" && (
+                                <div className="grid grid-cols-2 gap-2 items-start">
+                                  <NumberInput
+                                    size="xs"
+                                    label="Viewport Width (px)"
+                                    value={act.width ?? 1280}
+                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { width: val })}
+                                    min={320}
+                                    max={3840}
+                                    step={40}
+                                  />
+                                  <NumberInput
+                                    size="xs"
+                                    label="Viewport Height (px)"
+                                    value={act.height ?? 720}
+                                    onChange={(val) => updateStepAction(selectedStepIdx, actIdx, { height: val })}
+                                    min={240}
+                                    max={2160}
+                                    step={40}
                                   />
                                 </div>
                               )}
