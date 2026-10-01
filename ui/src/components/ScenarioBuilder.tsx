@@ -79,6 +79,53 @@ const SHELL_ACTION_OPTIONS = [
   { value: "shell", label: "Run Shell Command" },
 ]
 
+const DRIVER_OPTIONS: Array<{
+  id: "web" | "mobile" | "http" | "shell"
+  title: string
+  subtitle: string
+  badgeVariant: BadgeVariant
+  badgeLabel: string
+  icon: React.ReactNode
+  iconBg: string
+}> = [
+  {
+    id: "web",
+    title: "Web Browser",
+    subtitle: "Automate browser interactions with Playwright (navigate, click, fill, assert)",
+    badgeVariant: "driver-web",
+    badgeLabel: "Web",
+    icon: <Globe className="w-4 h-4 text-token-type" />,
+    iconBg: "bg-success-bg/30 border-success-border/50",
+  },
+  {
+    id: "http",
+    title: "HTTP / REST API",
+    subtitle: "Execute API requests (GET, POST, PUT, DELETE) and validate status & response body",
+    badgeVariant: "driver-http",
+    badgeLabel: "API",
+    icon: <Code className="w-4 h-4 text-token-var" />,
+    iconBg: "bg-info-bg/30 border-info-border/50",
+  },
+  {
+    id: "shell",
+    title: "Shell Command",
+    subtitle: "Run terminal commands and shell scripts, verifying output and exit codes",
+    badgeVariant: "driver-shell",
+    badgeLabel: "Shell",
+    icon: <Terminal className="w-4 h-4 text-token-fn" />,
+    iconBg: "bg-warning-bg/30 border-warning-border/50",
+  },
+  {
+    id: "mobile",
+    title: "Mobile App",
+    subtitle: "Automate Android or iOS mobile applications with Appium touch events",
+    badgeVariant: "driver-mobile",
+    badgeLabel: "Mobile",
+    icon: <Smartphone className="w-4 h-4 text-token-comment" />,
+    iconBg: "bg-selection/20 border-selection/40",
+  },
+]
+
 export type ScenarioBuilderProps = {
   scenarios: ScenarioItem[]
   flows?: FlowItem[]
@@ -116,12 +163,25 @@ export function ScenarioBuilder({
   )
   const [showScenarioSettings, setShowScenarioSettings] = useState(false)
 
-  // Presets state
+  // Step addition & Presets state
   const [stepPresets, setStepPresets] = useState<StepPreset[]>([])
-  const [isPresetModalOpen, setIsPresetModalOpen] = useState(false)
+  const [isAddStepModalOpen, setIsAddStepModalOpen] = useState(false)
+  const [addStepModalTab, setAddStepModalTab] = useState<"drivers" | "presets">("drivers")
+  const [presetSearch, setPresetSearch] = useState("")
   const [isSavePresetModalOpen, setIsSavePresetModalOpen] = useState(false)
   const [newPresetName, setNewPresetName] = useState("")
   const [newPresetDesc, setNewPresetDesc] = useState("")
+
+  const filteredStepPresets = useMemo(() => {
+    if (!presetSearch.trim()) return stepPresets
+    const q = presetSearch.toLowerCase()
+    return stepPresets.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q) ||
+        p.target.toLowerCase().includes(q),
+    )
+  }, [stepPresets, presetSearch])
 
   // Form states
   const [isSaving, setIsSaving] = useState(false)
@@ -486,6 +546,9 @@ export function ScenarioBuilder({
     updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
     setSelectedStepIdx(newSteps.length - 1)
     setShowScenarioSettings(false)
+    setIsAddStepModalOpen(false)
+    setPresetSearch("")
+    toastSuccess(`Added ${capitalize(driverType)} step "${newStep.name}"`, "Step Added")
   }
 
   const deleteStep = (index: number) => {
@@ -537,7 +600,8 @@ export function ScenarioBuilder({
     const newRaw = { ...draftScenario.raw, steps: newSteps }
     updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
     setSelectedStepIdx(insertAt)
-    setIsPresetModalOpen(false)
+    setIsAddStepModalOpen(false)
+    setPresetSearch("")
     toastSuccess(`Added step "${clonedStep.name}" from preset`, "Preset Inserted")
   }
 
@@ -751,26 +815,46 @@ export function ScenarioBuilder({
               </div>
             </div>
 
-            {/* Insert Step from Preset Trigger */}
+            {/* Add Step Trigger */}
             <div className="p-2 border-b border-border bg-sidebar/50">
               <Button
                 type="button"
                 variant="secondary"
                 size="xs"
-                onClick={() => setIsPresetModalOpen(true)}
+                onClick={() => {
+                  setAddStepModalTab("drivers")
+                  setIsAddStepModalOpen(true)
+                }}
                 className="w-full justify-center gap-1.5"
-                icon={<Bookmark className="w-3.5 h-3.5 text-primary" />}
+                icon={<Plus className="w-3.5 h-3.5 text-primary" />}
               >
-                Insert Step from Preset
+                Add Step
               </Button>
             </div>
 
             {/* Stepper Steps List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5 flex flex-col">
               {draftScenario.steps.length === 0 ? (
-                <div className="p-6 text-center text-xs text-fg-muted space-y-1.5 my-auto">
-                  <p className="font-semibold text-fg-bright">No Steps in Scenario</p>
-                  <p>Add a step below or insert one from presets to build your workflow.</p>
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <EmptyState
+                    size="sm"
+                    icon={<Layers className="w-5 h-5 text-fg-muted" />}
+                    title="No Steps in Scenario"
+                    description="Add steps or insert pre-configured presets to build your automated workflow."
+                    action={
+                      <Button
+                        size="xs"
+                        variant="primary"
+                        onClick={() => {
+                          setAddStepModalTab("drivers")
+                          setIsAddStepModalOpen(true)
+                        }}
+                        icon={<Plus className="w-3.5 h-3.5" />}
+                      >
+                        Add Step
+                      </Button>
+                    }
+                  />
                 </div>
               ) : (
                 draftScenario.steps.map((st, idx) => {
@@ -859,46 +943,6 @@ export function ScenarioBuilder({
               })
             )}
           </div>
-
-            {/* Add Step Toolbar */}
-            <div className="p-2 border-t border-border bg-sidebar flex items-center gap-1.5">
-              <Button
-                size="xs"
-                variant="secondary"
-                className="flex-1"
-                onClick={() => addStep("web")}
-                icon={<Globe className="w-3.5 h-3.5 text-token-type" />}
-              >
-                + Web
-              </Button>
-              <Button
-                size="xs"
-                variant="secondary"
-                className="flex-1"
-                onClick={() => addStep("mobile")}
-                icon={<Smartphone className="w-3.5 h-3.5 text-token-string" />}
-              >
-                + Mobile
-              </Button>
-              <Button
-                size="xs"
-                variant="secondary"
-                className="flex-1"
-                onClick={() => addStep("http")}
-                icon={<Code className="w-3.5 h-3.5 text-token-var" />}
-              >
-                + API
-              </Button>
-              <Button
-                size="xs"
-                variant="secondary"
-                className="flex-1"
-                onClick={() => addStep("shell")}
-                icon={<Terminal className="w-3.5 h-3.5 text-token-fn" />}
-              >
-                + Shell
-              </Button>
-            </div>
           </section>
 
           {/* ========================================================================= */}
@@ -1527,10 +1571,25 @@ export function ScenarioBuilder({
               }
               description={
                 draftScenario.steps.length === 0
-                  ? "Add your first step using the buttons in the sequence column or insert a preset."
+                  ? "Add your first step using the Add Step button in the sequence column."
                   : "Click on any step from the sequence column to configure its actions, driver options, and assertions."
               }
               icon={<Layers className="w-6 h-6 text-fg-muted" />}
+              action={
+                draftScenario.steps.length === 0 ? (
+                  <Button
+                    size="xs"
+                    variant="primary"
+                    onClick={() => {
+                      setAddStepModalTab("drivers")
+                      setIsAddStepModalOpen(true)
+                    }}
+                    icon={<Plus className="w-3.5 h-3.5" />}
+                  >
+                    Add Step
+                  </Button>
+                ) : undefined
+              }
             />
           </div>
         )}
@@ -1599,64 +1658,178 @@ export function ScenarioBuilder({
   )}
 
       {/* ========================================================================= */}
-      {/* MODAL: INSERT STEP PRESET                                                 */}
+      {/* MODAL: ADD STEP (DRIVERS & PRESETS)                                       */}
       {/* ========================================================================= */}
       <Modal
-        isOpen={isPresetModalOpen}
-        onClose={() => setIsPresetModalOpen(false)}
-        title="Insert Reusable Step Preset"
-        description="Select a pre-configured step template to insert into your scenario"
+        isOpen={isAddStepModalOpen}
+        onClose={() => {
+          setIsAddStepModalOpen(false)
+          setPresetSearch("")
+        }}
+        title="Add Step"
+        description="Select an automation driver or choose from saved reusable presets"
         maxWidth="lg"
       >
-        <div className="space-y-3">
-          {stepPresets.length === 0 ? (
-            <div className="p-6 text-center text-xs text-fg-muted space-y-1">
-              <p className="font-semibold text-fg-bright">No Step Presets Saved Yet</p>
-              <p>Configure a step in any scenario and click "Save as Preset" to build reusable templates.</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {stepPresets.map((preset) => (
-                <div
-                  key={preset.id}
-                  className="p-3 rounded-xs border border-border bg-sidebar hover:border-primary/50 transition-colors flex items-center justify-between gap-3"
+        <div className="space-y-4">
+          {/* Segmented Tab Controls */}
+          <div className="flex items-center gap-1.5 border-b border-border pb-3">
+            <TabButton
+              variant="pills"
+              active={addStepModalTab === "drivers"}
+              onClick={() => setAddStepModalTab("drivers")}
+              icon={<Layers className="w-3.5 h-3.5" />}
+            >
+              Drivers
+            </TabButton>
+            <TabButton
+              variant="pills"
+              active={addStepModalTab === "presets"}
+              onClick={() => setAddStepModalTab("presets")}
+              icon={<Bookmark className="w-3.5 h-3.5" />}
+              badge={
+                <span
+                  className={`text-xs px-1.5 py-0.2 rounded-full font-mono ${
+                    addStepModalTab === "presets"
+                      ? "bg-white/20 text-white"
+                      : "bg-input text-fg-muted"
+                  }`}
                 >
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-fg-bright truncate">
-                        {preset.name}
-                      </span>
-                      <Badge variant={getTargetBadgeVariant(preset.target)} size="xs">
-                        {capitalize(preset.target)}
-                      </Badge>
-                      <Badge variant="neutral" size="xs">
-                        {preset.step.actions?.length ?? 1} {(preset.step.actions?.length ?? 1) === 1 ? "Action" : "Actions"}
-                      </Badge>
-                    </div>
-                    {preset.description && (
-                      <span className="text-xs text-fg-muted truncate">
-                        {preset.description}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button
-                      size="xs"
-                      variant="primary"
-                      onClick={() => insertStepPreset(preset)}
+                  {stepPresets.length}
+                </span>
+              }
+            >
+              Presets
+            </TabButton>
+          </div>
+
+          {/* TAB 1: DRIVERS */}
+          {addStepModalTab === "drivers" && (
+            <div className="h-[284px] space-y-2 overflow-y-auto pr-0.5">
+              {DRIVER_OPTIONS.map((driver) => (
+                <div
+                  key={driver.id}
+                  onClick={() => addStep(driver.id)}
+                  className="p-3 rounded-xs border border-border bg-sidebar hover:border-primary/60 hover:bg-hover/50 transition-all flex items-center justify-between gap-3 cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-xs border flex items-center justify-center shrink-0 ${driver.iconBg}`}
                     >
-                      Insert
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => handleDeletePreset(preset.id, preset.name)}
-                      title="Delete preset"
-                      icon={<Trash2 className="w-3.5 h-3.5 text-error" />}
-                    />
+                      {driver.icon}
+                    </div>
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-fg-bright group-hover:text-primary transition-colors">
+                          {driver.title}
+                        </span>
+                        <Badge variant={driver.badgeVariant} size="xs">
+                          {driver.badgeLabel}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-fg-muted truncate">
+                        {driver.subtitle}
+                      </span>
+                    </div>
                   </div>
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    className="group-hover:border-primary group-hover:text-primary shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      addStep(driver.id)
+                    }}
+                  >
+                    Add Step
+                  </Button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* TAB 2: PRESETS */}
+          {addStepModalTab === "presets" && (
+            <div className="h-[284px] flex flex-col space-y-3">
+              {stepPresets.length > 0 && (
+                <Input
+                  size="sm"
+                  icon={<Search className="w-3.5 h-3.5" />}
+                  placeholder="Search presets by name or description..."
+                  value={presetSearch}
+                  onChange={(e) => setPresetSearch(e.target.value)}
+                />
+              )}
+
+              {filteredStepPresets.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center p-4 text-center">
+                  <EmptyState
+                    size="sm"
+                    icon={<Bookmark className="w-5 h-5 text-fg-muted" />}
+                    title={
+                      stepPresets.length === 0
+                        ? "No Step Presets Saved Yet"
+                        : "No Matching Presets"
+                    }
+                    description={
+                      stepPresets.length === 0
+                        ? "Configure a step in any scenario and click \"Save as Preset\" to build reusable templates."
+                        : `No presets found matching "${presetSearch}".`
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 min-h-0 space-y-2 overflow-y-auto pr-1">
+                  {filteredStepPresets.map((preset) => (
+                    <div
+                      key={preset.id}
+                      className="p-3 rounded-xs border border-border bg-sidebar hover:border-primary/50 transition-colors flex items-center justify-between gap-3"
+                    >
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-fg-bright truncate">
+                            {preset.name}
+                          </span>
+                          <Badge
+                            variant={getTargetBadgeVariant(preset.target)}
+                            size="xs"
+                          >
+                            {capitalize(preset.target)}
+                          </Badge>
+                          <Badge variant="neutral" size="xs">
+                            {preset.step.actions?.length ?? 1}{" "}
+                            {(preset.step.actions?.length ?? 1) === 1
+                              ? "Action"
+                              : "Actions"}
+                          </Badge>
+                        </div>
+                        {preset.description && (
+                          <span className="text-xs text-fg-muted truncate">
+                            {preset.description}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="xs"
+                          variant="primary"
+                          onClick={() => insertStepPreset(preset)}
+                        >
+                          Insert
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={() =>
+                            handleDeletePreset(preset.id, preset.name)
+                          }
+                          title="Delete preset"
+                          icon={<Trash2 className="w-3.5 h-3.5 text-error" />}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
