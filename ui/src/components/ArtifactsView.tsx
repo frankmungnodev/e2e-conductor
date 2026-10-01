@@ -251,6 +251,7 @@ export function ArtifactsView() {
                       icon={<ImageIcon className="w-6 h-6" />}
                       title="No Screenshots Taken Yet"
                       description="When a test takes a picture or encounters an issue, screen snapshots will be saved here automatically."
+                      bordered
                     />
                   ) : (
                     <div>
@@ -335,6 +336,7 @@ export function ArtifactsView() {
                       icon={<ListChecks className="w-6 h-6" />}
                       title="No Step Run Records Available"
                       description="Detailed step execution telemetry will be displayed here for runs performed with the database enabled."
+                      bordered
                     />
                   ) : (
                     <Panel title={`Step Execution History (${runDetails.stepRuns.length})`} variant="editor">

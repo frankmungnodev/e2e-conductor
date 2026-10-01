@@ -681,39 +681,45 @@ export function ScenarioBuilder({
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {filteredScenarios.map((sc) => {
-            const isSelected = selectedScenarioId === sc.id
-            return (
-              <div
-                key={sc.id}
-                onClick={() => selectScenario(sc.id)}
-                className={`p-2.5 rounded-xs border transition cursor-pointer flex flex-col gap-1.5 ${
-                  isSelected
-                    ? "bg-primary/10 border-primary text-fg-bright font-medium"
-                    : "bg-sidebar border-transparent hover:bg-hover hover:border-border text-fg"
-                }`}
-              >
-                <span className="text-xs truncate font-medium leading-tight" title={sc.name}>
-                  {sc.name}
-                </span>
-                <div className="flex items-center justify-between gap-2 min-w-0">
-                  <span className="text-xs text-fg-muted font-mono truncate">{sc.id}</span>
-                  <Badge variant="neutral" size="xs">
-                    {sc.steps.length} {sc.steps.length === 1 ? "Step" : "Steps"}
-                  </Badge>
+          {filteredScenarios.length === 0 ? (
+            <div className="p-4 text-center text-xs text-fg-subtle">
+              {searchQuery ? `No matches for "${searchQuery}"` : "No scenarios yet"}
+            </div>
+          ) : (
+            filteredScenarios.map((sc) => {
+              const isSelected = selectedScenarioId === sc.id
+              return (
+                <div
+                  key={sc.id}
+                  onClick={() => selectScenario(sc.id)}
+                  className={`p-2.5 rounded-xs border transition cursor-pointer flex flex-col gap-1.5 ${
+                    isSelected
+                      ? "bg-primary/10 border-primary text-fg-bright font-medium"
+                      : "bg-sidebar border-transparent hover:bg-hover hover:border-border text-fg"
+                  }`}
+                >
+                  <span className="text-xs truncate font-medium leading-tight" title={sc.name}>
+                    {sc.name}
+                  </span>
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span className="text-xs text-fg-muted font-mono truncate">{sc.id}</span>
+                    <Badge variant="neutral" size="xs">
+                      {sc.steps.length} {sc.steps.length === 1 ? "Step" : "Steps"}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
       </section>
 
-      {/* ========================================================================= */}
-      {/* COLUMN 2: STEPPER SEQUENCE & SCENARIO OVERVIEW                            */}
-      {/* ========================================================================= */}
-      <section className="w-96 border-r border-border bg-titlebar flex flex-col shrink-0">
-        {draftScenario ? (
-          <>
+      {draftScenario ? (
+        <>
+          {/* ========================================================================= */}
+          {/* COLUMN 2: STEPPER SEQUENCE & SCENARIO OVERVIEW                            */}
+          {/* ========================================================================= */}
+          <section className="w-96 border-r border-border bg-titlebar flex flex-col shrink-0">
             <div className="p-3 border-b border-border bg-sidebar flex items-center justify-between gap-2">
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-xs font-semibold text-fg-bright line-clamp-2 leading-snug" title={draftScenario.name}>
@@ -893,22 +899,14 @@ export function ScenarioBuilder({
                 + Shell
               </Button>
             </div>
-          </>
-        ) : (
-          <EmptyState
-            title="No Scenario Selected"
-            description="Select a scenario from the left column or create a new one."
-            icon={<Layers className="w-8 h-8 text-fg-muted" />}
-          />
-        )}
-      </section>
+          </section>
 
-      {/* ========================================================================= */}
-      {/* COLUMN 3: STEP INSPECTOR & COMPOSITE ACTIONS                              */}
-      {/* ========================================================================= */}
-      <section className="flex-1 flex flex-col bg-sidebar overflow-hidden">
-        {draftScenario && selectedStep ? (
-          <>
+          {/* ========================================================================= */}
+          {/* COLUMN 3: STEP INSPECTOR & COMPOSITE ACTIONS                              */}
+          {/* ========================================================================= */}
+          <section className="flex-1 flex flex-col bg-sidebar overflow-hidden">
+            {selectedStep ? (
+              <>
             {/* Inspector Top Bar */}
             <div className="px-4 py-2.5 border-b border-border bg-titlebar flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1520,17 +1518,85 @@ export function ScenarioBuilder({
             </div>
           </>
         ) : (
-          <EmptyState
-            title={draftScenario && draftScenario.steps.length === 0 ? "No Steps to Inspect" : "Select a Step to Inspect"}
-            description={
-              draftScenario && draftScenario.steps.length === 0
-                ? "Add your first step using the buttons in the sequence column or insert a preset."
-                : "Click on any step from the center sequence column to configure its actions, driver options, and assertions."
-            }
-            icon={<Layers className="w-8 h-8 text-fg-muted" />}
-          />
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <EmptyState
+              title={
+                draftScenario.steps.length === 0
+                  ? "No Steps to Inspect"
+                  : "Select a Step to Inspect"
+              }
+              description={
+                draftScenario.steps.length === 0
+                  ? "Add your first step using the buttons in the sequence column or insert a preset."
+                  : "Click on any step from the sequence column to configure its actions, driver options, and assertions."
+              }
+              icon={<Layers className="w-6 h-6 text-fg-muted" />}
+            />
+          </div>
         )}
       </section>
+    </>
+  ) : (
+    /* ========================================================================= */
+    /* UNIFIED WORKSPACE: NO SCENARIO SELECTED                                   */
+    /* ========================================================================= */
+    <section className="flex-1 flex flex-col items-center justify-center bg-editor p-8 text-center">
+      {scenarios.length === 0 ? (
+        <EmptyState
+          size="lg"
+          icon={<FilePlus2 className="w-7 h-7 text-primary" />}
+          title="No Scenarios in Workspace"
+          description="Create end-to-end test scenarios to orchestrate automated steps across Web (Playwright), HTTP APIs, Shell commands, and Mobile devices."
+          action={
+            <div className="flex flex-col items-center gap-3">
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={createNewScenario}
+                isLoading={isSaving}
+                icon={<FilePlus2 className="w-3.5 h-3.5" />}
+              >
+                Create First Scenario
+              </Button>
+              <div className="flex items-center gap-2 text-xs text-fg-muted">
+                <span>Drivers:</span>
+                <Badge variant="driver-web" size="xs">
+                  Web
+                </Badge>
+                <Badge variant="driver-http" size="xs">
+                  API
+                </Badge>
+                <Badge variant="driver-shell" size="xs">
+                  Shell
+                </Badge>
+                <Badge variant="driver-mobile" size="xs">
+                  Mobile
+                </Badge>
+              </div>
+            </div>
+          }
+        />
+      ) : (
+        <EmptyState
+          size="lg"
+          icon={<Layers className="w-7 h-7 text-fg-muted" />}
+          title="No Scenario Selected"
+          description="Select a scenario from the sidebar on the left to inspect its sequence and configure steps, or create a new scenario."
+          action={
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={createNewScenario}
+              isLoading={isSaving}
+              icon={<FilePlus2 className="w-3.5 h-3.5 text-primary" />}
+            >
+              Create New Scenario
+            </Button>
+          }
+        />
+      )}
+    </section>
+  )}
 
       {/* ========================================================================= */}
       {/* MODAL: INSERT STEP PRESET                                                 */}
