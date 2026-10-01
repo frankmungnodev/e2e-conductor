@@ -22,6 +22,7 @@ import { deleteStepPreset, fetchStepPresets, saveStepPreset } from "../api.ts"
 import type { ConfigMeta, FlowItem, ScenarioItem, ScenarioStep, StepAction, StepPreset } from "../types.ts"
 import { Badge, type BadgeVariant } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
+import { useConfirmDialog } from "./ConfirmModal.tsx"
 import { EmptyState } from "./EmptyState.tsx"
 import {
   EnvVariablesEditor,
@@ -133,6 +134,7 @@ export function ScenarioBuilder({
   draftScenarioRef.current = draftScenario
 
   const { error: toastError, success: toastSuccess, info: toastInfo } = useToast()
+  const { confirm, ConfirmDialog } = useConfirmDialog()
 
   // Target options from config
   const configuredTargets = Object.keys(config?.targets ?? {})
@@ -566,28 +568,56 @@ export function ScenarioBuilder({
     }
   }
 
-  const handleDeletePreset = async (id: string, name: string) => {
-    try {
-      await deleteStepPreset(id)
-      await loadPresets()
-      toastInfo(`Deleted preset "${name}"`, "Preset Removed")
-    } catch (err) {
-      toastError((err as Error).message, "Failed to Delete Preset")
-    }
+  const handleDeletePreset = (id: string, name: string) => {
+    confirm({
+      title: "Delete Preset",
+      message: (
+        <span>
+          Are you sure you want to delete step preset{" "}
+          <strong className="text-fg-bright font-mono">"{name}"</strong>?
+        </span>
+      ),
+      confirmText: "Delete Preset",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteStepPreset(id)
+          await loadPresets()
+          toastInfo(`Deleted preset "${name}"`, "Preset Removed")
+        } catch (err) {
+          toastError((err as Error).message, "Failed to Delete Preset")
+        }
+      },
+    })
   }
 
-  const handleDeleteScenario = async () => {
+  const handleDeleteScenario = () => {
     if (!draftScenario) return
-    if (!confirm(`Are you sure you want to delete scenario "${draftScenario.id}"?`)) return
-    await onDeleteScenario(draftScenario.id)
-    toastSuccess(`Scenario "${draftScenario.id}" deleted`, "Deleted")
-    if (scenarios.length > 1) {
-      const other = scenarios.find((s) => s.id !== draftScenario.id)
-      if (other) selectScenario(other.id)
-    } else {
-      setDraftScenario(null)
-      setSelectedScenarioId(null)
-    }
+    const id = draftScenario.id
+    const name = draftScenario.name
+    confirm({
+      title: "Delete Scenario",
+      message: (
+        <span>
+          Are you sure you want to delete scenario{" "}
+          <strong className="text-fg-bright font-mono">"{name || id}"</strong>? This action cannot be undone.
+        </span>
+      ),
+      confirmText: "Delete Scenario",
+      variant: "danger",
+      onConfirm: async () => {
+        isDirtyRef.current = false
+        await onDeleteScenario(id)
+        toastSuccess(`Scenario "${id}" deleted`, "Deleted")
+        if (scenarios.length > 1) {
+          const other = scenarios.find((s) => s.id !== id)
+          if (other) selectScenario(other.id)
+        } else {
+          setDraftScenario(null)
+          setSelectedScenarioId(null)
+        }
+      },
+    })
   }
 
   const filteredScenarios = scenarios.filter(
@@ -1764,6 +1794,8 @@ export function ScenarioBuilder({
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog />
     </div>
   )
 }

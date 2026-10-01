@@ -36,6 +36,7 @@ import type {
 } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
+import { useConfirmDialog } from "./ConfirmModal.tsx"
 import { EnvironmentModal } from "./EnvironmentModal.tsx"
 import {
   EnvVariablesEditor,
@@ -102,6 +103,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
 
   const [isSwitchingEnv, setIsSwitchingEnv] = useState(false)
   const { error: toastError, success: toastSuccess } = useToast()
+  const { confirm, ConfirmDialog } = useConfirmDialog()
 
   // Environments resolution
   const environments: Record<string, EnvironmentMeta> =
@@ -227,39 +229,61 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
     }
   }
 
-  const handleDeleteEnvironment = async (name: string) => {
+  const handleDeleteEnvironment = (name: string) => {
     if (Object.keys(environments).length <= 1) {
       toastError("Cannot delete the only environment", "Action Restricted")
       return
     }
-    if (!confirm(`Are you sure you want to remove environment "${name}"?`)) return
-
-    try {
-      await deleteEnvironment(name)
-      toastSuccess(`Environment "${name}" removed`, "Environment Removed")
-      const remaining = Object.keys(environments).filter((n) => n !== name)
-      if (selectedEnvName === name && remaining.length > 0) {
-        setUrlEnv(remaining[0])
-      }
-      if (activeEnvName === name && remaining.length > 0) {
-        await setActiveEnvironment(remaining[0])
-      }
-      onConfigReload()
-    } catch (err) {
-      toastError((err as Error).message, "Failed to Delete Environment")
-    }
+    confirm({
+      title: "Remove Environment",
+      message: (
+        <span>
+          Are you sure you want to remove environment{" "}
+          <strong className="text-fg-bright font-mono">"{name}"</strong>? This will remove all associated overrides.
+        </span>
+      ),
+      confirmText: "Remove Environment",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteEnvironment(name)
+          toastSuccess(`Environment "${name}" removed`, "Environment Removed")
+          const remaining = Object.keys(environments).filter((n) => n !== name)
+          if (selectedEnvName === name && remaining.length > 0) {
+            setUrlEnv(remaining[0])
+          }
+          if (activeEnvName === name && remaining.length > 0) {
+            await setActiveEnvironment(remaining[0])
+          }
+          onConfigReload()
+        } catch (err) {
+          toastError((err as Error).message, "Failed to Delete Environment")
+        }
+      },
+    })
   }
 
-  const handleDeletePlatform = async (targetName: string) => {
-    if (!confirm(`Are you sure you want to remove platform "${targetName}"?`)) return
-
-    try {
-      await deletePlatform(targetName)
-      toastSuccess(`Platform "${targetName}" removed`, "Platform Removed")
-      onConfigReload()
-    } catch (err) {
-      toastError((err as Error).message, "Failed to Remove Platform")
-    }
+  const handleDeletePlatform = (targetName: string) => {
+    confirm({
+      title: "Remove Platform",
+      message: (
+        <span>
+          Are you sure you want to remove platform{" "}
+          <strong className="text-fg-bright font-mono">"{targetName}"</strong>?
+        </span>
+      ),
+      confirmText: "Remove Platform",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deletePlatform(targetName)
+          toastSuccess(`Platform "${targetName}" removed`, "Platform Removed")
+          onConfigReload()
+        } catch (err) {
+          toastError((err as Error).message, "Failed to Remove Platform")
+        }
+      },
+    })
   }
 
   const handleOpenAddFixture = () => {
@@ -309,15 +333,27 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
     }
   }
 
-  const handleDeleteFixture = async (name: string) => {
-    if (!confirm(`Are you sure you want to remove fixture "${name}"?`)) return
-    try {
-      await deleteFixture(name)
-      toastSuccess(`Fixture "${name}" removed`, "Fixture Removed")
-      onConfigReload()
-    } catch (err) {
-      toastError((err as Error).message, "Failed to Delete Fixture")
-    }
+  const handleDeleteFixture = (name: string) => {
+    confirm({
+      title: "Remove Fixture",
+      message: (
+        <span>
+          Are you sure you want to remove fixture{" "}
+          <strong className="text-fg-bright font-mono">"{name}"</strong>?
+        </span>
+      ),
+      confirmText: "Remove Fixture",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteFixture(name)
+          toastSuccess(`Fixture "${name}" removed`, "Fixture Removed")
+          onConfigReload()
+        } catch (err) {
+          toastError((err as Error).message, "Failed to Delete Fixture")
+        }
+      },
+    })
   }
 
   const handleTestRunFixture = async (name: string) => {
@@ -1435,6 +1471,8 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
           </div>
         </Modal>
       )}
+
+      <ConfirmDialog />
     </div>
   )
 }
