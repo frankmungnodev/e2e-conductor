@@ -29,6 +29,16 @@
 - **One concept per file**: Split code by domain concept (environments, platforms, scenarios, runs), not by layer. An agent working on one concept should only need to open that concept's files.
 - **~500-line budget**: Keep source files under about 500 lines. `pnpm run check:size` (part of `pnpm run check`) warns about files over the budget under `src/` and `ui/src/`. It never fails the check, but treat a warning as a prompt to split before adding more.
 - **UI smoke tests**: After changing anything under `ui/src/`, run `pnpm run test:ui`. It builds the UI and drives the main flows of each view in headless Chromium against a seeded temp project. It is not part of `pnpm run check`.
+- **Where things live**:
+  - `src/db/<concept>.ts`: SQLite access; the schema is in `src/db/connection.ts`.
+  - `src/server/routes/<resource>.ts`: HTTP endpoints; `src/server.ts` only starts the server and dispatches.
+  - `ui/src/views/<view>/`: one folder per screen, holding its parent component, child components, hooks, and helpers.
+  - `ui/src/components/`: shared primitives only (`Button`, `Modal`, `Select`, ...).
+- **Direct imports**: Import from the module that defines a symbol. Do not add index or re-export files.
+- **New endpoints**: Add a `{ match, handle }` entry to the resource's route module. Do not add routes in `src/server.ts`.
+- **Server state**: Read and assign `state.config`, `state.activeRun`, and the other `ServerState` fields directly in route handlers. Never copy them into locals, because config reloads and the background run task replace them while requests are in flight.
+- **UI logic**: Put a view's state and handlers in hooks, and its computations in pure helpers, inside the view's folder. Give each pure helper unit tests under `test/` so they run in `pnpm run check`.
+- **Smoke-test locators**: Find elements by role, label, or visible text, and find a dialog by its heading (`getByRole("dialog").filter({ has: heading })`). A closing dialog can still be on screen when the next one opens.
 
 ---
 
