@@ -14,11 +14,12 @@
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p ui/tsconfig.json",
     "check:boundary": "node scripts/check-boundary.mjs",
+    "check:size": "node scripts/check-size.mjs",
     "test": "node --import tsx --test \"test/*.test.ts\"",
     "build:ui": "vite build --config ui/vite.config.ts",
     "dev:ui": "vite --config ui/vite.config.ts",
     "lint": "biome lint",
-    "check": "pnpm run typecheck && pnpm run check:boundary && pnpm test"
+    "check": "pnpm run typecheck && pnpm run check:boundary && pnpm run check:size && pnpm test"
   },
   "dependencies": {
     "ajv": "^8.20.0",

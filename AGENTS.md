@@ -24,6 +24,13 @@
 
 ---
 
+## Code Organization
+
+- **One concept per file**: Split code by domain concept (environments, platforms, scenarios, runs), not by layer. An agent working on one concept should only need to open that concept's files.
+- **~500-line budget**: Keep source files under about 500 lines. `pnpm run check:size` (part of `pnpm run check`) warns about files over the budget under `src/` and `ui/src/`. It never fails the check, but treat a warning as a prompt to split before adding more.
+
+---
+
 ## UI & Component Conventions
 
 - **Respect `DESIGN.md`**: All UI and design conventions, component rules, layout hierarchy, forms, modals, and typography guidelines are documented in [DESIGN.md](DESIGN.md). When designing or implementing UI components, forms, views, or copy, always consult and strictly adhere to [DESIGN.md](DESIGN.md).
