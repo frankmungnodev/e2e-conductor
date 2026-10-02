@@ -7,7 +7,7 @@ A **Step Run** records the granular execution attempt, timing, status, and outco
 
 ## 1. Storage & Schema
 
-Run history and step-level telemetry are persisted in SQLite (`src/db.ts`):
+Run history and step-level telemetry are persisted in SQLite (`src/db/runs.ts`):
 
 ```sql
 CREATE TABLE IF NOT EXISTS runs (

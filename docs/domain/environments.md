@@ -6,7 +6,7 @@ An **Environment** represents a target deployment context (e.g. `dev`, `staging`
 
 ## 1. Storage & Schema
 
-Environments are persisted in SQLite (`src/db.ts`):
+Environments are persisted in SQLite (`src/db/environments.ts`):
 
 ```sql
 CREATE TABLE IF NOT EXISTS environments (

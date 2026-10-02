@@ -16,7 +16,7 @@ A **Platform** represents a testing surface configured in SQLite. At runtime, pl
 
 ## 2. Storage & Schema
 
-### Table: `platforms` (`src/db.ts`)
+### Table: `platforms` (`src/db/platforms.ts`)
 
 ```sql
 CREATE TABLE IF NOT EXISTS platforms (
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS platforms (
 
 ## 4. Multi-Environment Overrides (`env_platform`)
 
-The `env_platform` junction table provides per-environment overrides with **sparse field inheritance**:
+The `env_platform` junction table (`src/db/env-platforms.ts`) provides per-environment overrides with **sparse field inheritance**:
 
 ```sql
 CREATE TABLE IF NOT EXISTS env_platform (
@@ -105,7 +105,7 @@ Any null or undefined field in `env_platform` inherits directly from the base `p
 
 ## 5. Compilation Engine (`platformsToTargetsAndServices`)
 
-Implemented in `src/db.ts`:
+Implemented in `src/db/platforms.ts`:
 
 1. **Filter**: Skips any platform where `enabled === false`.
 2. **Web**: Emits `targets[name]` with driver `"web"` and `services[serviceName]` with dev URL.

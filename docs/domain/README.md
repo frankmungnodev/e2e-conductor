@@ -2,7 +2,7 @@
 
 This directory documents the core domain models and business rules of `e2e-orchestrator`.
 
-The orchestrator decouples **test declarations** (scenarios and steps) from **target infrastructure** (hostnames, devices, daemons) and records granular execution telemetry using core pillars stored in SQLite (`.e2e/e2e.db`, managed via `src/db.ts`):
+The orchestrator decouples **test declarations** (scenarios and steps) from **target infrastructure** (hostnames, devices, daemons) and records granular execution telemetry using core pillars stored in SQLite (`.e2e/e2e.db`, managed via the `src/db/` modules, one per entity, with the schema in `src/db/connection.ts`):
 
 | Domain Entity | Scope & Purpose | Persistence | Documentation |
 |---|---|---|---|
@@ -16,7 +16,7 @@ The orchestrator decouples **test declarations** (scenarios and steps) from **ta
 
 ## Relational Data Model
 
-All configuration and execution entities live in SQLite (`src/db.ts`). Relationships:
+All configuration and execution entities live in SQLite (`src/db/`, one module per entity; schema in `src/db/connection.ts`). Relationships:
 
 - `environments` (1) ── (N) `env_platform` (N) ── (1) `platforms`
   - `env_platform` acts as a junction table storing per-environment overrides (sparse inheritance).

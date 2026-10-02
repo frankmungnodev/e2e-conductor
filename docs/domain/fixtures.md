@@ -6,7 +6,7 @@ A **Fixture** is a deterministic pre-condition setup hook executed before scenar
 
 ## 1. Storage & Schema
 
-Shell fixtures are stored in SQLite (`src/db.ts`):
+Shell fixtures are stored in SQLite (`src/db/fixtures.ts`):
 
 ```sql
 CREATE TABLE IF NOT EXISTS fixtures (

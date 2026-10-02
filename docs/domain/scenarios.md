@@ -8,7 +8,7 @@ Scenarios define *what* to test across decoupled platform targets (e.g. `web`, `
 
 ## 1. Storage & Schema
 
-Scenarios and their steps are stored in SQLite (`src/db.ts`) with a 1-to-many relationship and cascading deletion:
+Scenarios and their steps are stored in SQLite (`src/db/scenarios.ts`; presets and step groups in `src/db/step-presets.ts` and `src/db/step-groups.ts`) with a 1-to-many relationship and cascading deletion:
 
 ```sql
 CREATE TABLE IF NOT EXISTS scenarios (
