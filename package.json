@@ -16,6 +16,7 @@
     "check:boundary": "node scripts/check-boundary.mjs",
     "check:size": "node scripts/check-size.mjs",
     "test": "node --import tsx --test \"test/*.test.ts\"",
+    "test:ui": "pnpm run build:ui && node --import tsx --test \"test/ui/*.test.ts\"",
     "build:ui": "vite build --config ui/vite.config.ts",
     "dev:ui": "vite --config ui/vite.config.ts",
     "lint": "biome lint",

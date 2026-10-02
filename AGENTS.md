@@ -28,6 +28,7 @@
 
 - **One concept per file**: Split code by domain concept (environments, platforms, scenarios, runs), not by layer. An agent working on one concept should only need to open that concept's files.
 - **~500-line budget**: Keep source files under about 500 lines. `pnpm run check:size` (part of `pnpm run check`) warns about files over the budget under `src/` and `ui/src/`. It never fails the check, but treat a warning as a prompt to split before adding more.
+- **UI smoke tests**: After changing anything under `ui/src/`, run `pnpm run test:ui`. It builds the UI and drives the main flows of each view in headless Chromium against a seeded temp project. It is not part of `pnpm run check`.
 
 ---
 
