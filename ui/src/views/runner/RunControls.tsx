@@ -20,7 +20,20 @@ export function RunControls({
   onStopRun,
   handleRun,
 }: RunControlsProps) {
-  const { repeat, setRepeat, startServices, setStartServices, installMobile, setInstallMobile, headless, setHeadless, verbose, setVerbose, showOptions, setShowOptions } = options
+  const {
+    repeat,
+    setRepeat,
+    startServices,
+    setStartServices,
+    installMobile,
+    setInstallMobile,
+    headless,
+    setHeadless,
+    verbose,
+    setVerbose,
+    showOptions,
+    setShowOptions,
+  } = options
   return (
     <div className="p-3 border-t border-border bg-titlebar flex flex-col gap-2.5">
       {/* Options Dropdown Accordion */}
