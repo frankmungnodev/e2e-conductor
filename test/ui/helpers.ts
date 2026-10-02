@@ -80,3 +80,15 @@ export async function startUiSession(prefix: string): Promise<UiSession> {
   const api = async <T = unknown>(path: string) => (await (await fetch(`${url}${path}`)).json()) as T
   return { url, page, projectDir, api }
 }
+
+/** Polls `read` until `check` passes, for state the UI saves asynchronously (auto-save, background runs). */
+export async function eventually<T>(read: () => Promise<T>, check: (value: T) => boolean, timeoutMs = 10000): Promise<T> {
+  const deadline = Date.now() + timeoutMs
+  let last = await read()
+  while (!check(last)) {
+    if (Date.now() > deadline) throw new Error(`Condition not met within ${timeoutMs}ms; last value: ${JSON.stringify(last)}`)
+    await new Promise((r) => setTimeout(r, 200))
+    last = await read()
+  }
+  return last
+}
