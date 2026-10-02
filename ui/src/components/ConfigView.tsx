@@ -35,6 +35,7 @@ import type {
   PlatformRecord,
   PlatformWithEnvOverrides,
 } from "../types.ts"
+import { PlatformModal } from "../views/config/platform-modal/PlatformModal.tsx"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
 import { useConfirmDialog } from "./ConfirmModal.tsx"
@@ -47,7 +48,6 @@ import {
 } from "./EnvVariablesEditor.tsx"
 import { FormField, Input } from "./FormControls.tsx"
 import { Modal } from "./Modal.tsx"
-import { PlatformModal } from "./PlatformModal.tsx"
 import { TabButton, useUrlTab } from "./Tabs.tsx"
 import { useToast } from "./Toast.tsx"
 
