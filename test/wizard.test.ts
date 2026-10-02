@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { loadConfig } from "../src/config.ts"
-import { openDatabase } from "../src/db.ts"
+import { openDatabase } from "../src/db/connection.ts"
 import {
   detectWorkspace,
   saveWizardComponentsToDb,

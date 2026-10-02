@@ -2,7 +2,11 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { stdin as input, stdout as output } from "node:process"
 import * as readline from "node:readline/promises"
-import { openDatabase, resolveDbPath, resolveProjectDir, saveEnvironment, savePlatform, saveScenario } from "./db.ts"
+import { openDatabase } from "./db/connection.ts"
+import { saveEnvironment } from "./db/environments.ts"
+import { resolveDbPath, resolveProjectDir } from "./db/paths.ts"
+import { savePlatform } from "./db/platforms.ts"
+import { saveScenario } from "./db/scenarios.ts"
 import { color } from "./logger.ts"
 import {
   detectWorkspace,

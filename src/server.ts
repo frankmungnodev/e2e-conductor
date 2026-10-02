@@ -4,45 +4,16 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net"
 import { extname, join, relative, resolve } from "node:path"
 import { type LoadedConfig, loadConfig, type MobileTarget, resolveFromConfig } from "./config.ts"
-import {
-  checkDbStatus,
-  deleteEnvironment as deleteDbEnvironment,
-  deleteEnvPlatform as deleteDbEnvPlatform,
-  deleteFixture as deleteDbFixture,
-  deletePlatform as deleteDbPlatform,
-  deleteScenario as deleteDbScenario,
-  deleteStepGroup as deleteDbStepGroup,
-  deleteStepPreset as deleteDbStepPreset,
-  type EnvPlatformRecord,
-  getActiveEnvironment as getDbActiveEnvironment,
-  getDefaultEnvironment as getDbDefaultEnvironment,
-  getEnvironments as getDbEnvironments,
-  getEnvPlatforms as getDbEnvPlatforms,
-  getFixtures as getDbFixtures,
-  getPlatforms as getDbPlatforms,
-  getPlatformsForEnv as getDbPlatformsForEnv,
-  getRun as getDbRun,
-  getRuns as getDbRuns,
-  getScenario as getDbScenario,
-  getStepGroups as getDbStepGroups,
-  getStepRuns as getDbStepRuns,
-  type PlatformRecord,
-  type PlatformWithEnvOverrides,
-  platformsToTargetsAndServices,
-  resolveDbPath,
-  type StepGroup,
-  type StepPreset,
-  saveEnvironment as saveDbEnvironment,
-  saveEnvPlatform as saveDbEnvPlatform,
-  saveFixture as saveDbFixture,
-  savePlatform as saveDbPlatform,
-  saveScenario as saveDbScenario,
-  saveStepGroup as saveDbStepGroup,
-  saveStepPreset as saveDbStepPreset,
-  setActiveEnvironment as setDbActiveEnvironment,
-  withDb,
-  writeDbPointer,
-} from "./db.ts"
+import { withDb } from "./db/connection.ts"
+import { deleteEnvPlatform as deleteDbEnvPlatform, type EnvPlatformRecord, getEnvPlatforms as getDbEnvPlatforms, getPlatformsForEnv as getDbPlatformsForEnv, type PlatformWithEnvOverrides, saveEnvPlatform as saveDbEnvPlatform } from "./db/env-platforms.ts"
+import { deleteEnvironment as deleteDbEnvironment, getActiveEnvironment as getDbActiveEnvironment, getDefaultEnvironment as getDbDefaultEnvironment, getEnvironments as getDbEnvironments, saveEnvironment as saveDbEnvironment, setActiveEnvironment as setDbActiveEnvironment } from "./db/environments.ts"
+import { deleteFixture as deleteDbFixture, getFixtures as getDbFixtures, saveFixture as saveDbFixture } from "./db/fixtures.ts"
+import { checkDbStatus, resolveDbPath, writeDbPointer } from "./db/paths.ts"
+import { deletePlatform as deleteDbPlatform, getPlatforms as getDbPlatforms, type PlatformRecord, platformsToTargetsAndServices, savePlatform as saveDbPlatform } from "./db/platforms.ts"
+import { getRun as getDbRun, getRuns as getDbRuns, getStepRuns as getDbStepRuns } from "./db/runs.ts"
+import { deleteScenario as deleteDbScenario, getScenario as getDbScenario, saveScenario as saveDbScenario } from "./db/scenarios.ts"
+import { deleteStepGroup as deleteDbStepGroup, getStepGroups as getDbStepGroups, type StepGroup, saveStepGroup as saveDbStepGroup } from "./db/step-groups.ts"
+import { deleteStepPreset as deleteDbStepPreset, type StepPreset, saveStepPreset as saveDbStepPreset } from "./db/step-presets.ts"
 import { checkFlowSource } from "./flow.ts"
 import { initProject } from "./init.ts"
 import { isUp, listAdbDevices, unfinishedGitOperation } from "./preflight.ts"

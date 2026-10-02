@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
-import { resolveProjectDir, saveEnvironment, savePlatform } from "./db.ts"
+import { saveEnvironment } from "./db/environments.ts"
+import { resolveProjectDir } from "./db/paths.ts"
+import { savePlatform } from "./db/platforms.ts"
 
 export type ComponentType = "api" | "web" | "android"
 

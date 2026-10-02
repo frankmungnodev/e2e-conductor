@@ -1,0 +1,202 @@
+import type { DatabaseSync } from "node:sqlite"
+import type { EnvironmentConfig, ServiceConfig } from "../config.ts"
+import { safeJsonParse } from "./connection.ts"
+import { getPlatformsForEnv } from "./env-platforms.ts"
+import { platformsToTargetsAndServices } from "./platforms.ts"
+
+export function getEnvironments(db: DatabaseSync): Record<string, EnvironmentConfig> {
+  const rows = db.prepare("SELECT * FROM environments ORDER BY name ASC").all() as Array<{
+    name: string
+    description?: string | null
+    url?: string | null
+    scenarios?: string | null
+    flows?: string | null
+    results?: string | null
+    env_vars?: string | null
+  }>
+
+  const environments: Record<string, EnvironmentConfig> = {}
+  for (const row of rows) {
+    const envObj = safeJsonParse<Record<string, string>>(row.env_vars)
+
+    // Attach services from env_platform overrides
+    let services: Record<string, ServiceConfig> | undefined
+    try {
+      const envPlatforms = getPlatformsForEnv(db, row.name)
+      const platRes = platformsToTargetsAndServices(envPlatforms)
+      if (Object.keys(platRes.services).length > 0) {
+        services = platRes.services
+      }
+    } catch {
+      // ignore
+    }
+
+    environments[row.name] = {
+      description: row.description || undefined,
+      url: row.url || undefined,
+      scenarios: row.scenarios || undefined,
+      flows: row.flows || undefined,
+      results: row.results || undefined,
+      env: envObj,
+      services,
+    }
+  }
+
+  return environments
+}
+
+export function saveEnvironment(
+  db: DatabaseSync,
+  name: string,
+  data: Partial<EnvironmentConfig>,
+  options?: { isDefault?: boolean; isActive?: boolean },
+): void {
+  const now = Date.now()
+  const envVars = data.env ? JSON.stringify(data.env) : null
+
+  const existing = db.prepare("SELECT is_default, is_active FROM environments WHERE name = ?").get(name) as
+    | { is_default: number; is_active: number }
+    | undefined
+
+  const countRow = db.prepare("SELECT COUNT(*) as cnt FROM environments").get() as { cnt: number } | undefined
+  const isFirst = (countRow?.cnt ?? 0) === 0
+
+  const isDefault = options?.isDefault !== undefined ? (options.isDefault ? 1 : 0) : existing?.is_default ?? (isFirst ? 1 : 0)
+  const isActive = options?.isActive !== undefined ? (options.isActive ? 1 : 0) : existing?.is_active ?? (isFirst ? 1 : 0)
+
+  if (isActive === 1) {
+    db.prepare("UPDATE environments SET is_active = 0").run()
+    db.prepare("INSERT INTO settings (key, value) VALUES ('active_environment', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(name)
+  }
+
+  if (isDefault === 1) {
+    db.prepare("UPDATE environments SET is_default = 0").run()
+    db.prepare("INSERT INTO settings (key, value) VALUES ('default_environment', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(name)
+  }
+
+  db.prepare(`
+    INSERT INTO environments (
+      name, description, url, scenarios, flows, results, env_vars, is_default, is_active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET
+      description = excluded.description,
+      url = excluded.url,
+      scenarios = excluded.scenarios,
+      flows = excluded.flows,
+      results = excluded.results,
+      env_vars = excluded.env_vars,
+      is_default = excluded.is_default,
+      is_active = excluded.is_active,
+      updated_at = excluded.updated_at
+  `).run(
+    name,
+    data.description || null,
+    data.url || null,
+    data.scenarios || null,
+    data.flows || null,
+    data.results || null,
+    envVars,
+    isDefault,
+    isActive,
+    now,
+    now,
+  )
+
+  // Seed env_platform links for all existing platforms
+  try {
+    const platRows = db.prepare("SELECT * FROM platforms").all() as Array<{
+      id: string
+      url?: string | null
+      health?: string | null
+      start_cmd?: string | null
+      cwd?: string | null
+      headless?: number | null
+      slow_mo?: number | null
+      app_id?: string | null
+      config_json?: string | null
+    }>
+
+    for (const p of platRows) {
+      const existingLink = db.prepare("SELECT 1 FROM env_platform WHERE env_name = ? AND platform_id = ?").get(name, p.id)
+      if (!existingLink) {
+        db.prepare(`
+          INSERT INTO env_platform (
+            env_name, platform_id, enabled, url, health, start_cmd, cwd, headless, slow_mo, app_id, config_json, created_at, updated_at
+          ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          name,
+          p.id,
+          p.url || null,
+          p.health || null,
+          p.start_cmd || null,
+          p.cwd || null,
+          p.headless ?? 0,
+          p.slow_mo ?? null,
+          p.app_id || null,
+          p.config_json || null,
+          now,
+          now,
+        )
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function deleteEnvironment(db: DatabaseSync, name: string): void {
+  db.prepare("DELETE FROM env_platform WHERE env_name = ?").run(name)
+  db.prepare("DELETE FROM environments WHERE name = ?").run(name)
+
+  const active = getActiveEnvironment(db)
+  if (active === name) {
+    const first = db.prepare("SELECT name FROM environments ORDER BY name ASC LIMIT 1").get() as { name: string } | undefined
+    if (first) {
+      setActiveEnvironment(db, first.name)
+    } else {
+      db.prepare("DELETE FROM settings WHERE key = 'active_environment'").run()
+    }
+  }
+
+  const def = getDefaultEnvironment(db)
+  if (def === name) {
+    const first = db.prepare("SELECT name FROM environments ORDER BY name ASC LIMIT 1").get() as { name: string } | undefined
+    if (first) {
+      setDefaultEnvironment(db, first.name)
+    } else {
+      db.prepare("DELETE FROM settings WHERE key = 'default_environment'").run()
+    }
+  }
+}
+
+export function getActiveEnvironment(db: DatabaseSync): string | undefined {
+  const setting = db.prepare("SELECT value FROM settings WHERE key = 'active_environment'").get() as { value: string } | undefined
+  if (setting?.value) return setting.value
+
+  const row = db.prepare("SELECT name FROM environments WHERE is_active = 1 LIMIT 1").get() as { name: string } | undefined
+  if (row?.name) return row.name
+
+  const first = db.prepare("SELECT name FROM environments ORDER BY name ASC LIMIT 1").get() as { name: string } | undefined
+  return first?.name
+}
+
+export function setActiveEnvironment(db: DatabaseSync, name: string): void {
+  db.prepare("UPDATE environments SET is_active = CASE WHEN name = ? THEN 1 ELSE 0 END").run(name)
+  db.prepare("INSERT INTO settings (key, value) VALUES ('active_environment', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(name)
+}
+
+export function getDefaultEnvironment(db: DatabaseSync): string | undefined {
+  const setting = db.prepare("SELECT value FROM settings WHERE key = 'default_environment'").get() as { value: string } | undefined
+  if (setting?.value) return setting.value
+
+  const row = db.prepare("SELECT name FROM environments WHERE is_default = 1 LIMIT 1").get() as { name: string } | undefined
+  if (row?.name) return row.name
+
+  const first = db.prepare("SELECT name FROM environments ORDER BY name ASC LIMIT 1").get() as { name: string } | undefined
+  return first?.name
+}
+
+export function setDefaultEnvironment(db: DatabaseSync, name: string): void {
+  db.prepare("UPDATE environments SET is_default = CASE WHEN name = ? THEN 1 ELSE 0 END").run(name)
+  db.prepare("INSERT INTO settings (key, value) VALUES ('default_environment', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(name)
+}

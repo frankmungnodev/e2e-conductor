@@ -2,49 +2,16 @@ import assert from "node:assert/strict"
 import { existsSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
 import { describe, it } from "node:test"
-import {
-  checkDbStatus,
-  deleteEnvironment,
-  deleteEnvPlatform,
-  deleteFixture,
-  deletePlatform,
-  deleteScenario,
-  deleteStepGroup,
-  deleteStepPreset,
-  getActiveEnvironment,
-  getDefaultEnvironment,
-  getEnvironments,
-  getEnvPlatforms,
-  getFixtures,
-  getPlatforms,
-  getPlatformsForEnv,
-  getRun,
-  getRuns,
-  getScenario,
-  getScenarios,
-  getStepGroup,
-  getStepGroups,
-  getStepPreset,
-  getStepPresets,
-  getStepRuns,
-  openDatabase,
-  type PlatformRecord,
-  platformsToTargetsAndServices,
-  resolveDbPath,
-  resolveProjectDir,
-  saveEnvironment,
-  saveEnvPlatform,
-  saveFixture,
-  savePlatform,
-  saveRun,
-  saveScenario,
-  saveStepGroup,
-  saveStepPreset,
-  saveStepRun,
-  setActiveEnvironment,
-  setDefaultEnvironment,
-  writeDbPointer,
-} from "../src/db.ts"
+import { openDatabase } from "../src/db/connection.ts"
+import { deleteEnvPlatform, getEnvPlatforms, getPlatformsForEnv, saveEnvPlatform } from "../src/db/env-platforms.ts"
+import { deleteEnvironment, getActiveEnvironment, getDefaultEnvironment, getEnvironments, saveEnvironment, setActiveEnvironment, setDefaultEnvironment } from "../src/db/environments.ts"
+import { deleteFixture, getFixtures, saveFixture } from "../src/db/fixtures.ts"
+import { checkDbStatus, resolveDbPath, resolveProjectDir, writeDbPointer } from "../src/db/paths.ts"
+import { deletePlatform, getPlatforms, type PlatformRecord, platformsToTargetsAndServices, savePlatform } from "../src/db/platforms.ts"
+import { getRun, getRuns, getStepRuns, saveRun, saveStepRun } from "../src/db/runs.ts"
+import { deleteScenario, getScenario, getScenarios, saveScenario } from "../src/db/scenarios.ts"
+import { deleteStepGroup, getStepGroup, getStepGroups, saveStepGroup } from "../src/db/step-groups.ts"
+import { deleteStepPreset, getStepPreset, getStepPresets, saveStepPreset } from "../src/db/step-presets.ts"
 import { tempDir } from "./temp-dir.ts"
 
 describe("sqlite db configuration storage", () => {

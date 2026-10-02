@@ -1,19 +1,12 @@
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import type { Page } from "playwright"
-import {
-  checkDbStatus,
-  getActiveEnvironment,
-  getDefaultEnvironment,
-  getEnvironments,
-  getFixtures,
-  getPlatforms,
-  getPlatformsForEnv,
-  openDatabase,
-  platformsToTargetsAndServices,
-  resolveDbPath,
-  resolveProjectDir,
-} from "./db.ts"
+import { openDatabase } from "./db/connection.ts"
+import { getPlatformsForEnv } from "./db/env-platforms.ts"
+import { getActiveEnvironment, getDefaultEnvironment, getEnvironments } from "./db/environments.ts"
+import { getFixtures } from "./db/fixtures.ts"
+import { checkDbStatus, resolveDbPath, resolveProjectDir } from "./db/paths.ts"
+import { getPlatforms, platformsToTargetsAndServices } from "./db/platforms.ts"
 
 /** A shell command. `cwd` is relative to the config file. */
 export type Command = { cwd?: string; cmd: string }

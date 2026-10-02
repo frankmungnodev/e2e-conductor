@@ -1,18 +1,10 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 import { type LoadedConfig, type MobileTarget, resolveFromConfig, SHELL_TARGET } from "./config.ts"
-import {
-  type Assert,
-  getScenarios,
-  getStepPresets,
-  resolveDbPath,
-  type Scenario,
-  type Step,
-  type StepPreset,
-  saveScenario,
-  saveStepPreset,
-  withDb,
-} from "./db.ts"
+import { withDb } from "./db/connection.ts"
+import { resolveDbPath } from "./db/paths.ts"
+import { type Assert, getScenarios, type Scenario, type Step, saveScenario } from "./db/scenarios.ts"
+import { getStepPresets, type StepPreset, saveStepPreset } from "./db/step-presets.ts"
 import { checkFlow } from "./flow.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 

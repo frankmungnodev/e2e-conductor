@@ -2,7 +2,10 @@ import assert from "node:assert/strict"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import { loadConfig, resolveFromConfig } from "../src/config.ts"
-import { openDatabase, saveEnvironment, saveEnvPlatform, savePlatform } from "../src/db.ts"
+import { openDatabase } from "../src/db/connection.ts"
+import { saveEnvPlatform } from "../src/db/env-platforms.ts"
+import { saveEnvironment } from "../src/db/environments.ts"
+import { savePlatform } from "../src/db/platforms.ts"
 import { tempDir } from "./temp-dir.ts"
 
 const dir = tempDir("config")
