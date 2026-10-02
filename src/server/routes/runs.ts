@@ -1,0 +1,314 @@
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
+import { extname, join } from "node:path"
+import { loadConfig, resolveFromConfig } from "../../config.ts"
+import { withDb } from "../../db/connection.ts"
+import { resolveDbPath } from "../../db/paths.ts"
+import { getRun, getRuns, getStepRuns } from "../../db/runs.ts"
+import { type RunOptions, run, type Summary } from "../../runner.ts"
+import { readBody, sendJson } from "../http.ts"
+import type { Route } from "../route.ts"
+
+export const runRoutes: Route[] = [
+  // SSE events stream
+  {
+    match: ({ req, pathname }) => pathname === "/api/events" && req.method === "GET",
+    handle: async ({ state, req, res }) => {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+      })
+      res.write(`data: ${JSON.stringify({ type: "connected", active: Boolean(state.activeRun) })}\n\n`)
+      if (state.lastEvent) {
+        res.write(`data: ${JSON.stringify(state.lastEvent)}\n\n`)
+      }
+      state.sseClients.add(res)
+      req.on("close", () => {
+        state.sseClients.delete(res)
+      })
+      return
+    },
+  },
+  // POST /api/run
+  {
+    match: ({ req, pathname }) => pathname === "/api/run" && req.method === "POST",
+    handle: async ({ state, req, res }) => {
+      if (state.activeRun) {
+        return sendJson(res, 409, { error: "A test run is already in progress", runId: state.activeRun.runId })
+      }
+      const body = (await readBody(req)) as {
+        scenarios?: string[]
+        repeat?: number
+        start?: boolean
+        install?: boolean
+        headless?: boolean
+        verbose?: boolean
+        environment?: string
+      }
+      if (body.headless) process.env.E2E_HEADLESS = "1"
+      if (body.verbose) process.env.E2E_VERBOSE = "1"
+
+      const controller = new AbortController()
+      const runOptions: RunOptions = {
+        scenarios: body.scenarios ?? [],
+        repeat: Math.max(1, body.repeat ?? 1),
+        start: Boolean(body.start),
+        install: Boolean(body.install),
+        checkOnly: false,
+        signal: controller.signal,
+        onEvent: (event) => state.broadcast(event),
+      }
+
+      const runId = new Date().toISOString().replace(/[:.]/g, "-")
+      state.activeRun = {
+        runId,
+        options: runOptions,
+        startedAt: Date.now(),
+        controller,
+      }
+
+      // Launch run asynchronously
+      void (async () => {
+        try {
+          let runConfig = state.config
+          if (body.environment) {
+            try {
+              runConfig = await loadConfig(state.config.configDir, body.environment)
+            } catch {
+              // Fall back to state.config if loading fails
+            }
+          }
+          const summary = await run(runConfig, runOptions)
+          state.lastSummary = summary
+        } catch (err) {
+          const errorMsg = (err as Error).message
+          state.broadcast({
+            type: "log",
+            text: `Run error: ${errorMsg}`,
+            level: "info",
+          })
+          state.broadcast({
+            type: "finish",
+            summary: {
+              status: "FAILED",
+              total: Math.max(1, (runOptions.scenarios?.length || 1) * (runOptions.repeat || 1)),
+              passed: 0,
+              failed: Math.max(1, (runOptions.scenarios?.length || 1) * (runOptions.repeat || 1)),
+              duration_ms: Date.now() - (state.activeRun?.startedAt ?? Date.now()),
+              failures: [{ scenario: "run", iteration: 1, step: "init", error: errorMsg }],
+              artifacts: "",
+            },
+          })
+        } finally {
+          state.activeRun = null
+        }
+      })()
+
+      return sendJson(res, 200, { ok: true, runId })
+    },
+  },
+  // POST /api/run/stop
+  {
+    match: ({ req, pathname }) => pathname === "/api/run/stop" && req.method === "POST",
+    handle: async ({ state, res }) => {
+      if (!state.activeRun) {
+        return sendJson(res, 400, { error: "No active run to stop" })
+      }
+      state.activeRun.controller.abort()
+      return sendJson(res, 200, { ok: true, message: "Run cancellation requested" })
+    },
+  },
+  // GET /api/run/status
+  {
+    match: ({ req, pathname }) => pathname === "/api/run/status" && req.method === "GET",
+    handle: async ({ state, res }) => {
+      return sendJson(res, 200, {
+        isRunning: Boolean(state.activeRun),
+        currentRun: state.activeRun
+          ? {
+              runId: state.activeRun.runId,
+              startedAt: state.activeRun.startedAt,
+              duration_ms: Date.now() - state.activeRun.startedAt,
+              options: {
+                scenarios: state.activeRun.options.scenarios,
+                repeat: state.activeRun.options.repeat,
+              },
+            }
+          : null,
+        lastSummary: state.lastSummary,
+      })
+    },
+  },
+  // GET /api/runs
+  {
+    match: ({ req, pathname }) => pathname === "/api/runs" && req.method === "GET",
+    handle: async ({ state, res }) => {
+      const resultsDir = resolveFromConfig(state.config, state.config.results)
+      const artifactsDir = join(resultsDir, "artifacts")
+      const runsMap = new Map<
+        string,
+        {
+          runId: string
+          timestamp: number
+          scenarios: string[]
+          status?: string
+          environmentName?: string
+          totalScenarios?: number
+          passedScenarios?: number
+          failedScenarios?: number
+          durationMs?: number
+        }
+      >()
+
+      const dbPath = resolveDbPath(state.config.configDir)
+      if (existsSync(dbPath)) {
+        try {
+          withDb(dbPath, (db) => {
+            const dbRuns = getRuns(db, 100)
+            for (const r of dbRuns) {
+              runsMap.set(r.id, {
+                runId: r.id,
+                timestamp: r.startedAt,
+                status: r.status,
+                environmentName: r.environmentName,
+                totalScenarios: r.totalScenarios,
+                passedScenarios: r.passedScenarios,
+                failedScenarios: r.failedScenarios,
+                durationMs: r.durationMs,
+                scenarios: [],
+              })
+            }
+          })
+        } catch {
+          // ignore
+        }
+      }
+
+      if (existsSync(artifactsDir)) {
+        const entries = readdirSync(artifactsDir).filter((e) => statSync(join(artifactsDir, e)).isDirectory())
+        for (const entry of entries) {
+          const dir = join(artifactsDir, entry)
+          const scenarioFolders = readdirSync(dir).filter((f) => statSync(join(dir, f)).isDirectory())
+          const stat = statSync(dir)
+          const existing = runsMap.get(entry)
+          if (existing) {
+            existing.scenarios = scenarioFolders
+          } else {
+            runsMap.set(entry, {
+              runId: entry,
+              timestamp: stat.mtimeMs,
+              scenarios: scenarioFolders,
+            })
+          }
+        }
+      }
+
+      const runs = Array.from(runsMap.values()).sort((a, b) => b.timestamp - a.timestamp)
+
+      const latestSummaryPath = join(resultsDir, "summary.json")
+      let latestSummary: Summary | undefined
+      if (existsSync(latestSummaryPath)) {
+        try {
+          latestSummary = JSON.parse(readFileSync(latestSummaryPath, "utf8"))
+        } catch {
+          // ignore
+        }
+      }
+
+      return sendJson(res, 200, { runs, latestSummary })
+    },
+  },
+  // GET /api/runs/:runId
+  {
+    match: ({ req, pathname }) => pathname.startsWith("/api/runs/") && req.method === "GET",
+    handle: async ({ state, res, pathname }) => {
+      const runId = pathname.replace("/api/runs/", "").trim()
+      const dbPath = resolveDbPath(state.config.configDir)
+      let dbRun: ReturnType<typeof getRun> | undefined
+      if (existsSync(dbPath)) {
+        try {
+          dbRun = withDb(dbPath, (db) => getRun(db, runId))
+        } catch {
+          // ignore
+        }
+      }
+
+      const resultsDir = resolveFromConfig(state.config, state.config.results)
+      const runDir = join(resultsDir, "artifacts", runId)
+      const scenarioArtifacts: Record<string, Array<{ name: string; url: string; isImage: boolean }>> = {}
+
+      if (existsSync(runDir)) {
+        const scenariosList = readdirSync(runDir).filter((e) => statSync(join(runDir, e)).isDirectory())
+        for (const s of scenariosList) {
+          const sDir = join(runDir, s)
+          const files = readdirSync(sDir).filter((f) => statSync(join(sDir, f)).isFile())
+          scenarioArtifacts[s] = files.map((f) => ({
+            name: f,
+            url: `/api/artifacts/${runId}/${s}/${f}`,
+            isImage: [".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(extname(f).toLowerCase()),
+          }))
+        }
+      } else if (!dbRun) {
+        return sendJson(res, 404, { error: `Run ${runId} not found` })
+      }
+
+      const runLogPath = join(resultsDir, "run.log")
+      let runLog = ""
+      if (existsSync(runLogPath)) {
+        runLog = readFileSync(runLogPath, "utf8")
+      }
+
+      return sendJson(res, 200, {
+        runId,
+        status: dbRun?.status,
+        environmentName: dbRun?.environmentName,
+        durationMs: dbRun?.durationMs,
+        totalScenarios: dbRun?.totalScenarios,
+        passedScenarios: dbRun?.passedScenarios,
+        failedScenarios: dbRun?.failedScenarios,
+        stepRuns: dbRun?.stepRuns ?? [],
+        scenarios: scenarioArtifacts,
+        runLog,
+      })
+    },
+  },
+  // GET /api/step-runs
+  {
+    match: ({ req, pathname }) => pathname === "/api/step-runs" && req.method === "GET",
+    handle: async ({ state, req, res }) => {
+      const urlObj = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`)
+      const scenarioId = urlObj.searchParams.get("scenarioId") || undefined
+      const stepId = urlObj.searchParams.get("stepId") || undefined
+      const runId = urlObj.searchParams.get("runId") || undefined
+      const limit = urlObj.searchParams.has("limit") ? Number(urlObj.searchParams.get("limit")) : 200
+      const dbPath = resolveDbPath(state.config.configDir)
+      if (existsSync(dbPath)) {
+        try {
+          const stepRuns = withDb(dbPath, (db) => getStepRuns(db, { scenarioId, stepId, runId, limit }))
+          return sendJson(res, 200, stepRuns)
+        } catch (e) {
+          return sendJson(res, 500, { error: (e as Error).message })
+        }
+      }
+      return sendJson(res, 200, [])
+    },
+  },
+  // GET /api/steps/:stepId/runs
+  {
+    match: ({ req, pathname }) => pathname.startsWith("/api/steps/") && pathname.endsWith("/runs") && req.method === "GET",
+    handle: async ({ state, res, pathname }) => {
+      const stepId = decodeURIComponent(pathname.replace("/api/steps/", "").replace("/runs", ""))
+      const dbPath = resolveDbPath(state.config.configDir)
+      if (existsSync(dbPath)) {
+        try {
+          const stepRuns = withDb(dbPath, (db) => getStepRuns(db, { stepId, limit: 100 }))
+          return sendJson(res, 200, stepRuns)
+        } catch (e) {
+          return sendJson(res, 500, { error: (e as Error).message })
+        }
+      }
+      return sendJson(res, 200, [])
+    },
+  },
+]
