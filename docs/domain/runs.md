@@ -94,7 +94,7 @@ The orchestrator provides unified access to both database-backed telemetry and f
 
 In the Web GUI:
 
-- **Scenarios Studio View (`ScenarioBuilder.tsx`)**:
+- **Scenarios Studio View (`ui/src/views/scenario-builder/`)**:
   - **Explorer Column**: Scenarios list with step count, validation status, and recent health indicators.
   - **Steps Stepper Column**: Compact step sequence showing step index, target driver badge, and latest run outcome pill (`Passed`, `Failed`, `Running`, or `Idle`) with execution timing.
   - **Step Inspector Column**: Deep inspection tabs including **Step Runs & Telemetry** (chronological attempts, status code, duration, and error trace diagnostics), **Configuration** (driver properties, assertions, extractions, timeouts, and retries), and **Raw JSON**.
