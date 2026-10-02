@@ -288,4 +288,38 @@ describe("startServer", () => {
       await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
     }
   })
+
+  it("keeps config and run state separate for two servers in one process", async () => {
+    const configA = mockProject()
+    const configB = mockProject()
+    configB.services = { backend: { url: "http://localhost:6000", health: "/health" } }
+    const a = await startServer(configA, { port: 0, host: "127.0.0.1", open: false })
+    const b = await startServer(configB, { port: 0, host: "127.0.0.1", open: false })
+
+    try {
+      const cfgA = (await (await fetch(`${a.url}/api/config`)).json()) as any
+      const cfgB = (await (await fetch(`${b.url}/api/config`)).json()) as any
+      assert.equal(cfgA.services.backend.url, "http://localhost:5000")
+      assert.equal(cfgB.services.backend.url, "http://localhost:6000")
+
+      // Switching the active environment replaces the config on server A only,
+      // and later requests to A see the replacement.
+      const switchRes = await fetch(`${a.url}/api/config/environment/active`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ environment: "staging" }),
+      })
+      assert.equal(switchRes.status, 200)
+      const afterA = (await (await fetch(`${a.url}/api/config`)).json()) as any
+      const afterB = (await (await fetch(`${b.url}/api/config`)).json()) as any
+      assert.equal(afterA.activeEnvironment, "staging")
+      assert.notEqual(afterB.activeEnvironment, "staging")
+
+      const statusB = (await (await fetch(`${b.url}/api/run/status`)).json()) as any
+      assert.equal(statusB.isRunning, false)
+    } finally {
+      await new Promise<void>((resolveClose) => a.server.close(() => resolveClose()))
+      await new Promise<void>((resolveClose) => b.server.close(() => resolveClose()))
+    }
+  })
 })
