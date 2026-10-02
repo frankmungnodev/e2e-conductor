@@ -19,11 +19,11 @@ import { ConfigView } from "./components/ConfigView.tsx"
 import { EnvironmentModal } from "./components/EnvironmentModal.tsx"
 import { Header, type TabType } from "./components/Header.tsx"
 import { PreflightView } from "./components/PreflightView.tsx"
-import { RunnerView } from "./components/RunnerView.tsx"
 import { ScenarioBuilder } from "./components/ScenarioBuilder.tsx"
 import { useUrlTab } from "./components/Tabs.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
+import { RunnerView } from "./views/runner/RunnerView.tsx"
 
 const VALID_MAIN_TABS = ["scenarios", "runner", "artifacts", "preflight", "config"] as const
 
