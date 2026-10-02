@@ -15,6 +15,7 @@ import {
   saveEnvPlatform,
   savePlatform,
 } from "../api.ts"
+import { capitalize } from "../format.ts"
 import type {
   ConfigMeta,
   DetectedService,
@@ -100,7 +101,7 @@ export function PlatformModal({
 }: PlatformModalProps) {
   const isOverride = Boolean(overridePlatform && targetEnv)
   const capitalizedEnv = targetEnv
-    ? targetEnv.charAt(0).toUpperCase() + targetEnv.slice(1)
+    ? capitalize(targetEnv)
     : ""
   const pivot = allEnvPlatforms?.find(
     (ep) => ep.envName === targetEnv && ep.platformId === overridePlatform?.id,

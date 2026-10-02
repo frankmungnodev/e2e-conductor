@@ -27,6 +27,7 @@ import {
   saveFixture,
   setActiveEnvironment,
 } from "../api.ts"
+import { capitalize } from "../format.ts"
 import type {
   ConfigMeta,
   EnvironmentMeta,
@@ -201,7 +202,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
         enabled: !currentEnabled,
       })
       const statusTitle = !currentEnabled ? "Enabled" : "Disabled"
-      const envTitle = selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)
+      const envTitle = capitalize(selectedEnvName)
       toastSuccess(
         `Platform "${platformName}" ${statusTitle} in ${envTitle}`,
         "Platform Status Updated",
@@ -219,7 +220,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
     try {
       await setActiveEnvironment(envName)
       setUrlEnv(envName)
-      const capitalized = envName.charAt(0).toUpperCase() + envName.slice(1)
+      const capitalized = capitalize(envName)
       toastSuccess(`Switched active target to ${capitalized}`, "Environment Switched")
       onConfigReload()
     } catch (err) {
@@ -596,7 +597,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                   const isActive = envName === activeEnvName
                   const isDefault = envName === config?.defaultEnvironment
                   const data = environments[envName]
-                  const capitalized = envName.charAt(0).toUpperCase() + envName.slice(1)
+                  const capitalized = capitalize(envName)
 
                   return (
                     <button
@@ -645,7 +646,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-base font-bold text-fg-bright">
-                      {selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)} Profile
+                      {capitalize(selectedEnvName)} Profile
                     </h2>
                     {selectedEnvName === activeEnvName ? (
                       <Badge variant="success" size="xs">
@@ -707,7 +708,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                         Profile Configuration
                       </h3>
                       <p className="text-xs text-fg-muted">
-                        Directories and environment variables for the {selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)} profile.
+                        Directories and environment variables for the {capitalize(selectedEnvName)} profile.
                       </p>
                     </div>
                   </div>
@@ -824,7 +825,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                   {envKeys.map((envName) => {
                     const isSelected = envName === selectedEnvName
                     const isActive = envName === activeEnvName
-                    const capitalized = envName.charAt(0).toUpperCase() + envName.slice(1)
+                    const capitalized = capitalize(envName)
                     return (
                       <TabButton
                         key={envName}
@@ -849,7 +850,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
               <div className="flex items-center gap-2 text-xs text-fg-muted">
                 <span>Selected Environment:</span>
                 <span className="font-mono text-fg-bright font-bold">
-                  {selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)}
+                  {capitalize(selectedEnvName)}
                 </span>
                 {selectedEnvName === activeEnvName ? (
                   <Badge variant="success" size="xs">
@@ -898,7 +899,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
 
                   const isPlatEnabled = plat.enabled
                   const selectedEnvCapitalized =
-                    selectedEnvName.charAt(0).toUpperCase() + selectedEnvName.slice(1)
+                    capitalize(selectedEnvName)
 
                   return (
                     <div
@@ -1082,7 +1083,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                               (ep) => ep.envName === eName && ep.platformId === plat.id,
                             )
                             const isEnvPlatEnabled = pivot ? pivot.enabled : true
-                            const capitalized = eName.charAt(0).toUpperCase() + eName.slice(1)
+                            const capitalized = capitalize(eName)
                             return (
                               <button
                                 type="button"
@@ -1270,7 +1271,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
                   Active Profile
                 </span>
                 <span className="text-base font-bold text-primary">
-                  {activeEnvName.charAt(0).toUpperCase() + activeEnvName.slice(1)}
+                  {capitalize(activeEnvName)}
                 </span>
                 <p className="text-xs text-fg-muted mt-1">Current target for CLI & scenario runs</p>
               </div>

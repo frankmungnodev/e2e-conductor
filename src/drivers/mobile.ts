@@ -10,7 +10,6 @@ import type { Driver, StepResult, StepRun } from "./types.ts"
 export class MobileDriver implements Driver {
   constructor(
     private readonly target: MobileTarget,
-    _flowsDir: string,
     private readonly device: string,
     private readonly adb: string,
   ) {}
@@ -67,13 +66,17 @@ export class MobileDriver implements Driver {
   ): Promise<Record<string, unknown>> {
     const action = (step.action ?? "").toLowerCase()
     log(`mobile action: ${action}`)
+    const selectorOrValue = step.selector ?? (typeof step.value === "string" ? step.value : undefined)
+    const requireTarget = (name: string): string => {
+      if (!selectorOrValue) throw new Error(`mobile '${name}' action requires a selector or value`)
+      return selectorOrValue
+    }
 
     switch (action) {
       case "tap":
       case "tapon":
       case "click": {
-        const target = step.selector ?? (typeof step.value === "string" ? step.value : undefined)
-        if (!target) throw new Error("mobile 'tap' action requires a selector or value")
+        const target = requireTarget("tap")
         await runner.runCommands([{ tapOn: target }], appId)
         return { tapped: target }
       }
@@ -112,15 +115,13 @@ export class MobileDriver implements Driver {
       }
       case "assert_visible":
       case "assertvisible": {
-        const target = step.selector ?? (typeof step.value === "string" ? step.value : undefined)
-        if (!target) throw new Error("mobile 'assert_visible' action requires a selector or value")
+        const target = requireTarget("assert_visible")
         await runner.runCommands([{ assertVisible: target }], appId)
         return { visible: target }
       }
       case "assert_not_visible":
       case "assertnotvisible": {
-        const target = step.selector ?? (typeof step.value === "string" ? step.value : undefined)
-        if (!target) throw new Error("mobile 'assert_not_visible' action requires a selector or value")
+        const target = requireTarget("assert_not_visible")
         await runner.runCommands([{ assertNotVisible: target }], appId)
         return { notVisible: target }
       }
@@ -135,7 +136,7 @@ export class MobileDriver implements Driver {
         return { waited: true }
       }
       case "swipe": {
-        const from = step.selector ?? (typeof step.value === "string" ? step.value : undefined)
+        const from = selectorOrValue
         const direction = (step.key ?? "RIGHT").toUpperCase()
         await runner.runCommands([{ swipe: { from, direction } }], appId)
         return { swiped: direction }

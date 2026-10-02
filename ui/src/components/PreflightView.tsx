@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { useState } from "react"
+import { capitalize } from "../format.ts"
 import type { ConfigMeta, PreflightData } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
@@ -260,7 +261,7 @@ export function PreflightView({
                     </div>
 
                     <Badge size="xs" variant={dev.state === "device" ? "success" : "warning"}>
-                      {dev.state === "device" ? "Connected" : dev.state.charAt(0).toUpperCase() + dev.state.slice(1)}
+                      {dev.state === "device" ? "Connected" : capitalize(dev.state)}
                     </Badge>
                   </div>
                 ))}
@@ -313,7 +314,7 @@ export function PreflightView({
                     <td className="p-2.5 pl-3 font-semibold text-info">{name}</td>
                     <td className="p-2.5">
                       <Badge size="xs" variant={badgeVariant}>
-                        {t.driver.charAt(0).toUpperCase() + t.driver.slice(1)}
+                        {capitalize(t.driver)}
                       </Badge>
                     </td>
                     <td className="p-2.5 text-fg-muted font-sans text-xs">

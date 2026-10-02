@@ -477,12 +477,11 @@ export function checkDbStatus(configDir: string): DbStatus {
   }
 
   try {
-    const db = openDatabase(dbPath)
-    const envCountRow = db.prepare("SELECT COUNT(*) as cnt FROM environments").get() as { cnt: number } | undefined
-    const platCountRow = db.prepare("SELECT COUNT(*) as cnt FROM platforms").get() as { cnt: number } | undefined
-    const envCount = Number(envCountRow?.cnt ?? 0)
-    const platCount = Number(platCountRow?.cnt ?? 0)
-    db.close()
+    const { envCount, platCount } = withDb(dbPath, (db) => {
+      const envCountRow = db.prepare("SELECT COUNT(*) as cnt FROM environments").get() as { cnt: number } | undefined
+      const platCountRow = db.prepare("SELECT COUNT(*) as cnt FROM platforms").get() as { cnt: number } | undefined
+      return { envCount: Number(envCountRow?.cnt ?? 0), platCount: Number(platCountRow?.cnt ?? 0) }
+    })
 
     return {
       dbExists: true,
@@ -1345,22 +1344,7 @@ type StepGroupRow = {
   updated_at?: number | null
 }
 
-export function getStepGroups(db: DatabaseSync): StepGroup[] {
-  const rows = db.prepare("SELECT * FROM step_groups ORDER BY name ASC").all() as StepGroupRow[]
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description ?? undefined,
-    target: r.target ?? undefined,
-    steps: safeJsonParse<Step[]>(r.steps) ?? [],
-    createdAt: r.created_at ?? undefined,
-    updatedAt: r.updated_at ?? undefined,
-  }))
-}
-
-export function getStepGroup(db: DatabaseSync, id: string): StepGroup | undefined {
-  const r = db.prepare("SELECT * FROM step_groups WHERE id = ?").get(id) as StepGroupRow | undefined
-  if (!r) return undefined
+function mapStepGroupRow(r: StepGroupRow): StepGroup {
   return {
     id: r.id,
     name: r.name,
@@ -1370,6 +1354,16 @@ export function getStepGroup(db: DatabaseSync, id: string): StepGroup | undefine
     createdAt: r.created_at ?? undefined,
     updatedAt: r.updated_at ?? undefined,
   }
+}
+
+export function getStepGroups(db: DatabaseSync): StepGroup[] {
+  const rows = db.prepare("SELECT * FROM step_groups ORDER BY name ASC").all() as StepGroupRow[]
+  return rows.map(mapStepGroupRow)
+}
+
+export function getStepGroup(db: DatabaseSync, id: string): StepGroup | undefined {
+  const r = db.prepare("SELECT * FROM step_groups WHERE id = ?").get(id) as StepGroupRow | undefined
+  return r ? mapStepGroupRow(r) : undefined
 }
 
 export function saveStepGroup(db: DatabaseSync, group: StepGroup): void {
@@ -1408,22 +1402,7 @@ type StepPresetRow = {
   updated_at?: number | null
 }
 
-export function getStepPresets(db: DatabaseSync): StepPreset[] {
-  const rows = db.prepare("SELECT * FROM step_presets ORDER BY name ASC").all() as StepPresetRow[]
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description ?? undefined,
-    target: r.target,
-    step: safeJsonParse<Step>(r.step_json) ?? { name: r.name, target: r.target },
-    createdAt: r.created_at ?? undefined,
-    updatedAt: r.updated_at ?? undefined,
-  }))
-}
-
-export function getStepPreset(db: DatabaseSync, id: string): StepPreset | undefined {
-  const r = db.prepare("SELECT * FROM step_presets WHERE id = ?").get(id) as StepPresetRow | undefined
-  if (!r) return undefined
+function mapStepPresetRow(r: StepPresetRow): StepPreset {
   return {
     id: r.id,
     name: r.name,
@@ -1433,6 +1412,16 @@ export function getStepPreset(db: DatabaseSync, id: string): StepPreset | undefi
     createdAt: r.created_at ?? undefined,
     updatedAt: r.updated_at ?? undefined,
   }
+}
+
+export function getStepPresets(db: DatabaseSync): StepPreset[] {
+  const rows = db.prepare("SELECT * FROM step_presets ORDER BY name ASC").all() as StepPresetRow[]
+  return rows.map(mapStepPresetRow)
+}
+
+export function getStepPreset(db: DatabaseSync, id: string): StepPreset | undefined {
+  const r = db.prepare("SELECT * FROM step_presets WHERE id = ?").get(id) as StepPresetRow | undefined
+  return r ? mapStepPresetRow(r) : undefined
 }
 
 export function saveStepPreset(db: DatabaseSync, preset: StepPreset): void {
@@ -1490,21 +1479,21 @@ export function saveRun(db: DatabaseSync, run: RunRecord): void {
   )
 }
 
-export function getRuns(db: DatabaseSync, limit: number = 50): RunRecord[] {
-  const rows = db.prepare("SELECT * FROM runs ORDER BY started_at DESC LIMIT ?").all(limit) as Array<{
-    id: string
-    environment_name: string
-    status: "RUNNING" | "PASSED" | "FAILED" | "CANCELLED"
-    total_scenarios: number
-    passed_scenarios: number
-    failed_scenarios: number
-    duration_ms?: number | null
-    artifacts_dir?: string | null
-    started_at: number
-    completed_at?: number | null
-  }>
+type RunRow = {
+  id: string
+  environment_name: string
+  status: "RUNNING" | "PASSED" | "FAILED" | "CANCELLED"
+  total_scenarios: number
+  passed_scenarios: number
+  failed_scenarios: number
+  duration_ms?: number | null
+  artifacts_dir?: string | null
+  started_at: number
+  completed_at?: number | null
+}
 
-  return rows.map((r) => ({
+function mapRunRow(r: RunRow): RunRecord {
+  return {
     id: r.id,
     environmentName: r.environment_name,
     status: r.status,
@@ -1515,7 +1504,12 @@ export function getRuns(db: DatabaseSync, limit: number = 50): RunRecord[] {
     artifactsDir: r.artifacts_dir || undefined,
     startedAt: r.started_at,
     completedAt: r.completed_at ?? undefined,
-  }))
+  }
+}
+
+export function getRuns(db: DatabaseSync, limit: number = 50): RunRecord[] {
+  const rows = db.prepare("SELECT * FROM runs ORDER BY started_at DESC LIMIT ?").all(limit) as RunRow[]
+  return rows.map(mapRunRow)
 }
 
 type StepRunRow = {
@@ -1553,39 +1547,14 @@ function mapStepRunRow(sr: StepRunRow): StepRunRecord {
 }
 
 export function getRun(db: DatabaseSync, id: string): (RunRecord & { stepRuns: StepRunRecord[] }) | undefined {
-  const row = db.prepare("SELECT * FROM runs WHERE id = ?").get(id) as
-    | {
-        id: string
-        environment_name: string
-        status: "RUNNING" | "PASSED" | "FAILED" | "CANCELLED"
-        total_scenarios: number
-        passed_scenarios: number
-        failed_scenarios: number
-        duration_ms?: number | null
-        artifacts_dir?: string | null
-        started_at: number
-        completed_at?: number | null
-      }
-    | undefined
+  const row = db.prepare("SELECT * FROM runs WHERE id = ?").get(id) as RunRow | undefined
 
   if (!row) return undefined
 
   const stepRows = db.prepare("SELECT * FROM step_runs WHERE run_id = ? ORDER BY created_at ASC, id ASC").all(id) as StepRunRow[]
   const stepRuns = stepRows.map(mapStepRunRow)
 
-  return {
-    id: row.id,
-    environmentName: row.environment_name,
-    status: row.status,
-    totalScenarios: row.total_scenarios,
-    passedScenarios: row.passed_scenarios,
-    failedScenarios: row.failed_scenarios,
-    durationMs: row.duration_ms ?? undefined,
-    artifactsDir: row.artifacts_dir || undefined,
-    startedAt: row.started_at,
-    completedAt: row.completed_at ?? undefined,
-    stepRuns,
-  }
+  return { ...mapRunRow(row), stepRuns }
 }
 
 export function saveStepRun(db: DatabaseSync, stepRun: StepRunRecord): void {

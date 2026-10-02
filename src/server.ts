@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process"
+import { spawn } from "node:child_process"
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
@@ -43,9 +43,9 @@ import {
   withDb,
   writeDbPointer,
 } from "./db.ts"
-import { checkFlow } from "./flow.ts"
+import { checkFlowSource } from "./flow.ts"
 import { initProject } from "./init.ts"
-import { isUp, unfinishedGitOperation } from "./preflight.ts"
+import { isUp, listAdbDevices, unfinishedGitOperation } from "./preflight.ts"
 import { adbPath, runAdb, runShell, startBackground } from "./process.ts"
 import { type RunEvent, type RunOptions, run, type Summary } from "./runner.ts"
 import { checkSteps, getOrSeedPresets, getOrSeedScenarios, type Scenario, targetsUsed } from "./scenario.ts"
@@ -102,13 +102,14 @@ export function openBrowser(url: string) {
   }
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+}
+
 function sendJson(res: ServerResponse, status: number, data: unknown) {
-  res.writeHead(status, {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  })
+  res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
   res.end(JSON.stringify(data))
 }
 
@@ -205,11 +206,7 @@ export function startServer(
 
       // CORS Preflight
       if (req.method === "OPTIONS") {
-        res.writeHead(204, {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        })
+        res.writeHead(204, CORS_HEADERS)
         return res.end()
       }
 
@@ -1000,7 +997,7 @@ export function startServer(
                   for (const file of files) {
                     const full = join(flowsDir, file)
                     const content = readFileSync(full, "utf8")
-                    const errors = checkFlow(full)
+                    const errors = checkFlowSource(content)
                     flows.push({
                       target: targetName,
                       file,
@@ -1030,7 +1027,7 @@ export function startServer(
             mkdirSync(flowsDir, { recursive: true })
             const full = join(flowsDir, body.file)
             writeFileSync(full, body.content)
-            const errors = checkFlow(full)
+            const errors = checkFlowSource(body.content)
             return sendJson(res, 200, { ok: true, file: body.file, isValid: errors.length === 0, errors })
           }
 
@@ -1062,15 +1059,7 @@ export function startServer(
             let devicesList: Array<{ serial: string; state: string; model?: string; packages: Record<string, boolean> }> = []
             if (adb) {
               try {
-                const list = spawnSync(adb, ["devices"], { encoding: "utf8" }).stdout ?? ""
-                const found = list
-                  .split("\n")
-                  .slice(1)
-                  .map((l) => l.trim().split(/\s+/))
-                  .filter(([serial, state]) => Boolean(serial) && state === "device")
-                  .map(([serial, state]) => ({ serial, state }))
-
-                devicesList = found.map(({ serial, state }) => {
+                devicesList = listAdbDevices(adb).serials.map((serial) => {
                   const model = runAdb(adb, serial, ["shell", "getprop", "ro.product.model"], { allowFailure: true }).trim()
                   const packages: Record<string, boolean> = {}
                   for (const target of Object.values(currentConfig.targets)) {
@@ -1080,7 +1069,7 @@ export function startServer(
                       packages[mob.appId] = outPkgs.split("\n").some((l) => l.trim() === `package:${mob.appId}`)
                     }
                   }
-                  return { serial, state, model, packages }
+                  return { serial, state: "device", model, packages }
                 })
               } catch {
                 // adb invocation error

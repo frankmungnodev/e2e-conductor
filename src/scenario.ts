@@ -5,13 +5,13 @@ import {
   type Assert,
   getScenarios,
   getStepPresets,
-  openDatabase,
   resolveDbPath,
   type Scenario,
   type Step,
   type StepPreset,
   saveScenario,
   saveStepPreset,
+  withDb,
 } from "./db.ts"
 import { checkFlow } from "./flow.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
@@ -107,32 +107,27 @@ export function getOrSeedScenarios(config: LoadedConfig): Scenario[] {
   const dbPath = resolveDbPath(config.configDir)
   if (existsSync(dbPath)) {
     try {
-      const db = openDatabase(dbPath)
-      try {
-        let dbScenarios = getScenarios(db)
-        if (dbScenarios.length === 0) {
-          const dir = resolveFromConfig(config, config.scenarios)
-          if (existsSync(dir)) {
-            const files = readdirSync(dir).filter((file) => file.endsWith(".json")).sort()
-            for (const file of files) {
-              try {
-                const raw = JSON.parse(readFileSync(join(dir, file), "utf8"))
-                const sc = { ...raw, id: basename(file, ".json") } as Scenario
-                if (validateScenario(raw)) {
-                  saveScenario(db, sc)
-                }
-              } catch {
-                // ignore seeding error
-              }
+      const dbScenarios = withDb(dbPath, (db) => {
+        const stored = getScenarios(db)
+        if (stored.length > 0) return stored
+        const dir = resolveFromConfig(config, config.scenarios)
+        if (!existsSync(dir)) return stored
+        const files = readdirSync(dir).filter((file) => file.endsWith(".json")).sort()
+        for (const file of files) {
+          try {
+            const raw = JSON.parse(readFileSync(join(dir, file), "utf8"))
+            const sc = { ...raw, id: basename(file, ".json") } as Scenario
+            if (validateScenario(raw)) {
+              saveScenario(db, sc)
             }
-            dbScenarios = getScenarios(db)
+          } catch {
+            // ignore seeding error
           }
         }
-        if (dbScenarios.length > 0) {
-          return dbScenarios
-        }
-      } finally {
-        db.close()
+        return getScenarios(db)
+      })
+      if (dbScenarios.length > 0) {
+        return dbScenarios
       }
     } catch {
       // ignore db error, fall back to filesystem
@@ -197,34 +192,30 @@ export function getOrSeedPresets(config: LoadedConfig): StepPreset[] {
 
   if (existsSync(dbPath)) {
     try {
-      const db = openDatabase(dbPath)
-      try {
-        let presets = getStepPresets(db)
-        if (presets.length === 0 && existsSync(presetsDir)) {
-          const files = readdirSync(presetsDir).filter((file) => file.endsWith(".json")).sort()
-          for (const file of files) {
-            try {
-              const raw = JSON.parse(readFileSync(join(presetsDir, file), "utf8"))
-              const id = raw.id || basename(file, ".json")
-              const preset: StepPreset = {
-                id,
-                name: raw.name || id,
-                description: raw.description,
-                target: raw.target || raw.step?.target || "web",
-                step: raw.step || { name: raw.name || id, target: raw.target || "web", actions: raw.actions },
-              }
-              saveStepPreset(db, preset)
-            } catch {
-              // ignore preset seed errors
+      const presets = withDb(dbPath, (db) => {
+        const stored = getStepPresets(db)
+        if (stored.length > 0 || !existsSync(presetsDir)) return stored
+        const files = readdirSync(presetsDir).filter((file) => file.endsWith(".json")).sort()
+        for (const file of files) {
+          try {
+            const raw = JSON.parse(readFileSync(join(presetsDir, file), "utf8"))
+            const id = raw.id || basename(file, ".json")
+            const preset: StepPreset = {
+              id,
+              name: raw.name || id,
+              description: raw.description,
+              target: raw.target || raw.step?.target || "web",
+              step: raw.step || { name: raw.name || id, target: raw.target || "web", actions: raw.actions },
             }
+            saveStepPreset(db, preset)
+          } catch {
+            // ignore preset seed errors
           }
-          presets = getStepPresets(db)
         }
-        if (presets.length > 0) {
-          return presets
-        }
-      } finally {
-        db.close()
+        return getStepPresets(db)
+      })
+      if (presets.length > 0) {
+        return presets
       }
     } catch {
       // fallback to disk

@@ -108,86 +108,86 @@ export class WebDriver implements Driver {
   ): Promise<Record<string, unknown>> {
     const action = (step.action ?? "").toLowerCase()
     log(`web action: ${action}`)
+    const timeout = step.timeout_ms ?? defaultTimeoutMs
+    /** Most actions also accept the selector in `value`; text-entry actions keep `value` for their input. */
+    const requireSelector = (name: string, { valueFallback = true } = {}): string => {
+      const selector = (valueFallback ? (step.selector ?? step.value) : step.selector) as string
+      if (!selector) throw new Error(`web '${name}' action requires a selector`)
+      return selector
+    }
 
     switch (action) {
       case "navigate":
       case "goto": {
         const url = (step.url ?? step.value ?? "/") as string
         log(`goto "${url}"`)
-        await page.goto(url, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.goto(url, { timeout })
         return { url: page.url(), path: new URL(page.url()).pathname }
       }
       case "reload": {
         log("reload page")
-        await page.reload({ timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.reload({ timeout })
         return { reloaded: true, url: page.url() }
       }
       case "go_back": {
         log("go back in history")
-        await page.goBack({ timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.goBack({ timeout })
         return { go_back: true, url: page.url() }
       }
       case "go_forward": {
         log("go forward in history")
-        await page.goForward({ timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.goForward({ timeout })
         return { go_forward: true, url: page.url() }
       }
       case "click": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'click' action requires a selector")
+        const selector = requireSelector("click")
         log(`click "${selector}"`)
-        await page.click(selector, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.click(selector, { timeout })
         return { clicked: selector }
       }
       case "dblclick": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'dblclick' action requires a selector")
+        const selector = requireSelector("dblclick")
         log(`dblclick "${selector}"`)
-        await page.dblclick(selector, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.dblclick(selector, { timeout })
         return { dblclicked: selector }
       }
       case "hover": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'hover' action requires a selector")
+        const selector = requireSelector("hover")
         log(`hover "${selector}"`)
-        await page.hover(selector, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.hover(selector, { timeout })
         return { hovered: selector }
       }
       case "focus": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'focus' action requires a selector")
+        const selector = requireSelector("focus")
         log(`focus "${selector}"`)
-        await page.focus(selector, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.focus(selector, { timeout })
         return { focused: selector }
       }
       case "clear": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'clear' action requires a selector")
+        const selector = requireSelector("clear")
         log(`clear "${selector}"`)
-        await page.locator(selector).clear({ timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.locator(selector).clear({ timeout })
         return { cleared: selector }
       }
       case "fill": {
-        const selector = step.selector as string
-        if (!selector) throw new Error("web 'fill' action requires a selector")
+        const selector = requireSelector("fill", { valueFallback: false })
         const val = String(step.value ?? "")
         log(`fill "${selector}" with "${val}"`)
-        await page.fill(selector, val, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.fill(selector, val, { timeout })
         return { filled: selector, value: val }
       }
       case "type": {
-        const selector = step.selector as string
-        if (!selector) throw new Error("web 'type' action requires a selector")
+        const selector = requireSelector("type", { valueFallback: false })
         const val = String(step.value ?? "")
         log(`type "${selector}" with "${val}"`)
-        await page.locator(selector).pressSequentially(val, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.locator(selector).pressSequentially(val, { timeout })
         return { typed: selector, value: val }
       }
       case "press": {
         const key = (step.key ?? step.value ?? "Enter") as string
         if (step.selector) {
           log(`press "${key}" on "${step.selector}"`)
-          await page.press(step.selector, key, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+          await page.press(step.selector, key, { timeout })
         } else {
           log(`keyboard press "${key}"`)
           await page.keyboard.press(key)
@@ -195,26 +195,23 @@ export class WebDriver implements Driver {
         return { pressed: key }
       }
       case "check": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'check' action requires a selector")
+        const selector = requireSelector("check")
         log(`check "${selector}"`)
-        await page.check(selector, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.check(selector, { timeout })
         return { checked: selector }
       }
       case "uncheck": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'uncheck' action requires a selector")
+        const selector = requireSelector("uncheck")
         log(`uncheck "${selector}"`)
-        await page.uncheck(selector, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.uncheck(selector, { timeout })
         return { unchecked: selector }
       }
       case "select":
       case "select_option": {
-        const selector = step.selector as string
-        if (!selector) throw new Error("web 'select' action requires a selector")
+        const selector = requireSelector("select", { valueFallback: false })
         const val = String(step.value ?? "")
         log(`select "${val}" on "${selector}"`)
-        await page.selectOption(selector, val, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.selectOption(selector, val, { timeout })
         return { selected: val }
       }
       case "drag_and_drop": {
@@ -223,31 +220,29 @@ export class WebDriver implements Driver {
         if (!source) throw new Error("web 'drag_and_drop' action requires a source 'selector'")
         if (!target) throw new Error("web 'drag_and_drop' action requires a 'target_selector' (or 'value' as target element)")
         log(`drag and drop "${source}" to "${target}"`)
-        await page.dragAndDrop(source, target, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.dragAndDrop(source, target, { timeout })
         return { dragged: source, droppedOn: target }
       }
       case "upload_file":
       case "set_input_files": {
-        const selector = step.selector as string
-        if (!selector) throw new Error("web 'upload_file' action requires a selector")
+        const selector = requireSelector("upload_file", { valueFallback: false })
         const filePath = String(step.value ?? "")
         if (!filePath) throw new Error("web 'upload_file' action requires a file path in 'value'")
         log(`upload file "${filePath}" to "${selector}"`)
-        await page.setInputFiles(selector, filePath, { timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.setInputFiles(selector, filePath, { timeout })
         return { uploaded: filePath, selector }
       }
       case "scroll_into_view": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'scroll_into_view' action requires a selector")
+        const selector = requireSelector("scroll_into_view")
         log(`scroll into view "${selector}"`)
-        await page.locator(selector).scrollIntoViewIfNeeded({ timeout: step.timeout_ms ?? defaultTimeoutMs })
+        await page.locator(selector).scrollIntoViewIfNeeded({ timeout })
         return { scrolled: selector }
       }
       case "wait_for":
       case "wait": {
         if (step.selector) {
           log(`wait for selector "${step.selector}"`)
-          await page.waitForSelector(step.selector, { timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+          await page.waitForSelector(step.selector, { timeout: timeout ?? 10_000 })
         }
         if (step.ms) {
           log(`wait for ${step.ms}ms`)
@@ -259,98 +254,89 @@ export class WebDriver implements Driver {
         const urlPattern = (step.url ?? step.value) as string
         if (!urlPattern) throw new Error("web 'wait_for_url' action requires a URL pattern or string")
         log(`wait for URL "${urlPattern}"`)
-        await page.waitForURL(urlPattern, { timeout: step.timeout_ms ?? defaultTimeoutMs ?? 15_000 })
+        await page.waitForURL(urlPattern, { timeout: timeout ?? 15_000 })
         return { waitedUrl: page.url() }
       }
       case "wait_for_load_state": {
         const state = (step.value ?? "load") as "load" | "domcontentloaded" | "networkidle"
         log(`wait for load state "${state}"`)
-        await page.waitForLoadState(state, { timeout: step.timeout_ms ?? defaultTimeoutMs ?? 15_000 })
+        await page.waitForLoadState(state, { timeout: timeout ?? 15_000 })
         return { loadState: state }
       }
       case "assert_visible": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'assert_visible' action requires a selector")
+        const selector = requireSelector("assert_visible")
         log(`assert visible "${selector}"`)
-        await page.locator(selector).waitFor({ state: "visible", timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        await page.locator(selector).waitFor({ state: "visible", timeout: timeout ?? 10_000 })
         return { visible: selector }
       }
       case "assert_not_visible":
       case "assert_hidden": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'assert_not_visible' action requires a selector")
+        const selector = requireSelector("assert_not_visible")
         log(`assert not visible "${selector}"`)
-        await page.locator(selector).waitFor({ state: "hidden", timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        await page.locator(selector).waitFor({ state: "hidden", timeout: timeout ?? 10_000 })
         return { not_visible: selector }
       }
       case "assert_text": {
-        const selector = step.selector as string
-        if (!selector) throw new Error("web 'assert_text' action requires a selector")
+        const selector = requireSelector("assert_text", { valueFallback: false })
         const expected = String(step.value ?? "")
         log(`assert text on "${selector}" contains "${expected}"`)
-        const text = await page.locator(selector).innerText({ timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        const text = await page.locator(selector).innerText({ timeout: timeout ?? 10_000 })
         if (!text.includes(expected)) {
           throw new Error(`Expected element "${selector}" to contain "${expected}", but found "${text}"`)
         }
         return { text, matched: true }
       }
       case "assert_not_text": {
-        const selector = step.selector as string
-        if (!selector) throw new Error("web 'assert_not_text' action requires a selector")
+        const selector = requireSelector("assert_not_text", { valueFallback: false })
         const forbidden = String(step.value ?? "")
         log(`assert text on "${selector}" does not contain "${forbidden}"`)
-        const text = await page.locator(selector).innerText({ timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        const text = await page.locator(selector).innerText({ timeout: timeout ?? 10_000 })
         if (text.includes(forbidden)) {
           throw new Error(`Expected element "${selector}" to NOT contain "${forbidden}", but it did`)
         }
         return { text, matched: false }
       }
       case "assert_value": {
-        const selector = step.selector as string
-        if (!selector) throw new Error("web 'assert_value' action requires a selector")
+        const selector = requireSelector("assert_value", { valueFallback: false })
         const expected = String(step.value ?? "")
         log(`assert value on "${selector}" equals "${expected}"`)
-        const actual = await page.locator(selector).inputValue({ timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        const actual = await page.locator(selector).inputValue({ timeout: timeout ?? 10_000 })
         if (actual !== expected) {
           throw new Error(`Expected element "${selector}" value to be "${expected}", but found "${actual}"`)
         }
         return { value: actual, matched: true }
       }
       case "assert_checked": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'assert_checked' action requires a selector")
+        const selector = requireSelector("assert_checked")
         log(`assert checked "${selector}"`)
-        const isChecked = await page.locator(selector).isChecked({ timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        const isChecked = await page.locator(selector).isChecked({ timeout: timeout ?? 10_000 })
         if (!isChecked) {
           throw new Error(`Expected checkbox "${selector}" to be checked, but it is not`)
         }
         return { checked: true, selector }
       }
       case "assert_not_checked": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'assert_not_checked' action requires a selector")
+        const selector = requireSelector("assert_not_checked")
         log(`assert not checked "${selector}"`)
-        const isChecked = await page.locator(selector).isChecked({ timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        const isChecked = await page.locator(selector).isChecked({ timeout: timeout ?? 10_000 })
         if (isChecked) {
           throw new Error(`Expected checkbox "${selector}" to NOT be checked, but it is checked`)
         }
         return { checked: false, selector }
       }
       case "assert_disabled": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'assert_disabled' action requires a selector")
+        const selector = requireSelector("assert_disabled")
         log(`assert disabled "${selector}"`)
-        const isDisabled = await page.locator(selector).isDisabled({ timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        const isDisabled = await page.locator(selector).isDisabled({ timeout: timeout ?? 10_000 })
         if (!isDisabled) {
           throw new Error(`Expected element "${selector}" to be disabled, but it is enabled`)
         }
         return { disabled: true, selector }
       }
       case "assert_enabled": {
-        const selector = (step.selector ?? step.value) as string
-        if (!selector) throw new Error("web 'assert_enabled' action requires a selector")
+        const selector = requireSelector("assert_enabled")
         log(`assert enabled "${selector}"`)
-        const isEnabled = await page.locator(selector).isEnabled({ timeout: step.timeout_ms ?? defaultTimeoutMs ?? 10_000 })
+        const isEnabled = await page.locator(selector).isEnabled({ timeout: timeout ?? 10_000 })
         if (!isEnabled) {
           throw new Error(`Expected element "${selector}" to be enabled, but it is disabled`)
         }

@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { fetchRunDetails, fetchRuns } from "../api.ts"
-import type { RunHistoryItem, RunSummary, StepRunItem } from "../types.ts"
+import type { RunDetails, RunHistoryItem, RunSummary } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { CodeBlock } from "./CodeBlock.tsx"
 import { EmptyState } from "./EmptyState.tsx"
@@ -19,15 +19,7 @@ import { TabButton, useUrlTab } from "./Tabs.tsx"
 export function ArtifactsView() {
   const [runs, setRuns] = useState<RunHistoryItem[]>([])
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
-  const [runDetails, setRunDetails] = useState<{
-    runId: string
-    status?: string
-    environmentName?: string
-    durationMs?: number
-    stepRuns?: StepRunItem[]
-    scenarios: Record<string, Array<{ name: string; url: string; isImage: boolean }>>
-    runLog: string
-  } | null>(null)
+  const [runDetails, setRunDetails] = useState<RunDetails | null>(null)
   const [latestSummary, setLatestSummary] = useState<RunSummary | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useUrlTab<"artifacts" | "steps" | "log">("subtab", "artifacts", [

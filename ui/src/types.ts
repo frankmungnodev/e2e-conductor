@@ -250,6 +250,16 @@ export type StepRunItem = {
   createdAt: number
 }
 
+export type RunDetails = {
+  runId: string
+  status?: string
+  environmentName?: string
+  durationMs?: number
+  stepRuns?: StepRunItem[]
+  scenarios: Record<string, Array<{ name: string; url: string; isImage: boolean }>>
+  runLog: string
+}
+
 export type RunHistoryItem = {
   runId: string
   timestamp: number

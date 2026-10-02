@@ -15,7 +15,8 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { capitalize } from "../format.ts"
 import type { RunEvent, RunSummary, ScenarioItem, ScenarioStep } from "../types.ts"
 import { Badge, type BadgeVariant } from "./Badge.tsx"
 import { Button } from "./Button.tsx"
@@ -265,9 +266,11 @@ export function RunnerView({
       ? 100
       : 0
 
-  const filteredLogs = logFilter
-    ? logs.filter((l) => l.text.toLowerCase().includes(logFilter.toLowerCase()))
-    : logs
+  const filteredLogs = useMemo(() => {
+    if (!logFilter) return logs
+    const needle = logFilter.toLowerCase()
+    return logs.filter((l) => l.text.toLowerCase().includes(needle))
+  }, [logs, logFilter])
 
   const filteredScenarios = scenarioFilter
     ? scenarios.filter(
@@ -421,7 +424,7 @@ export function RunnerView({
                     <div className="flex items-center gap-1 flex-wrap">
                       {Array.from(new Set(sc.targets)).map((tgt) => (
                         <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt)}>
-                          {tgt.charAt(0).toUpperCase() + tgt.slice(1)}
+                          {capitalize(tgt)}
                         </Badge>
                       ))}
                     </div>
@@ -681,7 +684,7 @@ export function RunnerView({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {Array.from(new Set(activePreviewScenario.targets)).map((tgt) => (
                           <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt)}>
-                            {tgt.charAt(0).toUpperCase() + tgt.slice(1)}
+                            {capitalize(tgt)}
                           </Badge>
                         ))}
                       </div>
@@ -713,7 +716,7 @@ export function RunnerView({
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <Badge size="xs" variant={getTargetBadgeVariant(st.target)}>
-                                {st.target.charAt(0).toUpperCase() + st.target.slice(1)}
+                                {capitalize(st.target)}
                               </Badge>
                               <span className="text-xs font-medium text-fg-bright">{st.name}</span>
                             </div>
@@ -850,7 +853,7 @@ export function RunnerView({
                                     : "neutral"
                                 }
                               >
-                                {sc.status.charAt(0).toUpperCase() + sc.status.slice(1)}
+                                {capitalize(sc.status)}
                               </Badge>
                             </div>
                           </div>
@@ -880,7 +883,7 @@ export function RunnerView({
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <Badge size="xs" variant={getTargetBadgeVariant(st.target)}>
-                                        {st.target.charAt(0).toUpperCase() + st.target.slice(1)}
+                                        {capitalize(st.target)}
                                       </Badge>
                                       <span className="font-medium text-fg">{st.name}</span>
                                     </div>

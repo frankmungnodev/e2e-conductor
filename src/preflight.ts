@@ -134,14 +134,20 @@ export async function prepareServices(
 
 export type MobileSetup = { device: string; adb: string }
 
-function pickDevice(adb: string, env: Record<string, string>): string {
-  const list = spawnSync(adb, ["devices"], { encoding: "utf8" }).stdout ?? ""
-  const devices = list
+/** Serials of devices `adb devices` reports as ready, plus the raw output for diagnostics. */
+export function listAdbDevices(adb: string): { output: string; serials: string[] } {
+  const output = spawnSync(adb, ["devices"], { encoding: "utf8" }).stdout ?? ""
+  const serials = output
     .split("\n")
     .slice(1)
     .map((line) => line.trim().split(/\s+/))
     .filter(([serial, state]) => serial && state === "device")
     .map(([serial]) => serial)
+  return { output, serials }
+}
+
+function pickDevice(adb: string, env: Record<string, string>): string {
+  const { output: list, serials: devices } = listAdbDevices(adb)
 
   if (env.E2E_DEVICE) {
     if (!devices.includes(env.E2E_DEVICE)) throw new Error(`E2E_DEVICE=${env.E2E_DEVICE} is not connected`)

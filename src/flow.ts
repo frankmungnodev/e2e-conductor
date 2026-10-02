@@ -20,7 +20,12 @@ export function parseFlow(source: string) {
  * Checks the file as written, before `${NAME}` placeholders are replaced.
  */
 export function checkFlow(file: string): string[] {
-  const { header, commands, documentCount, syntaxErrors } = parseFlow(readFileSync(file, "utf8"))
+  return checkFlowSource(readFileSync(file, "utf8"))
+}
+
+/** Same as `checkFlow`, for flow source already read into memory. */
+export function checkFlowSource(source: string): string[] {
+  const { header, commands, documentCount, syntaxErrors } = parseFlow(source)
   if (syntaxErrors.length > 0) return syntaxErrors
   if (documentCount > 2) return [`has ${documentCount} YAML documents; expected a header, then the commands`]
 

@@ -164,10 +164,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
         // Shell steps can then run plain `adb ...` against the device the run picked,
         // even with several devices connected.
         process.env.ANDROID_SERIAL ??= setup.device
-        drivers.set(
-          name,
-          new MobileDriver(target, resolveFromConfig(config, target.flows), setup.device, setup.adb),
-        )
+        drivers.set(name, new MobileDriver(target, setup.device, setup.adb))
       }
     }
 

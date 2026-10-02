@@ -2,6 +2,7 @@ import type {
   ConfigMeta,
   FlowItem,
   PreflightData,
+  RunDetails,
   RunEvent,
   RunHistoryItem,
   RunSummary,
@@ -125,11 +126,7 @@ export async function fetchRuns(): Promise<{ runs: RunHistoryItem[]; latestSumma
   return res.json()
 }
 
-export async function fetchRunDetails(runId: string): Promise<{
-  runId: string
-  scenarios: Record<string, Array<{ name: string; url: string; isImage: boolean }>>
-  runLog: string
-}> {
+export async function fetchRunDetails(runId: string): Promise<RunDetails> {
   const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}`)
   if (!res.ok) throw new Error("Failed to get run details")
   return res.json()
