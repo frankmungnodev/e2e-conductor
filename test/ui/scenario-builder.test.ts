@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { Page } from "playwright"
 import { eventually, PRESET_NAME, startUiSession } from "./helpers.ts"
+
+/** The open dialog with this heading; another dialog may still be animating closed. */
+function dialogTitled(page: Page, title: string) {
+  return page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: title, exact: true }) })
+}
 
 type ScenarioSummary = { id: string; name: string; steps: Array<{ name: string; target: string }> }
 
@@ -19,18 +25,21 @@ describe("Scenario builder", () => {
     assert.ok(id, "new scenario was saved")
 
     await page.getByRole("button", { name: "Scenario Settings & Fixtures" }).click()
-    const dialog = page.getByRole("dialog")
-    await dialog.getByRole("textbox", { name: "Scenario Name" }).fill("UI Smoke Scenario")
-    await dialog.getByRole("button", { name: "Done" }).click()
+    const settings = dialogTitled(page, "Scenario Settings & Fixtures")
+    await settings.getByRole("textbox", { name: "Scenario Name" }).fill("UI Smoke Scenario")
+    await settings.getByRole("button", { name: "Done" }).click()
+    await settings.waitFor({ state: "detached" })
 
     await page.getByRole("button", { name: "Add Step" }).first().click()
-    const addStep = page.getByRole("dialog")
+    const addStep = dialogTitled(page, "Add Step")
     // Driver cards list Web, HTTP, Shell, Mobile in that order; the third is Shell.
     await addStep.getByRole("button", { name: "Add Step" }).nth(2).click()
+    await addStep.waitFor({ state: "detached" })
 
     await page.getByRole("button", { name: "Add Step" }).first().click()
-    await page.getByRole("dialog").getByRole("button", { name: /^Presets/ }).click()
-    await page.getByRole("dialog").getByRole("button", { name: "Insert" }).click()
+    const addPreset = dialogTitled(page, "Add Step")
+    await addPreset.getByRole("button", { name: /^Presets/ }).click()
+    await addPreset.getByRole("button", { name: "Insert" }).click()
 
     const saved = await eventually(
       () => api<ScenarioSummary[]>("/api/scenarios"),

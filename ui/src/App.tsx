@@ -18,12 +18,12 @@ import { Button } from "./components/Button.tsx"
 import { EnvironmentModal } from "./components/EnvironmentModal.tsx"
 import { Header, type TabType } from "./components/Header.tsx"
 import { PreflightView } from "./components/PreflightView.tsx"
-import { ScenarioBuilder } from "./components/ScenarioBuilder.tsx"
 import { useUrlTab } from "./components/Tabs.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 import { ConfigView } from "./views/config/ConfigView.tsx"
 import { RunnerView } from "./views/runner/RunnerView.tsx"
+import { ScenarioBuilder } from "./views/scenario-builder/ScenarioBuilder.tsx"
 
 const VALID_MAIN_TABS = ["scenarios", "runner", "artifacts", "preflight", "config"] as const
 
