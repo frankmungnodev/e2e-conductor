@@ -61,6 +61,7 @@ export function RunControls({
               <span className="text-fg-muted">Repeat Iterations:</span>
               <div className="w-20">
                 <NumberInput
+                  aria-label="Repeat iterations"
                   size="xs"
                   min={1}
                   max={100}
