@@ -273,6 +273,7 @@ export function StepInspector({
                   </div>
                 )}
                 <Textarea
+                  aria-label="Scenario JSON"
                   rows={22}
                   value={jsonText}
                   onChange={(e) => handleJsonChange(e.target.value)}
