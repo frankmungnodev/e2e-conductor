@@ -198,17 +198,43 @@ describe("runner failure labels and environment stop", () => {
   it("still throws on cancel during a failing step, and stores no label", async () => {
     const dir = project([{ id: "a", name: "A", steps: [{ name: "Fail", target: "shell", command: "exit 1" }] }])
     const controller = new AbortController()
+    const ends: RunEvent[] = []
     // The shell driver logs its command just before running it, after the attempt's own
     // cancel check, so aborting here cancels while the failing step is running.
     const outcome = execute(dir, { signal: controller.signal }, (event) => {
       if (event.type === "log" && event.text.startsWith("$ exit 1")) controller.abort()
+      if (event.type === "scenario_end") ends.push(event)
     })
 
     await assert.rejects(outcome, /Execution cancelled/)
+    // Cancelling skips the label, never the failure: the scenario still ends failed.
+    assert.equal(ends.length, 1)
+    assert.equal(ends[0].type === "scenario_end" && ends[0].passed, false)
+    assert.equal(ends[0].type === "scenario_end" && ends[0].label, undefined)
     const stored = storedRun(dir)
     assert.equal(stored?.status, "CANCELLED")
     assert.equal(stored?.stepRuns[0].status, "FAILED")
     assert.equal(stored?.stepRuns[0].failureLabel, undefined)
+  })
+})
+
+describe("runner re-check timing", () => {
+  it("re-checks and labels only after the final retry attempt", async () => {
+    const dir = project([
+      { id: "a", name: "A", steps: [{ name: "Always fails", target: "shell", command: "exit 1", retry: { times: 2, delay_ms: 0 } }] },
+    ])
+    const { events } = await execute(dir)
+
+    assert.equal(events.filter((event) => event.type === "log" && /checking services/.test(event.text)).length, 1)
+    const rows = (storedRun(dir)?.stepRuns ?? []).sort((x, y) => x.attempt - y.attempt)
+    assert.deepEqual(
+      rows.map((row) => [row.attempt, row.failureLabel]),
+      [
+        [1, undefined],
+        [2, undefined],
+        [3, "Assertion failed"],
+      ],
+    )
   })
 })
 

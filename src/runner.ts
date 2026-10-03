@@ -351,7 +351,11 @@ async function runScenario(
 
   // Runs only after the final attempt, so a service that restarts mid-step gets its retries.
   // A cancel, before or during the re-check, wins and leaves the failure unlabeled.
+  // Set before the re-check, so a cancel during it still ends the scenario failed (with its
+  // failure artifacts kept) rather than passed.
+  let failing: string | undefined
   const settle = async (error: unknown): Promise<{ label: FailureLabel; down: string[] }> => {
+    failing = stripAnsi((error as Error).message).trim()
     if (signal?.aborted) throw new Error("Execution cancelled")
     out.line(color.dim("  checking services and devices after the failure…"))
     const down = await run.recheck()
@@ -478,14 +482,14 @@ async function runScenario(
     }
     return outcome
   } finally {
-    const failed = outcome.failure !== undefined
+    const failed = outcome.failure !== undefined || failing !== undefined
     onEvent?.({
       type: "scenario_end",
       scenarioId: scenario.id,
       iteration: run.iteration,
       passed: !failed,
       duration_ms: Date.now() - scenarioBegan,
-      error: outcome.failure?.error,
+      error: outcome.failure?.error ?? failing,
       label: outcome.failure?.label,
     })
     for (const driver of drivers.values()) {
