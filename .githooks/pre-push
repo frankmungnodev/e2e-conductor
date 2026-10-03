@@ -1,0 +1,6 @@
+#!/bin/sh
+# Runs the UI smoke suite before every push. `pnpm install` points git at this folder (see the
+# `prepare` script). Skip once with `git push --no-verify`.
+set -e
+echo "pre-push: running pnpm run test:ui"
+pnpm run test:ui

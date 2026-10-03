@@ -20,7 +20,8 @@
     "build:ui": "vite build --config ui/vite.config.ts",
     "dev:ui": "vite --config ui/vite.config.ts",
     "lint": "biome lint",
-    "check": "pnpm run typecheck && pnpm run check:boundary && pnpm run check:size && pnpm test"
+    "check": "pnpm run typecheck && pnpm run check:boundary && pnpm run check:size && pnpm test",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "ajv": "^8.20.0",
