@@ -3,6 +3,7 @@ import type { EnvironmentConfig, ServiceConfig } from "../config.ts"
 import { safeJsonParse } from "./connection.ts"
 import { getPlatformsForEnv } from "./env-platforms.ts"
 import { platformsToTargetsAndServices } from "./platforms.ts"
+import { deleteSetting, getSetting, setSetting } from "./settings.ts"
 
 export function getEnvironments(db: DatabaseSync): Record<string, EnvironmentConfig> {
   const rows = db.prepare("SELECT * FROM environments ORDER BY name ASC").all() as Array<{
@@ -66,12 +67,12 @@ export function saveEnvironment(
 
   if (isActive === 1) {
     db.prepare("UPDATE environments SET is_active = 0").run()
-    db.prepare("INSERT INTO settings (key, value) VALUES ('active_environment', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(name)
+    setSetting(db, "active_environment", name)
   }
 
   if (isDefault === 1) {
     db.prepare("UPDATE environments SET is_default = 0").run()
-    db.prepare("INSERT INTO settings (key, value) VALUES ('default_environment', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(name)
+    setSetting(db, "default_environment", name)
   }
 
   db.prepare(`
@@ -154,7 +155,7 @@ export function deleteEnvironment(db: DatabaseSync, name: string): void {
     if (first) {
       setActiveEnvironment(db, first.name)
     } else {
-      db.prepare("DELETE FROM settings WHERE key = 'active_environment'").run()
+      deleteSetting(db, "active_environment")
     }
   }
 
@@ -164,14 +165,14 @@ export function deleteEnvironment(db: DatabaseSync, name: string): void {
     if (first) {
       setDefaultEnvironment(db, first.name)
     } else {
-      db.prepare("DELETE FROM settings WHERE key = 'default_environment'").run()
+      deleteSetting(db, "default_environment")
     }
   }
 }
 
 export function getActiveEnvironment(db: DatabaseSync): string | undefined {
-  const setting = db.prepare("SELECT value FROM settings WHERE key = 'active_environment'").get() as { value: string } | undefined
-  if (setting?.value) return setting.value
+  const setting = getSetting(db, "active_environment")
+  if (setting) return setting
 
   const row = db.prepare("SELECT name FROM environments WHERE is_active = 1 LIMIT 1").get() as { name: string } | undefined
   if (row?.name) return row.name
@@ -182,12 +183,12 @@ export function getActiveEnvironment(db: DatabaseSync): string | undefined {
 
 export function setActiveEnvironment(db: DatabaseSync, name: string): void {
   db.prepare("UPDATE environments SET is_active = CASE WHEN name = ? THEN 1 ELSE 0 END").run(name)
-  db.prepare("INSERT INTO settings (key, value) VALUES ('active_environment', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(name)
+  setSetting(db, "active_environment", name)
 }
 
 export function getDefaultEnvironment(db: DatabaseSync): string | undefined {
-  const setting = db.prepare("SELECT value FROM settings WHERE key = 'default_environment'").get() as { value: string } | undefined
-  if (setting?.value) return setting.value
+  const setting = getSetting(db, "default_environment")
+  if (setting) return setting
 
   const row = db.prepare("SELECT name FROM environments WHERE is_default = 1 LIMIT 1").get() as { name: string } | undefined
   if (row?.name) return row.name
@@ -198,5 +199,5 @@ export function getDefaultEnvironment(db: DatabaseSync): string | undefined {
 
 export function setDefaultEnvironment(db: DatabaseSync, name: string): void {
   db.prepare("UPDATE environments SET is_default = CASE WHEN name = ? THEN 1 ELSE 0 END").run(name)
-  db.prepare("INSERT INTO settings (key, value) VALUES ('default_environment', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(name)
+  setSetting(db, "default_environment", name)
 }
