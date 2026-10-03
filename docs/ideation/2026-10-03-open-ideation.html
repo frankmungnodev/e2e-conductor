@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideation: What Next for e2e-orchestrator</title>
+<style>
+  :root {
+    --bg: #1e1e1e; --panel: #252526; --strip: #1f1f1f; --border: #3c3c3c; --border-soft: #2d2d2d;
+    --fg: #cccccc; --fg-bright: #ffffff; --fg-muted: #9a9a9a;
+    --primary: #007acc; --primary-text: #75beff; --primary-soft: rgba(0,122,204,0.15);
+    --success: #4ec9b0; --success-bg: #142a22; --success-border: #1f503e;
+    --warning: #dcdcaa; --warning-bg: #302611; --warning-border: #59471d;
+    --error: #f14c4c; --error-bg: #321618; --error-border: #632226;
+    --info: #75beff; --info-bg: #162a3f; --info-border: #244970;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--sans); }
+  main { max-width: 900px; margin-inline: auto; padding: 32px 16px 48px; }
+  p, li, dd { max-width: 74ch; }
+  h1 { color: var(--fg-bright); font-size: 1.6rem; line-height: 1.25; margin: 0 0 8px; }
+  h2 { color: var(--fg-bright); font-size: 1.3rem; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { color: var(--fg-bright); font-size: 1.1rem; margin: 0 0 10px; }
+  h4 { color: var(--fg-bright); font-size: 0.95rem; margin: 16px 0 6px; }
+  strong { color: inherit; }
+  a { color: var(--primary-text); }
+  code { font-family: var(--mono); font-size: 0.86em; background: #2b2b2b; padding: 1px 5px; border-radius: 3px; color: #d7ba7d; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary-text); margin-bottom: 4px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0 0; padding: 0; font-size: 13px; color: var(--fg-muted); }
+  .meta dt { display: inline; color: var(--fg-muted); }
+  .meta dd { display: inline; margin: 0 0 0 4px; color: var(--fg); }
+  .meta div { white-space: nowrap; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 20px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 1.4rem; color: var(--fg-bright); }
+  .stat span { font-size: 12px; color: var(--fg-muted); }
+  .callout { background: var(--info-bg); border: 1px solid var(--info-border); border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
+  .callout .eyebrow { color: var(--info); }
+  .callout p { margin: 6px 0; color: #d6e8f7; }
+  .jump { columns: 2; column-gap: 24px; padding-left: 20px; font-size: 14px; }
+  @media (max-width: 640px) { .jump { columns: 1; } }
+  article.idea { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin: 18px 0; }
+  .idea-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); background: #2b2b2b; color: var(--fg); }
+  .chip.id { background: var(--primary-soft); border-color: var(--info-border); color: var(--primary-text); font-family: var(--mono); }
+  .chip.hi { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
+  .chip.mid { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning); }
+  .chip.lo { background: var(--error-bg); border-color: var(--error-border); color: #ff9b9b; }
+  dl.fields { margin: 0; }
+  dl.fields dt { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-muted); margin-top: 12px; }
+  dl.fields dd { margin: 3px 0 0; }
+  dl.fields dd ul { margin: 4px 0; padding-left: 20px; }
+  figure { margin: 14px 0 4px; }
+  figure svg { width: 100%; height: auto; display: block; background: #1a1a1a; border: 1px solid var(--border-soft); border-radius: 6px; }
+  figcaption { font-size: 12px; color: var(--fg-muted); margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); }
+  th { color: var(--fg-bright); font-weight: 600; background: var(--strip); }
+  td:first-child { font-family: var(--mono); color: var(--fg-muted); white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+  ul.sources { padding-left: 20px; font-size: 14px; }
+  footer.composition-signal { margin-top: 48px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--fg-muted); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="eyebrow">Ideation</div>
+  <h1>Ideation: What Next for e2e-orchestrator</h1>
+  <dl class="meta">
+    <div><dt>Date</dt><dd><time datetime="2026-10-03">2026-10-03</time></dd></div>
+    <div><dt>Topic</dt><dd>open-ideation</dd></div>
+    <div><dt>Mode</dt><dd>repo-grounded</dd></div>
+    <div><dt>Prompt</dt><dd>"What should we do next" (surprise me)</dd></div>
+  </dl>
+</header>
+
+<div class="stats">
+  <div class="stat"><b>55</b><span>raw ideas, 6 frames</span></div>
+  <div class="stat"><b>23</b><span>after dedupe</span></div>
+  <div class="stat"><b>7</b><span>survivors</span></div>
+  <div class="stat"><b>21</b><span>cut, with reasons</span></div>
+</div>
+
+<div class="callout">
+  <div class="eyebrow">The pattern</div>
+  <p>The six idea agents worked independently and kept arriving at the same place: <strong>what happens after a red run</strong>. The tool can build and run a scenario across HTTP, web and Android. When a run fails, it gives you an error string and a folder path. It already records every retry attempt in SQLite, and nothing reads those rows back.</p>
+  <p>The survivors fall into two tracks. <strong>Trust in green</strong> (ideas 1, 2 and 6) is about whether the integration check in the consumer project can be believed. <strong>Why did it fail</strong> (ideas 4 and 5) is about cross-channel diagnosis. Idea 3 stands alone and is time-sensitive, because it revisits a storage decision made this week.</p>
+</div>
+
+<section id="grounding-context">
+<h2>Grounding Context</h2>
+<h4>Codebase Context</h4>
+<ul>
+  <li>CLI commands <code>run</code>, <code>check</code>, <code>list</code>, <code>export</code>, <code>init</code>, <code>ui</code> (<code>src/cli.ts:63</code>). Drivers: http, web (Playwright), mobile, adb-flow, shell.</li>
+  <li>The last ~60 commits were consolidation: UI split into view folders, backend split into per-concept modules, browser smoke tests, DB-first scenario storage (commit <code>4fdf4ac</code>). <code>docs/backlog.md</code> says "Nothing open."</li>
+  <li>Failure evidence varies by driver. Web keeps a full Playwright trace on failure (<code>src/drivers/web.ts:37</code>, <code>:405</code>). Mobile keeps one screenshot (<code>src/drivers/mobile.ts:159-165</code>). HTTP keeps nothing (<code>src/drivers/http.ts:91</code>).</li>
+  <li><code>step_runs</code> stores one row per attempt, with <code>attempt</code>, <code>iteration</code>, <code>duration_ms</code> and <code>result_data</code>, plus an index on <code>step_id</code>. Run status is only RUNNING, PASSED, FAILED or CANCELLED.</li>
+  <li>Preflight health probes exist (<code>src/preflight.ts:37-44</code>) and run only before a run.</li>
+  <li>There is no CI in this repo, only a pre-push hook. The one real consumer project uses this tool's suite as its integration check.</li>
+</ul>
+<h4>External Context</h4>
+<ul>
+  <li>Playwright Trace Viewer is the benchmark for failure diagnosis, but only for one channel. No tool found offers it for a mixed API, web and Android run.</li>
+  <li>Hurl, Bruno, Karate and Step CI chain captured values between requests, but each covers only one channel.</li>
+  <li>Playwright Test Agents (v1.56+) ship a healer that repairs failing locators. Write-ups warn that healing and retries can hide real bugs.</li>
+  <li>Useful analogies: Temporal durable execution (replay, resume from a step) and the chaos-engineering steady-state check (probe the environment to tell an environment failure from a test failure).</li>
+</ul>
+</section>
+
+<section id="topic-axes">
+<h2>Topic Axes</h2>
+<p>Decomposition skipped — surprise-me mode.</p>
+</section>
+
+<section id="ranked-ideas">
+<h2>Ranked Ideas</h2>
+<ol class="jump">
+  <li><a href="#idea-1">Label every failure: environment, product, or test</a></li>
+  <li><a href="#idea-2">Flake ledger: stop counting "passed on retry" as plain green</a></li>
+  <li><a href="#idea-3">Keep scenarios reviewable in git</a></li>
+  <li><a href="#idea-4">One cross-channel failure timeline</a></li>
+  <li><a href="#idea-5">Pin each run to the exact scenario it ran</a></li>
+  <li><a href="#idea-6">CI-readable run output for the consumer</a></li>
+  <li><a href="#idea-7">Re-run from the failed step</a></li>
+</ol>
+
+<article class="idea" id="idea-1">
+  <div class="idea-head"><h3>1. Label every failure: environment, product, or test</h3></div>
+  <div class="chips"><span class="chip id">Idea 1</span><span class="chip hi">Confidence 80%</span><span class="chip">Complexity Low–Medium</span><span class="chip">Track: trust in green</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>When a step fails, re-run the preflight health probes for the services that step touched, and run <code>adb get-state</code> for the device. Record a failure label on the step run. <strong>ENV</strong> means a service or device is down. <strong>PRODUCT</strong> means the environment is healthy and an assertion failed. <strong>TEST</strong> means the environment is healthy and a locator or timeout failed. Show the label in the runner's failing-steps view, in the CLI summary and in <code>summary.json</code>. Optionally stop running further scenarios against a service that is down, so one crash does not turn into twenty red scenarios.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>src/preflight.ts:39</code> <code>fetch(new URL(service.health ?? "/", service.url), { signal: AbortSignal.timeout(3000) })</code> is called only before the run.</li>
+      <li><code>direct:</code> <code>docs/domain/runs.md</code> status is only <code>"RUNNING", "PASSED", "FAILED", "CANCELLED"</code>.</li>
+      <li><code>external:</code> the chaos-engineering steady-state hypothesis (principlesofchaos.org).</li>
+      <li>All six agents proposed this independently.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>A run that depends on a backend, a dev server and an emulator turns red for infrastructure reasons often. Today each red run starts with someone ruling out "the server died" by hand. The consumer uses this suite as its integration check, so a label that separates infrastructure from product is what keeps people reading red results instead of ignoring them.</dd>
+    <dt>Downsides</dt>
+    <dd>A probe taken after the failure can race a service that has already recovered, so the label is a strong hint, not proof. The label adds a dimension to run status, so <code>docs/domain/runs.md</code> must change in the same commit. The ENV/PRODUCT/TEST taxonomy needs a short design discussion.</dd>
+    <dt>Confidence</dt><dd>80%</dd>
+    <dt>Complexity</dt><dd>Low–Medium</dd>
+  </dl>
+  <figure>
+    <svg viewBox="0 0 760 200" role="img" aria-label="Step fails, health probes re-run, outcome labeled ENV, PRODUCT, or TEST">
+      <rect x="20" y="78" width="120" height="44" rx="6" fill="#321618" stroke="#632226"/>
+      <text x="80" y="105" text-anchor="middle" fill="#ff9b9b" font-size="14" font-family="sans-serif">Step fails</text>
+      <line x1="140" y1="100" x2="210" y2="100" stroke="#858585" stroke-width="1.5" marker-end="url(#a1)"/>
+      <polygon points="300,52 380,100 300,148 220,100" fill="#162a3f" stroke="#244970"/>
+      <text x="300" y="96" text-anchor="middle" fill="#75beff" font-size="13" font-family="sans-serif">Re-probe</text>
+      <text x="300" y="113" text-anchor="middle" fill="#75beff" font-size="13" font-family="sans-serif">health</text>
+      <line x1="380" y1="100" x2="440" y2="36" stroke="#858585" stroke-width="1.5" marker-end="url(#a1)"/>
+      <line x1="380" y1="100" x2="440" y2="100" stroke="#858585" stroke-width="1.5" marker-end="url(#a1)"/>
+      <line x1="380" y1="100" x2="440" y2="164" stroke="#858585" stroke-width="1.5" marker-end="url(#a1)"/>
+      <rect x="448" y="16" width="290" height="40" rx="6" fill="#302611" stroke="#59471d"/>
+      <text x="462" y="41" fill="#dcdcaa" font-size="13" font-family="sans-serif">ENV — service or device down</text>
+      <rect x="448" y="80" width="290" height="40" rx="6" fill="#321618" stroke="#632226"/>
+      <text x="462" y="105" fill="#ff9b9b" font-size="13" font-family="sans-serif">PRODUCT — healthy, assertion failed</text>
+      <rect x="448" y="144" width="290" height="40" rx="6" fill="#252526" stroke="#3c3c3c"/>
+      <text x="462" y="169" fill="#cccccc" font-size="13" font-family="sans-serif">TEST — healthy, locator or timeout</text>
+      <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#858585"/></marker></defs>
+    </svg>
+    <figcaption>The probe that already runs before a run, run again at the moment of failure.</figcaption>
+  </figure>
+</article>
+
+<article class="idea" id="idea-2">
+  <div class="idea-head"><h3>2. Flake ledger: stop counting "passed on retry" as plain green</h3></div>
+  <div class="chips"><span class="chip id">Idea 2</span><span class="chip hi">Confidence 80%</span><span class="chip">Complexity Low</span><span class="chip">Track: trust in green</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>Read back the attempt rows the runner already writes. Show a step that passed only on attempt 2 or later as <strong>recovered</strong>: yellow, counted in the run summary ("2 steps passed only after retry"), and optionally treated as a failure under <code>--strict</code>. Add a per-step history view with pass rate, retry-rescued rate and p95 duration across runs and <code>repeat</code> iterations. Later, suggest a <code>retry.times</code> value or a quarantine flag based on that history.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>src/runner.ts:331</code> <code>const attempts = (raw.retry?.times ?? 0) + 1</code>, and each attempt gets its own row id that includes the attempt number (<code>src/runner.ts:338</code>).</li>
+      <li><code>direct:</code> <code>src/db/connection.ts</code> <code>attempt INTEGER DEFAULT 1</code>, <code>iteration INTEGER DEFAULT 1</code>, and <code>idx_step_runs_step</code>.</li>
+      <li>A grep for flaky or recovered across <code>src</code>, <code>ui/src</code> and <code>docs</code> finds nothing.</li>
+      <li><code>external:</code> write-ups on Playwright's healer, mabl and Testim warn that automatic recovery hides real bugs. A retry is the low-tech version of the same thing.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>The data is collected and indexed, and nothing reads it back. Retries quietly turn a regression into a slow pass, and Android steps are the most likely to be retried. This is the cheapest idea here that changes what a green result means.</dd>
+    <dt>Downsides</dt>
+    <dd>Deciding whether "recovered" fails the run is a policy question. A per-step history needs stable step identity across edits, which idea 5 provides. The duration-trend part (control charts) only pays off once there are enough runs.</dd>
+    <dt>Confidence</dt><dd>80%</dd>
+    <dt>Complexity</dt><dd>Low</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-3">
+  <div class="idea-head"><h3>3. Keep scenarios reviewable in git</h3></div>
+  <div class="chips"><span class="chip id">Idea 3</span><span class="chip hi">Confidence 75%</span><span class="chip">Complexity Low (check) / Medium (write-through)</span><span class="chip">Time-sensitive</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>Since commit <code>4fdf4ac</code>, GUI saves and deletes change SQLite only, and SQLite lives in the gitignored <code>.e2e</code> folder. A scenario edited in the GUI is invisible to code review until someone remembers to export. Two options:
+      <ul>
+        <li><strong>(a) Drift guard.</strong> Keep DB-first and add <code>e2e export --check</code>, which fails when the DB and the JSON files disagree. Run it from the consumer's pre-push hook.</li>
+        <li><strong>(b) Write-through.</strong> Every save writes a deterministic, sorted-key JSON file, and every delete removes it. On load, re-import any file whose content hash changed, replacing the one-time import flag.</li>
+      </ul></dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>docs/domain/scenarios.md</code> section 4 says POST and DELETE on <code>/api/scenarios</code> "change SQLite only and never touch JSON files". Import runs once, after which <code>scenarios_imported_at</code> is set and it "never imports again". Export "leaves files for deleted ids in place".</li>
+      <li><code>direct:</code> <code>.gitignore</code> lists <code>.e2e</code>, and <code>src/db/paths.ts</code> sets <code>DEFAULT_DB_DIR = ".e2e"</code>.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>For the consumer, scenario diffs in a PR are how a team reviews its integration check. If the export is forgotten, the suite in git is not the suite that runs. The decision is days old, so changing it now is cheap. Once habits and more consumers depend on it, it is not.</dd>
+    <dt>Downsides</dt>
+    <dd>It re-opens a decision that was just made. Write-through brings back the "deleted scenario comes back from a leftover file" problem that DB-first solved, unless deletes are handled carefully. Option (a) is cheap but only detects drift and does not prevent it.</dd>
+    <dt>Confidence</dt><dd>75%</dd>
+    <dt>Complexity</dt><dd>Low for (a), Medium for (b)</dd>
+  </dl>
+  <figure>
+    <svg viewBox="0 0 760 170" role="img" aria-label="Today: GUI writes only to SQLite, git sees JSON only on manual export. Option: every save also writes JSON.">
+      <text x="20" y="24" fill="#9a9a9a" font-size="12" font-family="sans-serif" letter-spacing="1">TODAY</text>
+      <rect x="20" y="36" width="110" height="38" rx="6" fill="#252526" stroke="#3c3c3c"/>
+      <text x="75" y="60" text-anchor="middle" fill="#cccccc" font-size="13" font-family="sans-serif">GUI save</text>
+      <line x1="130" y1="55" x2="186" y2="55" stroke="#858585" stroke-width="1.5" marker-end="url(#a3)"/>
+      <rect x="192" y="36" width="140" height="38" rx="6" fill="#162a3f" stroke="#244970"/>
+      <text x="262" y="60" text-anchor="middle" fill="#75beff" font-size="13" font-family="sans-serif">SQLite (.e2e)</text>
+      <line x1="332" y1="55" x2="406" y2="55" stroke="#59471d" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a3w)"/>
+      <text x="369" y="45" text-anchor="middle" fill="#dcdcaa" font-size="12" font-family="sans-serif">manual export</text>
+      <rect x="412" y="36" width="140" height="38" rx="6" fill="#252526" stroke="#3c3c3c"/>
+      <text x="482" y="60" text-anchor="middle" fill="#cccccc" font-size="13" font-family="sans-serif">JSON in git</text>
+      <text x="572" y="60" fill="#9a9a9a" font-size="12" font-family="sans-serif">may be stale</text>
+      <text x="20" y="108" fill="#9a9a9a" font-size="12" font-family="sans-serif" letter-spacing="1">OPTION (B)</text>
+      <rect x="20" y="120" width="110" height="38" rx="6" fill="#252526" stroke="#3c3c3c"/>
+      <text x="75" y="144" text-anchor="middle" fill="#cccccc" font-size="13" font-family="sans-serif">GUI save</text>
+      <line x1="130" y1="139" x2="186" y2="139" stroke="#858585" stroke-width="1.5" marker-end="url(#a3)"/>
+      <rect x="192" y="120" width="140" height="38" rx="6" fill="#162a3f" stroke="#244970"/>
+      <text x="262" y="144" text-anchor="middle" fill="#75beff" font-size="13" font-family="sans-serif">SQLite (.e2e)</text>
+      <line x1="332" y1="139" x2="406" y2="139" stroke="#1f503e" stroke-width="1.5" marker-end="url(#a3g)"/>
+      <text x="369" y="129" text-anchor="middle" fill="#4ec9b0" font-size="12" font-family="sans-serif">every save</text>
+      <rect x="412" y="120" width="140" height="38" rx="6" fill="#142a22" stroke="#1f503e"/>
+      <text x="482" y="144" text-anchor="middle" fill="#4ec9b0" font-size="13" font-family="sans-serif">JSON in git</text>
+      <text x="572" y="144" fill="#9a9a9a" font-size="12" font-family="sans-serif">diffable in PRs</text>
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#858585"/></marker>
+        <marker id="a3w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#cca700"/></marker>
+        <marker id="a3g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4ec9b0"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Option (a) keeps the top flow and adds a check that fails when the two sides disagree.</figcaption>
+  </figure>
+</article>
+
+<article class="idea" id="idea-4">
+  <div class="idea-head"><h3>4. One cross-channel failure timeline</h3></div>
+  <div class="chips"><span class="chip id">Idea 4</span><span class="chip mid">Confidence 70%</span><span class="chip">Complexity High</span><span class="chip">Track: why did it fail</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>For a failed scenario, place every step on one time-ordered view in <code>ArtifactsView</code>: the HTTP request and response, the web trace, Android evidence, the variables before and after each step, and lines from the services that preflight started. The goal is a Trace Viewer for a mixed run, where you can see what the API returned two steps before the Android screen went wrong.
+      <ul>
+        <li><strong>First slice (small, standalone):</strong> bring Android evidence up to web's level. On failure, save <code>adb logcat -d</code> (cleared at scenario start), a <code>uiautomator dump</code> and, optionally, a short <code>screenrecord</code>.</li>
+        <li><strong>Second slice:</strong> save HTTP request and response pairs per step, and save <code>resultData</code> on failed step runs, which is not saved today.</li>
+        <li><strong>Third slice:</strong> the unified view.</li>
+      </ul></dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>src/drivers/web.ts:405</code> <code>tracing.stop(failed ? { path: join(artifactsDir, "web-trace.zip") } : undefined)</code>. Web is already covered.</li>
+      <li><code>direct:</code> the mobile driver writes only <code>mobile-failure.png</code> (<code>src/drivers/mobile.ts:159-165</code>), and <code>logcat</code> does not appear anywhere in <code>src</code>.</li>
+      <li><code>direct:</code> <code>src/drivers/http.ts:91</code> <code>endScenario</code> keeps no evidence.</li>
+      <li><code>external:</code> Playwright Trace Viewer is the single-channel benchmark, and no cross-channel equivalent was found.</li>
+      <li>Seven of the seven idea reports proposed a form of this.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>Mixing channels in one scenario is the only thing Hurl, Bruno, Maestro and Playwright cannot do. The tool's failure experience is still one channel at a time, so it gives up its advantage at the moment it matters most. The first slice is cheap and fixes the worst gap: Android is the slowest channel and has the least evidence.</dd>
+    <dt>Downsides</dt>
+    <dd>Large overall. Disk use grows, so a retention policy is needed. The unified view is a substantial UI piece. Correlating backend service logs depends on each service's log format.</dd>
+    <dt>Confidence</dt><dd>70%</dd>
+    <dt>Complexity</dt><dd>High overall; the Android slice is Low</dd>
+  </dl>
+  <figure>
+    <svg viewBox="0 0 760 210" role="img" aria-label="Swim lanes for HTTP, Web, Android, and Services across steps 1 to 5, with failure at step 5 and evidence from all lanes aligned">
+      <g font-family="sans-serif" font-size="13">
+        <text x="20" y="46" fill="#cccccc">HTTP</text>
+        <text x="20" y="86" fill="#cccccc">Web</text>
+        <text x="20" y="126" fill="#cccccc">Android</text>
+        <text x="20" y="166" fill="#cccccc">Services</text>
+      </g>
+      <g stroke="#2d2d2d"><line x1="100" y1="60" x2="740" y2="60"/><line x1="100" y1="100" x2="740" y2="100"/><line x1="100" y1="140" x2="740" y2="140"/></g>
+      <g font-family="sans-serif" font-size="12" fill="#9a9a9a" text-anchor="middle">
+        <text x="160" y="196">step 1</text><text x="290" y="196">step 2</text><text x="420" y="196">step 3</text><text x="550" y="196">step 4</text><text x="680" y="196">step 5</text>
+      </g>
+      <rect x="120" y="30" width="80" height="22" rx="4" fill="#162a3f" stroke="#244970"/>
+      <text x="160" y="46" text-anchor="middle" fill="#75beff" font-size="12" font-family="sans-serif">POST 201</text>
+      <rect x="250" y="70" width="80" height="22" rx="4" fill="#252526" stroke="#3c3c3c"/>
+      <text x="290" y="86" text-anchor="middle" fill="#cccccc" font-size="12" font-family="sans-serif">trace</text>
+      <rect x="380" y="30" width="80" height="22" rx="4" fill="#162a3f" stroke="#244970"/>
+      <text x="420" y="46" text-anchor="middle" fill="#75beff" font-size="12" font-family="sans-serif">GET 200</text>
+      <rect x="510" y="110" width="80" height="22" rx="4" fill="#252526" stroke="#3c3c3c"/>
+      <text x="550" y="126" text-anchor="middle" fill="#cccccc" font-size="12" font-family="sans-serif">tap</text>
+      <rect x="640" y="110" width="80" height="22" rx="4" fill="#321618" stroke="#632226"/>
+      <text x="680" y="126" text-anchor="middle" fill="#ff9b9b" font-size="12" font-family="sans-serif">FAIL</text>
+      <rect x="610" y="150" width="140" height="22" rx="4" fill="#302611" stroke="#59471d"/>
+      <text x="680" y="166" text-anchor="middle" fill="#dcdcaa" font-size="12" font-family="sans-serif">500 in API log</text>
+      <line x1="680" y1="20" x2="680" y2="104" stroke="#f14c4c" stroke-width="1" stroke-dasharray="3 3"/>
+    </svg>
+    <figcaption>One clock across channels. The failing Android step lines up with the backend error that caused it.</figcaption>
+  </figure>
+</article>
+
+<article class="idea" id="idea-5">
+  <div class="idea-head"><h3>5. Pin each run to the exact scenario it ran</h3></div>
+  <div class="chips"><span class="chip id">Idea 5</span><span class="chip hi">Confidence 75%</span><span class="chip">Complexity Low</span><span class="chip">Track: why did it fail</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>Store a content hash of the scenario on each run, and the substituted step JSON on each step run. The runner already computes that JSON. Run history then describes what actually ran, and "what changed between the last green run and this red one" becomes a query: the scenario, the product, or both.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> the <code>runs</code> schema in <code>docs/domain/runs.md</code> has no scenario version or hash column.</li>
+      <li><code>direct:</code> <code>step_runs.step_id</code> is documented as a reference to <code>scenario_steps(id)</code> "if known", and auto-save edits that row in place.</li>
+      <li><code>direct:</code> <code>src/runner.ts</code> computes <code>const step = substitute(raw, scope)</code> and stores only status, code and message.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>Moving scenarios to SQLite removed git as the version history. History is already shown in the GUI and can mislead after an edit. This is cheap now and costly to backfill later, and ideas 2, 4 and 7 all build on it.</dd>
+    <dt>Downsides</dt>
+    <dd>It is a schema change with a domain-doc update. Storing step JSON per attempt grows the database, so it may need pruning alongside run retention.</dd>
+    <dt>Confidence</dt><dd>75%</dd>
+    <dt>Complexity</dt><dd>Low</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-6">
+  <div class="idea-head"><h3>6. CI-readable run output for the consumer</h3></div>
+  <div class="chips"><span class="chip id">Idea 6</span><span class="chip mid">Confidence 65%</span><span class="chip">Complexity Low–Medium</span><span class="chip">Track: trust in green</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>Add <code>e2e run --ci</code> (or <code>--reporter junit</code>). It writes JUnit XML and a GitHub step summary, zips artifacts for each failed scenario so they can be uploaded, and uses exit codes that separate an environment failure (idea 1) from a product failure. This is an output format, not a deploy workflow for this repo.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> the runner writes only a custom <code>summary.json</code> (<code>src/runner.ts:260</code>), and a grep for junit finds nothing.</li>
+      <li><code>direct:</code> the grounding says there is no CI pipeline in this repo, and that the consumer runs this suite as its integration check.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>An integration check that only runs when a person starts it locally gets skipped. Standard reports let the consumer gate merges on the suite. The JUnit attempt and flaky fields also carry idea 2's data into CI dashboards.</dd>
+    <dt>Downsides</dt>
+    <dd>This repo has no CI of its own to test it in. The value depends on the consumer adopting CI, which is outside this repo's control.</dd>
+    <dt>Confidence</dt><dd>65%</dd>
+    <dt>Complexity</dt><dd>Low–Medium</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-7">
+  <div class="idea-head"><h3>7. Re-run from the failed step</h3></div>
+  <div class="chips"><span class="chip id">Idea 7</span><span class="chip lo">Confidence 50%</span><span class="chip">Complexity Medium–High</span><span class="chip">Track: authoring speed</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>Save the extracted-variable scope after each passing step. <code>e2e run --resume &lt;runId&gt;</code> and a "Re-run from here" button restore that scope and start at the failed step, instead of replaying login, seeding and slow Android navigation. Resumed runs are labelled partial and never count as green. A scenario can opt out with <code>resumable: false</code>.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>src/runner.ts</code> <code>extract(step, result, scope.ctx)</code> is the only state passed between steps, so the state to save is well defined.</li>
+      <li><code>direct:</code> <code>step_runs.result_data</code> is stored for passed attempts (<code>src/runner.ts:374</code>), which are the rows a resume needs.</li>
+      <li><code>external:</code> Temporal durable execution (event history, replay, resume).</li>
+      <li>All seven idea reports proposed this.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>Fixing a locator at step 14 of an Android and API scenario means replaying steps 1 to 13 for every attempt. That loop is where authoring time goes. The verifier rated this weak, and I kept it anyway: every frame converged on it, and its concern about missing <code>result_data</code> does not apply, because only passed rows are needed. Its concern about side effects stands, which is why confidence is lower.</dd>
+    <dt>Downsides</dt>
+    <dd>Real systems drift between the original run and the resume. Data seeded at step 3 may be gone, especially if teardown is added later. The Temporal analogy covers replaying deterministic code, not live side effects. It needs clear rules on when a resume is valid, plus a domain-doc change.</dd>
+    <dt>Confidence</dt><dd>50%</dd>
+    <dt>Complexity</dt><dd>Medium–High</dd>
+  </dl>
+</article>
+</section>
+
+<section id="rejection-summary">
+<h2>Rejection Summary</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>#</th><th>Idea</th><th>Reason Rejected</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Android evidence parity (logcat, UI dump, screen recording)</td><td>Duplicates a stronger idea: merged into idea 4 as its first slice.</td></tr>
+    <tr><td>2</td><td>Statistical control charts on step duration</td><td>Duplicates a stronger idea: folded into idea 2. Needs more run history than one consumer produces.</td></tr>
+    <tr><td>3</td><td>Last-green baseline diff (keep passing evidence, compare)</td><td>Better as a later phase of ideas 4 and 5. Needs a retention decision first.</td></tr>
+    <tr><td>4</td><td>Per-step <code>evidence()</code> in the Driver interface</td><td>Implementation detail of idea 4. <code>endScenario</code> is already a hook, so this is incremental.</td></tr>
+    <tr><td>5</td><td>Expose the orchestrator as an MCP server</td><td>Basis weak: the prior art was an unsourced inference, and the single <code>state.activeRun</code> (<code>src/server/state.ts:20</code>) limits agent concurrency. Revisit after ideas 1 and 4 produce structured failure evidence.</td></tr>
+    <tr><td>6</td><td>Dogfood: port <code>test/ui</code> smoke tests to orchestrator scenarios</td><td>Little new coverage, and it adds maintenance. Conflicts with the current "no examples/ for now" decision.</td></tr>
+    <tr><td>7</td><td>Correlation ID injected into every channel</td><td>No stated consumer need, and it only helps if the consumer's services log the ID.</td></tr>
+    <tr><td>8</td><td><code>--affected</code> scenario selection</td><td>No mapping from changed paths to scenarios exists, since <code>targetsUsed</code> maps platforms, not files. Too costly for a small suite.</td></tr>
+    <tr><td>9</td><td>Run all environments at once and diff the results</td><td>Breaks the one-active-environment invariant for a need nobody has shown. High cost.</td></tr>
+    <tr><td>10</td><td>Cross-channel record mode with inferred extraction</td><td>Too expensive for the likely value. No evidence of demand.</td></tr>
+    <tr><td>11</td><td>Selector-repair proposals (healer-style)</td><td>The claim that selector rot is the main pain is unsupported here. Revisit after idea 4.</td></tr>
+    <tr><td>12</td><td>A <code>reconcile</code> step type (same fact via two channels)</td><td>Already possible with extract plus assert. The added value is thin.</td></tr>
+    <tr><td>13</td><td>Teardown fixtures with saga-style compensation</td><td>Adds a lot to the model for a single maintainer, with unproven need. Conflicts with idea 7's resume.</td></tr>
+    <tr><td>14</td><td>Lint for inert steps in <code>e2e check</code></td><td>Sound but below the ambition floor: a small, self-contained check. A good quick add next to idea 2.</td></tr>
+    <tr><td>15</td><td>Pause on failure with a live browser or device</td><td>Needs a cancellation and driver-lifecycle redesign that the shown demand doesn't justify.</td></tr>
+    <tr><td>16</td><td>Self-describing driver descriptors</td><td>Real duplication (<code>src/scenario.ts:21-26</code>), but with only five drivers the refactor has no near-term payoff.</td></tr>
+    <tr><td>17</td><td>Propose assertions from passing runs</td><td>Little support in the repo or prior art. Snapshot assertions break easily.</td></tr>
+    <tr><td>18</td><td>Combo: agent verification loop (MCP, evidence, resume)</td><td>Rests on two weak parts (rows 5 and idea 7).</td></tr>
+    <tr><td>19</td><td>Combo: git-visible scenarios plus dogfooding</td><td>The dogfood half was rejected (row 6). The git half survives as idea 3.</td></tr>
+    <tr><td>20</td><td>Combo: live-debug authoring loop</td><td>Rests on rows 11 and 15, both rejected.</td></tr>
+    <tr><td>21</td><td>Generic "add CI to this repo" and in-repo example app</td><td>Cut by the agents themselves: generic, or against the recorded no-examples decision.</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<section id="sources">
+<h2>Sources</h2>
+<ul class="sources">
+  <li><a href="https://playwright.dev/docs/trace-viewer">Playwright Trace Viewer</a></li>
+  <li><a href="https://bug0.com/blog/playwright-test-agents">Playwright Test Agents overview (planner, generator, healer)</a></li>
+  <li><a href="https://maestro.dev/blog/maestro-vs-appium-the-benchmark">Maestro vs Appium</a></li>
+  <li><a href="https://github.com/kubeshop/tracetest">Tracetest: trace-based testing</a></li>
+  <li><a href="https://learn.temporal.io/tutorials/typescript/background-check/durable-execution/">Temporal durable execution</a></li>
+  <li><a href="https://principlesofchaos.org/">Principles of Chaos Engineering (steady-state hypothesis)</a></li>
+  <li><a href="https://pie.inc/blog/testim-vs-mabl/">What self-healing actually fixes (Testim vs mabl)</a></li>
+</ul>
+</section>
+
+<footer class="composition-signal">Composed <time datetime="2026-10-03T11:03Z">2026-10-03T11:03Z</time> by ce-ideate from the prompt "What should we do next" (surprise me).</footer>
+</main>
+</body>
+</html>
