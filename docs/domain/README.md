@@ -41,7 +41,7 @@ When running a scenario (`e2e run` or `POST /api/run`):
 3. **Run Initialization** (`src/runner.ts`): Inserts a `runs` row with `status = "RUNNING"` in SQLite.
 4. **Fixture Setup** (`runFixture` in `src/runner.ts`): Executes hooks listed in `scenario.setup` sequentially. Halts immediately on failure.
 5. **Step Execution**: Dispatches scenario steps in `order_num` sequence to compiled target drivers (`web`, `mobile`, `http`, `shell`). Records each execution attempt into `step_runs`.
-6. **Result Recording**: Finalizes the `runs` record with outcome (`PASSED`, `FAILED`, or `CANCELLED`), writes structured summary to `summary.json`, streams execution logs to `run.log`, and saves failure traces and screenshots under `.e2e/results/artifacts/<runId>/`.
+6. **Result Recording**: Labels each final failure (`Environment down`, `Assertion failed`, `Step error`) after re-checking services and devices, stops the run when the environment is down, finalizes the `runs` record with outcome (`PASSED`, `FAILED`, or `CANCELLED`) plus stop reason and recovered and not-run counts (see `runs.md`), writes structured summary to `summary.json`, streams execution logs to `run.log`, and saves failure traces and screenshots under `.e2e/results/artifacts/<runId>/`.
 
 ---
 
