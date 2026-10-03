@@ -1,5 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { AssertionFailure, failureLabel } from "../src/assertions.ts"
+import type { StepAction } from "../src/db/scenarios.ts"
 import { WebDriver } from "../src/drivers/web.ts"
 import { tempDir } from "./temp-dir.ts"
 
@@ -93,6 +95,33 @@ describe("WebDriver Playwright actions", () => {
       const data = result.data as Record<string, unknown>
       assert.equal(data.matched, true)
       assert.equal(data.screenshot, true)
+    } finally {
+      await driver.close()
+    }
+  })
+
+  it("surfaces failed assertion actions as AssertionFailure, labeled Assertion failed", async () => {
+    const dir = tempDir("web-driver-assert")
+    const target = { driver: "web" as const, service: "web", modules: dir, headless: true }
+    const driver = new WebDriver(target, { url: "http://localhost:3000" }, dir)
+    const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent('<h1 id="title">Hello</h1>')}`
+    const runActions = (actions: StepAction[]) =>
+      driver
+        .run({ step: { name: "Assert", target: "web", actions }, env: {}, artifactsDir: dir, log: () => {} })
+        .then(() => assert.fail("expected the step to fail"), (error: unknown) => error)
+
+    try {
+      const textError = await runActions([
+        { action: "navigate", url: dataUrl },
+        { action: "assert_text", selector: "#title", value: "Goodbye" },
+      ])
+      assert.ok(textError instanceof AssertionFailure)
+      assert.match(textError.message, /^Step action #2 \(assert_text\) failed: Expected element "#title" to contain "Goodbye"/)
+      assert.equal(failureLabel(textError, []), "Assertion failed")
+
+      const visibleError = await runActions([{ action: "assert_visible", selector: "#missing", timeout_ms: 200 }])
+      assert.ok(visibleError instanceof AssertionFailure)
+      assert.match(visibleError.message, /^Step action #1 \(assert_visible\) failed: /)
     } finally {
       await driver.close()
     }

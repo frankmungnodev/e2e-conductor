@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs"
+import { AssertionFailure, prefixError } from "../assertions.ts"
 import type { Logger } from "../config.ts"
 import { parseFlow } from "../flow.ts"
 import { runAdb, sleep } from "../process.ts"
@@ -103,13 +104,19 @@ export class AdbFlowRunner {
     return matches[selector.index ?? 0]
   }
 
-  private async waitFor(selector: Selector, visible: boolean, timeoutMs: number): Promise<Node | undefined> {
+  /** `Timeout` is the error class for running out of time; an assertion passes AssertionFailure. */
+  private async waitFor(
+    selector: Selector,
+    visible: boolean,
+    timeoutMs: number,
+    Timeout: new (message: string) => Error = Error,
+  ): Promise<Node | undefined> {
     const deadline = Date.now() + timeoutMs
     for (;;) {
       const node = this.find(selector)
       if (visible ? node : !node) return node
       if (Date.now() > deadline) {
-        throw new Error(`${describe(selector)} still ${visible ? "not visible" : "visible"} after ${timeoutMs}ms`)
+        throw new Timeout(`${describe(selector)} still ${visible ? "not visible" : "visible"} after ${timeoutMs}ms`)
       }
       await sleep(POLL_MS)
     }
@@ -209,11 +216,12 @@ export class AdbFlowRunner {
         }
         return
       }
+      // Running out of time is the check failing here; an adb error still means the step broke.
       case "assertVisible":
-        await this.waitFor(selector, true, DEFAULT_WAIT_MS)
+        await this.waitFor(selector, true, DEFAULT_WAIT_MS, AssertionFailure)
         return
       case "assertNotVisible":
-        await this.waitFor(selector, false, DEFAULT_WAIT_MS)
+        await this.waitFor(selector, false, DEFAULT_WAIT_MS, AssertionFailure)
         return
       case "extendedWaitUntil": {
         const { visible, notVisible, timeout } = arg as { visible?: unknown; notVisible?: unknown; timeout?: number }
@@ -272,7 +280,7 @@ export class AdbFlowRunner {
       try {
         await this.command(name, arg, appId)
       } catch (error) {
-        throw new Error(`${name} ${describeArg(arg)}: ${(error as Error).message}`)
+        throw prefixError(`${name} ${describeArg(arg)}: `, error)
       }
       this.log(`${name} ${describeArg(arg)} ✓ ${Date.now() - began}ms`)
     }

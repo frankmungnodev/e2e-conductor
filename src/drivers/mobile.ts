@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process"
 import { writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { prefixError } from "../assertions.ts"
 import type { MobileTarget } from "../config.ts"
 import { restoreKeyboards } from "../preflight.ts"
 import { runAdb } from "../process.ts"
@@ -52,7 +53,7 @@ export class MobileDriver implements Driver {
         const res = await this.executeAction(runner, actionItem, appId, log)
         Object.assign(combinedData, res)
       } catch (err) {
-        throw new Error(`Step action #${i + 1} (${actionItem.action}) failed: ${(err as Error).message}`)
+        throw prefixError(`Step action #${i + 1} (${actionItem.action}) failed: `, err)
       }
     }
     return { data: combinedData }

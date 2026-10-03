@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
-import { type Browser, type BrowserContext, chromium, type Page } from "playwright"
+import { type Browser, type BrowserContext, chromium, errors, type Page } from "playwright"
+import { AssertionFailure, prefixError } from "../assertions.ts"
 import type { Logger, ServiceConfig, WebStep, WebTarget } from "../config.ts"
 import type { Driver, StepResult, StepRun } from "./types.ts"
 
@@ -83,7 +84,7 @@ export class WebDriver implements Driver {
         const res = await this.executeAction(page, actionItem, log, step.timeout_ms)
         Object.assign(combinedData, res)
       } catch (err) {
-        throw new Error(`Step action #${i + 1} (${actionItem.action}) failed: ${(err as Error).message}`)
+        throw prefixError(`Step action #${i + 1} (${actionItem.action}) failed: `, err)
       }
     }
     return { data: combinedData }
@@ -266,14 +267,14 @@ export class WebDriver implements Driver {
       case "assert_visible": {
         const selector = requireSelector("assert_visible")
         log(`assert visible "${selector}"`)
-        await page.locator(selector).waitFor({ state: "visible", timeout: timeout ?? 10_000 })
+        await assertState(page, selector, "visible", timeout ?? 10_000)
         return { visible: selector }
       }
       case "assert_not_visible":
       case "assert_hidden": {
         const selector = requireSelector("assert_not_visible")
         log(`assert not visible "${selector}"`)
-        await page.locator(selector).waitFor({ state: "hidden", timeout: timeout ?? 10_000 })
+        await assertState(page, selector, "hidden", timeout ?? 10_000)
         return { not_visible: selector }
       }
       case "assert_text": {
@@ -282,7 +283,7 @@ export class WebDriver implements Driver {
         log(`assert text on "${selector}" contains "${expected}"`)
         const text = await page.locator(selector).innerText({ timeout: timeout ?? 10_000 })
         if (!text.includes(expected)) {
-          throw new Error(`Expected element "${selector}" to contain "${expected}", but found "${text}"`)
+          throw new AssertionFailure(`Expected element "${selector}" to contain "${expected}", but found "${text}"`)
         }
         return { text, matched: true }
       }
@@ -292,7 +293,7 @@ export class WebDriver implements Driver {
         log(`assert text on "${selector}" does not contain "${forbidden}"`)
         const text = await page.locator(selector).innerText({ timeout: timeout ?? 10_000 })
         if (text.includes(forbidden)) {
-          throw new Error(`Expected element "${selector}" to NOT contain "${forbidden}", but it did`)
+          throw new AssertionFailure(`Expected element "${selector}" to NOT contain "${forbidden}", but it did`)
         }
         return { text, matched: false }
       }
@@ -302,7 +303,7 @@ export class WebDriver implements Driver {
         log(`assert value on "${selector}" equals "${expected}"`)
         const actual = await page.locator(selector).inputValue({ timeout: timeout ?? 10_000 })
         if (actual !== expected) {
-          throw new Error(`Expected element "${selector}" value to be "${expected}", but found "${actual}"`)
+          throw new AssertionFailure(`Expected element "${selector}" value to be "${expected}", but found "${actual}"`)
         }
         return { value: actual, matched: true }
       }
@@ -311,7 +312,7 @@ export class WebDriver implements Driver {
         log(`assert checked "${selector}"`)
         const isChecked = await page.locator(selector).isChecked({ timeout: timeout ?? 10_000 })
         if (!isChecked) {
-          throw new Error(`Expected checkbox "${selector}" to be checked, but it is not`)
+          throw new AssertionFailure(`Expected checkbox "${selector}" to be checked, but it is not`)
         }
         return { checked: true, selector }
       }
@@ -320,7 +321,7 @@ export class WebDriver implements Driver {
         log(`assert not checked "${selector}"`)
         const isChecked = await page.locator(selector).isChecked({ timeout: timeout ?? 10_000 })
         if (isChecked) {
-          throw new Error(`Expected checkbox "${selector}" to NOT be checked, but it is checked`)
+          throw new AssertionFailure(`Expected checkbox "${selector}" to NOT be checked, but it is checked`)
         }
         return { checked: false, selector }
       }
@@ -329,7 +330,7 @@ export class WebDriver implements Driver {
         log(`assert disabled "${selector}"`)
         const isDisabled = await page.locator(selector).isDisabled({ timeout: timeout ?? 10_000 })
         if (!isDisabled) {
-          throw new Error(`Expected element "${selector}" to be disabled, but it is enabled`)
+          throw new AssertionFailure(`Expected element "${selector}" to be disabled, but it is enabled`)
         }
         return { disabled: true, selector }
       }
@@ -338,7 +339,7 @@ export class WebDriver implements Driver {
         log(`assert enabled "${selector}"`)
         const isEnabled = await page.locator(selector).isEnabled({ timeout: timeout ?? 10_000 })
         if (!isEnabled) {
-          throw new Error(`Expected element "${selector}" to be enabled, but it is disabled`)
+          throw new AssertionFailure(`Expected element "${selector}" to be enabled, but it is disabled`)
         }
         return { enabled: true, selector }
       }
@@ -348,7 +349,7 @@ export class WebDriver implements Driver {
         log(`assert current URL contains "${expected}"`)
         const currentUrl = page.url()
         if (!currentUrl.includes(expected)) {
-          throw new Error(`Expected URL to contain "${expected}", but current URL is "${currentUrl}"`)
+          throw new AssertionFailure(`Expected URL to contain "${expected}", but current URL is "${currentUrl}"`)
         }
         return { url: currentUrl, matched: true }
       }
@@ -358,7 +359,7 @@ export class WebDriver implements Driver {
         log(`assert page title contains "${expected}"`)
         const title = await page.title()
         if (!title.includes(expected)) {
-          throw new Error(`Expected title to contain "${expected}", but found "${title}"`)
+          throw new AssertionFailure(`Expected title to contain "${expected}", but found "${title}"`)
         }
         return { title, matched: true }
       }
@@ -410,5 +411,18 @@ export class WebDriver implements Driver {
 
   async close() {
     await this.browser?.close()
+  }
+}
+
+/**
+ * For these assertions the wait timing out is the check failing, so it is an AssertionFailure.
+ * Other errors (a bad selector, a closed page) mean the step could not run, and stay plain.
+ */
+async function assertState(page: Page, selector: string, state: "visible" | "hidden", timeout: number) {
+  try {
+    await page.locator(selector).waitFor({ state, timeout })
+  } catch (error) {
+    if (error instanceof errors.TimeoutError) throw new AssertionFailure((error as Error).message)
+    throw error
   }
 }

@@ -1,20 +1,21 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
+import { checkAssert, extract } from "./assertions.ts"
 import { type LoadedConfig, resolveFromConfig, SHELL_TARGET, serviceOf } from "./config.ts"
-import { getPath, mismatch, type Scope, substitute } from "./context.ts"
+import { type Scope, substitute } from "./context.ts"
 import { openDatabase } from "./db/connection.ts"
 import { resolveDbPath } from "./db/paths.ts"
 import { saveRun, saveStepRun } from "./db/runs.ts"
 import { HttpDriver } from "./drivers/http.ts"
 import { MobileDriver } from "./drivers/mobile.ts"
 import { ShellDriver } from "./drivers/shell.ts"
-import type { Driver, StepResult } from "./drivers/types.ts"
+import type { Driver } from "./drivers/types.ts"
 import { WebDriver } from "./drivers/web.ts"
 import { color, RunLog, stripAnsi } from "./logger.ts"
 import { prepareMobile, prepareServices, type StartedService, stopService } from "./preflight.ts"
 import { runShell, sleep } from "./process.ts"
-import { loadScenarios, type Scenario, type Step, targetsUsed } from "./scenario.ts"
+import { loadScenarios, type Scenario, targetsUsed } from "./scenario.ts"
 
 export type RunEvent =
   | { type: "preflight_start" }
@@ -51,36 +52,6 @@ export type Summary = {
   duration_ms: number
   failures: Failure[]
   artifacts: string
-}
-
-function checkAssert(step: Step, result: StepResult) {
-  const expect = step.assert ?? {}
-  const errors: string[] = []
-
-  if (expect.status !== undefined && result.status !== expect.status) {
-    errors.push(`status: expected ${expect.status}, got ${result.status}`)
-  } else if (expect.status === undefined && result.status !== undefined && result.status >= 400) {
-    errors.push(`status ${result.status} (add assert.status to expect an error)`)
-  }
-  if (result.exitCode !== undefined && result.exitCode !== (expect.exit_code ?? 0)) {
-    errors.push(`exit code: expected ${expect.exit_code ?? 0}, got ${result.exitCode}`)
-  }
-  if (expect.output_contains !== undefined && !(result.output ?? "").includes(expect.output_contains)) {
-    errors.push(`output does not contain "${expect.output_contains}"`)
-  }
-  for (const [path, expected] of Object.entries(expect.json_match ?? {})) {
-    const problem = mismatch(getPath(result.data, path), expected)
-    if (problem) errors.push(`${path}: ${problem}`)
-  }
-  if (errors.length > 0) throw new Error(errors.join("; "))
-}
-
-function extract(step: Step, result: StepResult, ctx: Record<string, unknown>) {
-  for (const [name, path] of Object.entries(step.extract ?? {})) {
-    const value = getPath(result.data, path)
-    if (value === undefined) throw new Error(`extract ${name}: nothing at "${path}"`)
-    ctx[name] = value
-  }
 }
 
 async function runFixture(config: LoadedConfig, name: string, out: RunLog) {
