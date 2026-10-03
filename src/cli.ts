@@ -27,6 +27,7 @@ Options:
   -r, --repeat <n>        Run each scenario n times (flakiness check)
       --start             Start services that are down
       --install           Build and install mobile apps before running
+      --strict            Fail the run when a step passed only on a retry
       --headless          Hide the browser (same as E2E_HEADLESS=1)
   -v, --verbose           Print step details (same as E2E_VERBOSE=1)
   -i, --interactive       Interactive setup wizard (for init)
@@ -48,6 +49,7 @@ async function main() {
       repeat: { type: "string", short: "r", default: "1" },
       start: { type: "boolean", default: false },
       install: { type: "boolean", default: false },
+      strict: { type: "boolean", default: false },
       headless: { type: "boolean", default: false },
       verbose: { type: "boolean", short: "v", default: false },
       interactive: { type: "boolean", short: "i", default: false },
@@ -125,6 +127,7 @@ async function main() {
     repeat,
     start: values.start,
     install: values.install,
+    strict: values.strict,
     checkOnly: command === "check",
   })
   process.exit(summary.status === "PASSED" ? 0 : 1)
