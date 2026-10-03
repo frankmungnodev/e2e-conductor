@@ -94,7 +94,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     {t.title}
                   </div>
                 )}
-                <div className="text-xs text-fg leading-relaxed break-words">{t.message}</div>
+                <div className="text-xs text-fg leading-relaxed wrap-break-word">{t.message}</div>
               </div>
               <button
                 onClick={() => removeToast(t.id)}

@@ -97,9 +97,9 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             aria-hidden="true"
           >
             {indeterminate ? (
-              <Minus className={`${iconSizeClass} stroke-[3]`} />
+              <Minus className={`${iconSizeClass} stroke-3`} />
             ) : isChecked ? (
-              <Check className={`${iconSizeClass} stroke-[3]`} />
+              <Check className={`${iconSizeClass} stroke-3`} />
             ) : null}
           </div>
 
