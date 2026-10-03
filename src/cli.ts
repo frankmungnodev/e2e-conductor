@@ -1,6 +1,7 @@
-import { resolve } from "node:path"
+import { relative, resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
+import { exportToJson } from "./export.ts"
 import { initProject, runInteractiveInit } from "./init.ts"
 import { color } from "./logger.ts"
 import { run } from "./runner.ts"
@@ -13,6 +14,7 @@ Commands:
   run     Run scenarios (default)
   check   Preflight only: services, devices, installed apps
   list    List scenarios and validate them
+  export  Write scenarios and step presets from SQLite to JSON files
   init    Initialize SQLite configuration and starter scenario under .e2e
   ui      Start the web GUI dashboard
 
@@ -58,7 +60,7 @@ async function main() {
   })
 
   const command = positionals[0] ?? "run"
-  if (values.help || !["run", "check", "list", "init", "ui"].includes(command)) {
+  if (values.help || !["run", "check", "list", "export", "init", "ui"].includes(command)) {
     console.log(HELP)
     process.exit(values.help ? 0 : 2)
   }
@@ -105,6 +107,13 @@ async function main() {
       const targets = [...new Set(scenario.steps.map((step) => step.target))].join(", ")
       console.log(`${scenario.id.padEnd(36)} ${scenario.name} ${color.dim(`[${targets}]`)}`)
     }
+    return
+  }
+
+  if (command === "export") {
+    const { scenarios, presets } = exportToJson(config)
+    for (const file of [...scenarios, ...presets]) console.log(`${color.green("wrote")} ${relative(process.cwd(), file)}`)
+    console.log(color.dim(`${scenarios.length} scenarios, ${presets.length} presets`))
     return
   }
 

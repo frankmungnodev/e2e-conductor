@@ -12,6 +12,7 @@ import { CORS_HEADERS, MIME_TYPES, sendJson, sendText } from "./server/http.ts"
 import type { Route } from "./server/route.ts"
 import { artifactRoutes } from "./server/routes/artifacts.ts"
 import { environmentRoutes } from "./server/routes/environments.ts"
+import { exportRoutes } from "./server/routes/export.ts"
 import { fixtureRoutes } from "./server/routes/fixtures.ts"
 import { flowRoutes } from "./server/routes/flows.ts"
 import { platformRoutes } from "./server/routes/platforms.ts"
@@ -34,6 +35,7 @@ const routes: Route[] = [
   ...scenarioRoutes,
   ...stepGroupRoutes,
   ...presetRoutes,
+  ...exportRoutes,
   ...flowRoutes,
   ...preflightRoutes,
   ...artifactRoutes,

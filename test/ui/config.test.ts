@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, it } from "node:test"
 import type { Page } from "playwright"
-import { eventually, FIXTURE_NAME, SHELL_OUTPUT, startUiSession } from "./helpers.ts"
+import { eventually, FIXTURE_NAME, PRESET_NAME, SHELL_OUTPUT, SHELL_SCENARIO_ID, SHELL_SCENARIO_NAME, startUiSession } from "./helpers.ts"
 
 type ConfigSummary = {
   activeEnvironment?: string
@@ -92,5 +94,19 @@ describe("Config view database tab", () => {
     assert.match(await tile("Stored Environments").innerText(), /\b2\b/)
     assert.match(await tile("Stored Platforms").innerText(), /\b1\b/)
     assert.match(await tile("Active Profile").innerText(), /Dev/)
+  })
+
+  it("exports scenarios and presets to JSON files", async () => {
+    const { url, page, projectDir } = await startUiSession("config-export")
+    const presetFile = join(projectDir, "presets", "print-marker.json")
+    assert.equal(existsSync(presetFile), false)
+
+    await page.goto(`${url}/?tab=config&sub=database`)
+    await page.getByRole("button", { name: "Export to JSON" }).click()
+    await page.getByText("Exported 1 scenario and 1 preset to JSON files").waitFor()
+
+    assert.equal(JSON.parse(readFileSync(presetFile, "utf8")).name, PRESET_NAME)
+    const scenario = JSON.parse(readFileSync(join(projectDir, "scenarios", `${SHELL_SCENARIO_ID}.json`), "utf8"))
+    assert.equal(scenario.name, SHELL_SCENARIO_NAME)
   })
 })

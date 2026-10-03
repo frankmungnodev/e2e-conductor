@@ -4,6 +4,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { getTargetBadgeVariant, getTargetDriver } from "../ui/src/targetDriver.ts"
 import type { ConfigMeta, DetectedService, EnvPlatformRecord, PlatformWithEnvOverrides, RunEvent, ScenarioItem } from "../ui/src/types.ts"
+import { exportSummary } from "../ui/src/views/config/exportSummary.ts"
 import {
   API_DEFAULTS,
   buildNewPlatform,
@@ -222,5 +223,12 @@ describe("getTargetDriver", () => {
     assert.equal(getTargetDriver("mobile-app"), "mobile")
     assert.equal(getTargetDriver("payments"), "http")
     assert.equal(getTargetBadgeVariant("payments"), "driver-http")
+  })
+})
+
+describe("exportSummary", () => {
+  it("pluralizes scenario and preset counts", () => {
+    assert.equal(exportSummary(2, 1), "Exported 2 scenarios and 1 preset to JSON files")
+    assert.equal(exportSummary(1, 0), "Exported 1 scenario and 0 presets to JSON files")
   })
 })

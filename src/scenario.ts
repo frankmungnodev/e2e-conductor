@@ -4,11 +4,16 @@ import { type LoadedConfig, type MobileTarget, resolveFromConfig, SHELL_TARGET }
 import { withDb } from "./db/connection.ts"
 import { resolveDbPath } from "./db/paths.ts"
 import { type Assert, getScenarios, type Scenario, type Step, saveScenario } from "./db/scenarios.ts"
+import { getSetting, setSetting } from "./db/settings.ts"
 import { getStepPresets, type StepPreset, saveStepPreset } from "./db/step-presets.ts"
 import { checkFlow } from "./flow.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 
 export type { Assert, Scenario, Step, StepPreset }
+
+/** Settings keys recording that the one-time JSON import already ran for this database. */
+const SCENARIOS_IMPORTED = "scenarios_imported_at"
+const PRESETS_IMPORTED = "presets_imported_at"
 
 /** Fields each driver accepts on top of the common step fields. */
 const DRIVER_FIELDS: Record<string, string[]> = {
@@ -91,8 +96,9 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlow
 }
 
 /**
- * Loads scenarios from the SQLite database. If the database exists but contains no
- * scenarios, seeds them by importing valid JSON scenarios from the filesystem.
+ * Loads scenarios from the SQLite database. The first time it opens a database, it imports
+ * valid JSON scenarios from the scenarios folder whose ids the database does not have yet.
+ * After that the database is the only source: saves and deletes never touch the JSON files.
  * Falls back to reading directly from the filesystem if the database does not exist.
  */
 export function getOrSeedScenarios(config: LoadedConfig): Scenario[] {
@@ -100,27 +106,25 @@ export function getOrSeedScenarios(config: LoadedConfig): Scenario[] {
   if (existsSync(dbPath)) {
     try {
       const dbScenarios = withDb(dbPath, (db) => {
-        const stored = getScenarios(db)
-        if (stored.length > 0) return stored
+        if (getSetting(db, SCENARIOS_IMPORTED) !== undefined) return getScenarios(db)
         const dir = resolveFromConfig(config, config.scenarios)
-        if (!existsSync(dir)) return stored
-        const files = readdirSync(dir).filter((file) => file.endsWith(".json")).sort()
+        const known = new Set(getScenarios(db).map((scenario) => scenario.id))
+        const files = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith(".json")).sort() : []
         for (const file of files) {
           try {
             const raw = JSON.parse(readFileSync(join(dir, file), "utf8"))
             const sc = { ...raw, id: basename(file, ".json") } as Scenario
-            if (validateScenario(raw)) {
+            if (!known.has(sc.id) && validateScenario(raw)) {
               saveScenario(db, sc)
             }
           } catch {
             // ignore seeding error
           }
         }
+        setSetting(db, SCENARIOS_IMPORTED, new Date().toISOString())
         return getScenarios(db)
       })
-      if (dbScenarios.length > 0) {
-        return dbScenarios
-      }
+      return dbScenarios
     } catch {
       // ignore db error, fall back to filesystem
     }
@@ -174,9 +178,10 @@ export function targetsUsed(scenarios: Scenario[]): Set<string> {
 }
 
 /**
- * Loads step presets from SQLite database. If the database exists but contains no
- * presets, seeds them by importing valid JSON presets from the filesystem (.e2e/presets/*.json).
- * Falls back to reading directly from filesystem if database does not exist.
+ * Loads step presets from the SQLite database. The first time it opens a database, it imports
+ * JSON presets from .e2e/presets/*.json whose ids the database does not have yet.
+ * After that the database is the only source: saves and deletes never touch the JSON files.
+ * Falls back to reading directly from the filesystem if the database does not exist.
  */
 export function getOrSeedPresets(config: LoadedConfig): StepPreset[] {
   const dbPath = resolveDbPath(config.configDir)
@@ -185,13 +190,14 @@ export function getOrSeedPresets(config: LoadedConfig): StepPreset[] {
   if (existsSync(dbPath)) {
     try {
       const presets = withDb(dbPath, (db) => {
-        const stored = getStepPresets(db)
-        if (stored.length > 0 || !existsSync(presetsDir)) return stored
-        const files = readdirSync(presetsDir).filter((file) => file.endsWith(".json")).sort()
+        if (getSetting(db, PRESETS_IMPORTED) !== undefined) return getStepPresets(db)
+        const known = new Set(getStepPresets(db).map((preset) => preset.id))
+        const files = existsSync(presetsDir) ? readdirSync(presetsDir).filter((file) => file.endsWith(".json")).sort() : []
         for (const file of files) {
           try {
             const raw = JSON.parse(readFileSync(join(presetsDir, file), "utf8"))
             const id = raw.id || basename(file, ".json")
+            if (known.has(id)) continue
             const preset: StepPreset = {
               id,
               name: raw.name || id,
@@ -204,11 +210,10 @@ export function getOrSeedPresets(config: LoadedConfig): StepPreset[] {
             // ignore preset seed errors
           }
         }
+        setSetting(db, PRESETS_IMPORTED, new Date().toISOString())
         return getStepPresets(db)
       })
-      if (presets.length > 0) {
-        return presets
-      }
+      return presets
     } catch {
       // fallback to disk
     }

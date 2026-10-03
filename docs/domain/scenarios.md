@@ -114,21 +114,19 @@ Each action in `step.actions` executes sequentially within the step's driver ses
 
 A **Preset** is a reusable **Step** template (storing target platform and pre-configured `actions`).
 - Stored directly in SQLite (`step_presets` table).
-- Dual-written to `.e2e/presets/<id>.json` on disk for Git versioning and export/import portability.
-- If the SQLite `step_presets` table is empty on startup, presets are automatically seeded from `.e2e/presets/*.json`.
+- SQLite is the only place saves and deletes go. `<config folder>/presets/<id>.json` files are written only by an export (see section 4).
+- The first time a database loads presets, it imports `<config folder>/presets/*.json` files whose ids it does not have yet (see section 4).
 - Authors can save any configured step as a preset with one click from the Step Inspector header.
 - Authors can insert a pre-configured step directly into any scenario from the Stepper header (`+ Add Step from Preset`).
 
 ---
 
-## 4. Storage Synchronization & Dual-Write
+## 4. Storage: SQLite Only, JSON on Export
 
-To preserve Git-based version control compatibility alongside relational SQLite querying:
-
-1. **Primary Persistence**: The SQLite database (`.e2e/e2e.db`) is the primary source of truth for the API, Web GUI, and runner.
-2. **Auto-Import on Initialization**: If the SQLite `scenarios` table is empty when `loadScenarios()` or `GET /api/scenarios` executes, the system automatically scans `.e2e/scenarios/*.json` and imports all valid scenarios and their steps into the database.
-3. **Dual-Write on Save**: When a scenario is created or updated via `saveScenario()` (`POST /api/scenarios`), it is written to SQLite and simultaneously formatted and written to `.e2e/scenarios/<id>.json` on disk.
-4. **Synchronized Deletion**: When a scenario is deleted via `deleteScenario()` (`DELETE /api/scenarios/:id`), it is removed from SQLite (cascading to `scenario_steps`) and its corresponding `.json` file is deleted from the filesystem.
+1. **Single Source of Truth**: The SQLite database (`.e2e/e2e.db`) is the only store the API, Web GUI, and runner read and write. `POST` and `DELETE` on `/api/scenarios` and `/api/presets` change SQLite only and never touch JSON files. A failed database write returns HTTP 500.
+2. **One-Time Import**: The first time `getOrSeedScenarios()` (used by `loadScenarios()` and `GET /api/scenarios`) opens a database, it imports every valid `<scenarios folder>/*.json` file whose id the database does not have yet. It then records `scenarios_imported_at` in `settings` and never imports again, so a scenario deleted in the GUI does not come back from a leftover file. Presets follow the same rule with `<config folder>/presets/*.json` and `presets_imported_at`.
+3. **Export**: `e2e export`, `POST /api/export`, and the **Export to JSON** button on the Config view's Database tab all call `exportToJson()` in `src/export.ts`. It runs the one-time import first, then writes every scenario to `<scenarios folder>/<id>.json` (without the `id` field, which comes from the file name) and every preset to `<config folder>/presets/<id>.json`. It overwrites files with the same id and leaves files for deleted ids in place.
+4. **No Database Yet**: If the database file does not exist, reads fall back to the JSON files directly. The first save creates the database, and the next read runs the one-time import.
 
 ---
 

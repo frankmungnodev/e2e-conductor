@@ -1,8 +1,7 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync } from "node:fs"
 import { withDb } from "../../db/connection.ts"
 import { resolveDbPath } from "../../db/paths.ts"
-import { deleteStepPreset, type StepPreset, saveStepPreset } from "../../db/step-presets.ts"
+import { deleteStepPreset, getStepPreset, type StepPreset, saveStepPreset } from "../../db/step-presets.ts"
 import { getOrSeedPresets } from "../../scenario.ts"
 import { readBody, sendJson } from "../http.ts"
 import type { Route } from "../route.ts"
@@ -45,24 +44,10 @@ export const presetRoutes: Route[] = [
         updatedAt: Date.now(),
       }
 
-      // Save to SQLite
-      const dbPath = resolveDbPath(state.config.configDir)
-      if (existsSync(dbPath)) {
-        try {
-          withDb(dbPath, (db) => saveStepPreset(db, preset))
-        } catch {
-          // ignore db save error
-        }
-      }
-
-      // Dual-write to filesystem: .e2e/presets/<id>.json
       try {
-        const presetsDir = join(state.config.configDir, "presets")
-        mkdirSync(presetsDir, { recursive: true })
-        const filePath = join(presetsDir, `${preset.id}.json`)
-        writeFileSync(filePath, `${JSON.stringify(preset, null, 2)}\n`)
-      } catch {
-        // ignore fs error
+        withDb(resolveDbPath(state.config.configDir), (db) => saveStepPreset(db, preset))
+      } catch (error) {
+        return sendJson(res, 500, { error: (error as Error).message })
       }
 
       return sendJson(res, 200, { ok: true, preset })
@@ -73,31 +58,18 @@ export const presetRoutes: Route[] = [
     match: ({ req, pathname }) => pathname.startsWith("/api/presets/") && req.method === "DELETE",
     handle: async ({ state, res, pathname }) => {
       const id = pathname.replace("/api/presets/", "").trim()
-      let found = false
-
-      // Delete from SQLite
       const dbPath = resolveDbPath(state.config.configDir)
+      let found = false
       if (existsSync(dbPath)) {
         try {
-          withDb(dbPath, (db) => {
+          found = withDb(dbPath, (db) => {
+            if (!getStepPreset(db, id)) return false
             deleteStepPreset(db, id)
-            found = true
+            return true
           })
-        } catch {
-          // ignore db delete error
+        } catch (error) {
+          return sendJson(res, 500, { error: (error as Error).message })
         }
-      }
-
-      // Delete from filesystem
-      try {
-        const presetsDir = join(state.config.configDir, "presets")
-        const filePath = join(presetsDir, `${id}.json`)
-        if (existsSync(filePath)) {
-          rmSync(filePath)
-          found = true
-        }
-      } catch {
-        // ignore fs error
       }
 
       if (found) {

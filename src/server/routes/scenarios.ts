@@ -1,6 +1,4 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
-import { resolveFromConfig } from "../../config.ts"
+import { existsSync } from "node:fs"
 import { withDb } from "../../db/connection.ts"
 import { resolveDbPath } from "../../db/paths.ts"
 import { deleteScenario, getScenario, saveScenario } from "../../db/scenarios.ts"
@@ -57,24 +55,10 @@ export const scenarioRoutes: Route[] = [
       const stepErrors = checkSteps(state.config, scenario, new Set())
       const errors = [...schemaErrors, ...stepErrors]
 
-      // Save to SQLite
-      const dbPath = resolveDbPath(state.config.configDir)
-      if (existsSync(dbPath)) {
-        try {
-          withDb(dbPath, (db) => saveScenario(db, scenario))
-        } catch {
-          // ignore db save error
-        }
-      }
-
-      // Sync to filesystem
       try {
-        const dir = resolveFromConfig(state.config, state.config.scenarios)
-        mkdirSync(dir, { recursive: true })
-        const filePath = join(dir, `${body.id}.json`)
-        writeFileSync(filePath, `${JSON.stringify(body.content, null, 2)}\n`)
-      } catch {
-        // ignore fs error
+        withDb(resolveDbPath(state.config.configDir), (db) => saveScenario(db, scenario))
+      } catch (error) {
+        return sendJson(res, 500, { error: (error as Error).message })
       }
 
       return sendJson(res, 200, { ok: true, id: body.id, isValid: errors.length === 0, errors })
@@ -85,30 +69,18 @@ export const scenarioRoutes: Route[] = [
     match: ({ req, pathname }) => pathname.startsWith("/api/scenarios/") && req.method === "DELETE",
     handle: async ({ state, res, pathname }) => {
       const id = pathname.replace("/api/scenarios/", "").trim()
-      let found = false
-
-      // Delete from SQLite
       const dbPath = resolveDbPath(state.config.configDir)
+      let found = false
       if (existsSync(dbPath)) {
         try {
-          withDb(dbPath, (db) => {
-            const existing = getScenario(db, id)
-            if (existing) {
-              deleteScenario(db, id)
-              found = true
-            }
+          found = withDb(dbPath, (db) => {
+            if (!getScenario(db, id)) return false
+            deleteScenario(db, id)
+            return true
           })
-        } catch {
-          // ignore db delete error
+        } catch (error) {
+          return sendJson(res, 500, { error: (error as Error).message })
         }
-      }
-
-      // Delete from filesystem
-      const dir = resolveFromConfig(state.config, state.config.scenarios)
-      const filePath = join(dir, `${id}.json`)
-      if (existsSync(filePath)) {
-        rmSync(filePath)
-        found = true
       }
 
       if (found) {

@@ -1,7 +1,9 @@
-import { Database, HardDrive } from "lucide-react"
+import { Database, FileDown, HardDrive } from "lucide-react"
 import { Badge } from "../../components/Badge.tsx"
+import { Button } from "../../components/Button.tsx"
 import { capitalize } from "../../format.ts"
 import type { ConfigMeta } from "../../types.ts"
+import { useJsonExport } from "./useJsonExport.ts"
 
 export interface DatabaseTabProps {
   config: ConfigMeta | null
@@ -12,6 +14,8 @@ export interface DatabaseTabProps {
 
 /** SQLite database location, status, and stored-record counts. */
 export function DatabaseTab({ config, activeEnvName, envCount, platformsCount }: DatabaseTabProps) {
+  const { isExporting, handleExport } = useJsonExport()
+
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
       <div className="flex items-center justify-between pb-4 border-b border-border">
@@ -25,9 +29,19 @@ export function DatabaseTab({ config, activeEnvName, envCount, platformsCount }:
             </Badge>
           </div>
           <p className="text-xs text-fg-muted mt-1">
-            Persistent SQLite database storage for environments, platforms, and orchestrator settings.
+            Persistent SQLite database storage for environments, platforms, scenarios, and orchestrator settings.
           </p>
         </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<FileDown className="w-3.5 h-3.5" />}
+          isLoading={isExporting}
+          disabled={!config?.dbExists}
+          onClick={handleExport}
+        >
+          Export to JSON
+        </Button>
       </div>
 
       {/* Metrics Tiles */}
@@ -87,7 +101,7 @@ export function DatabaseTab({ config, activeEnvName, envCount, platformsCount }:
           </div>
 
           <div className="pt-2 border-t border-border text-xs text-fg-muted leading-relaxed">
-            Configuration data is stored and loaded directly from SQLite. Test runs, preflight checks, and GUI dashboard mutations update this SQLite file with immediate effect without rewriting project source code.
+            Configuration data is stored and loaded directly from SQLite. Test runs, preflight checks, and GUI dashboard mutations update this SQLite file with immediate effect without rewriting project source code. Scenarios and step presets are written to JSON files only when you select Export to JSON.
           </div>
         </div>
       </div>

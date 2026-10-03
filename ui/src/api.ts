@@ -419,3 +419,9 @@ export async function deleteStepPreset(id: string): Promise<{ ok: boolean; id: s
   return json
 }
 
+export async function exportToJson(): Promise<{ ok: boolean; scenarios: string[]; presets: string[] }> {
+  const res = await fetch(`${API_BASE}/api/export`, { method: "POST" })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error ?? "Failed to export")
+  return json
+}
