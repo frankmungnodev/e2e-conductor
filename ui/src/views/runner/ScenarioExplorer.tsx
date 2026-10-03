@@ -4,8 +4,8 @@ import { Button } from "../../components/Button.tsx"
 import { Checkbox } from "../../components/Checkbox.tsx"
 import { Input } from "../../components/FormControls.tsx"
 import { capitalize } from "../../format.ts"
-import type { RunSummary, ScenarioItem } from "../../types.ts"
-import { getTargetBadgeVariant } from "./targetBadge.ts"
+import { getTargetBadgeVariant } from "../../targetDriver.ts"
+import type { ConfigMeta, RunSummary, ScenarioItem } from "../../types.ts"
 
 export interface ScenarioExplorerProps {
   scenarios: ScenarioItem[]
@@ -20,6 +20,7 @@ export interface ScenarioExplorerProps {
   scenarioFilter: string
   setScenarioFilter: (value: string) => void
   handleRunSingle: (scenarioId: string) => void
+  config?: ConfigMeta
 }
 
 /** Scenario list with selection, filtering, and per-scenario quick run. */
@@ -36,6 +37,7 @@ export function ScenarioExplorer({
   scenarioFilter,
   setScenarioFilter,
   handleRunSingle,
+  config,
 }: ScenarioExplorerProps) {
   return (
     <>
@@ -147,7 +149,7 @@ export function ScenarioExplorer({
                 <div className="mt-1.5 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1 flex-wrap">
                     {Array.from(new Set(sc.targets)).map((tgt) => (
-                      <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt)}>
+                      <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt, config)}>
                         {capitalize(tgt)}
                       </Badge>
                     ))}

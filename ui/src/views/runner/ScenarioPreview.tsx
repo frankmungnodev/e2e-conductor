@@ -2,17 +2,18 @@ import { Check, Layers, Play, PlayCircle } from "lucide-react"
 import { Badge } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
 import { capitalize } from "../../format.ts"
-import type { ScenarioItem } from "../../types.ts"
+import { getTargetBadgeVariant } from "../../targetDriver.ts"
+import type { ConfigMeta, ScenarioItem } from "../../types.ts"
 import { StepActionSummary } from "./StepActionSummary.tsx"
-import { getTargetBadgeVariant } from "./targetBadge.ts"
 
 export interface ScenarioPreviewProps {
   activePreviewScenario: ScenarioItem | null
   handleRunSingle: (scenarioId: string) => void
+  config?: ConfigMeta
 }
 
 /** Idle-state preview of the focused scenario and its configured steps. */
-export function ScenarioPreview({ activePreviewScenario, handleRunSingle }: ScenarioPreviewProps) {
+export function ScenarioPreview({ activePreviewScenario, handleRunSingle, config }: ScenarioPreviewProps) {
   return (
     <div className="flex-1 flex overflow-y-auto p-6 bg-editor">
       {activePreviewScenario ? (
@@ -50,7 +51,7 @@ export function ScenarioPreview({ activePreviewScenario, handleRunSingle }: Scen
               <span className="text-xs text-fg-muted font-medium">Platforms:</span>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {Array.from(new Set(activePreviewScenario.targets)).map((tgt) => (
-                  <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt)}>
+                  <Badge key={tgt} size="xs" variant={getTargetBadgeVariant(tgt, config)}>
                     {capitalize(tgt)}
                   </Badge>
                 ))}
@@ -82,7 +83,7 @@ export function ScenarioPreview({ activePreviewScenario, handleRunSingle }: Scen
                   </span>
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge size="xs" variant={getTargetBadgeVariant(st.target)}>
+                      <Badge size="xs" variant={getTargetBadgeVariant(st.target, config)}>
                         {capitalize(st.target)}
                       </Badge>
                       <span className="text-xs font-medium text-fg-bright">{st.name}</span>

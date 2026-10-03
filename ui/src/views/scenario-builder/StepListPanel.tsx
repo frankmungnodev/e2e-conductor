@@ -3,7 +3,7 @@ import { Badge, type BadgeVariant } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
 import { EmptyState } from "../../components/EmptyState.tsx"
 import type { ScenarioItem } from "../../types.ts"
-import { capitalize } from "./stepDefaults.ts"
+import { titleCase } from "./stepDefaults.ts"
 
 export interface StepListPanelProps {
   draftScenario: ScenarioItem
@@ -129,7 +129,7 @@ export function StepListPanel({
                   </span>
                 </div>
                 <Badge variant={getTargetBadgeVariant(st.target)} size="xs">
-                  {capitalize(st.target)}
+                  {titleCase(st.target)}
                 </Badge>
               </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useUrlTab } from "../../components/Tabs.tsx"
-import type { RunEvent, RunSummary, ScenarioItem } from "../../types.ts"
+import type { ConfigMeta, RunEvent, RunSummary, ScenarioItem } from "../../types.ts"
 import { buildExecutionTree, type ScenarioState } from "./executionTree.ts"
 import { LogPane } from "./LogPane.tsx"
 import { RunControls } from "./RunControls.tsx"
@@ -12,6 +12,7 @@ import { useRunOptions } from "./useRunOptions.ts"
 
 type RunnerViewProps = {
   scenarios: ScenarioItem[]
+  config?: ConfigMeta
   isRunning: boolean
   currentRunId?: string
   lastSummary?: RunSummary
@@ -34,6 +35,7 @@ export type ViewMode = (typeof VIEW_MODES)[number]
 
 export function RunnerView({
   scenarios,
+  config,
   isRunning,
   currentRunId,
   lastSummary,
@@ -180,6 +182,7 @@ export function RunnerView({
           scenarioFilter={scenarioFilter}
           setScenarioFilter={setScenarioFilter}
           handleRunSingle={handleRunSingle}
+          config={config}
         />
 
         {/* Sidebar Footer: Run Settings & Launch Button */}
@@ -214,13 +217,13 @@ export function RunnerView({
         <div className="flex-1 flex overflow-hidden">
           {/* Case 1: Initial Idle State (No tests active or ran yet) */}
           {executionTree.length === 0 && !isRunning && !lastSummary ? (
-            <ScenarioPreview activePreviewScenario={activePreviewScenario} handleRunSingle={handleRunSingle} />
+            <ScenarioPreview activePreviewScenario={activePreviewScenario} handleRunSingle={handleRunSingle} config={config} />
           ) : (
             /* Case 2: Test Execution Results & Live Stream */
             <div className="flex-1 flex overflow-hidden">
               {/* Left Pane: Steps & Scenario Tree (in split or steps mode) */}
               {(viewMode === "split" || viewMode === "steps") && (
-                <StepTreePane viewMode={viewMode} executionTree={executionTree} lastSummary={lastSummary} />
+                <StepTreePane viewMode={viewMode} executionTree={executionTree} lastSummary={lastSummary} config={config} />
               )}
 
               {/* Right Pane: Live Terminal Logs (in split or logs mode) */}

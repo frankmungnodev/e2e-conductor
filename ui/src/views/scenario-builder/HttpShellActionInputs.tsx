@@ -1,7 +1,7 @@
 import { Input, Textarea } from "../../components/FormControls.tsx"
 import { NumberInput } from "../../components/NumberInput.tsx"
+import type { StepDriver } from "../../targetDriver.ts"
 import type { StepAction } from "../../types.ts"
-import type { StepDriver } from "./stepDefaults.ts"
 
 export interface ActionInputsProps {
   act: StepAction

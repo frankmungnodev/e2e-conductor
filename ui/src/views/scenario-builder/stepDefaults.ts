@@ -1,28 +1,9 @@
-import type { BadgeVariant } from "../../components/Badge.tsx"
+import { getTargetDriver, type StepDriver } from "../../targetDriver.ts"
 import type { ConfigMeta, ScenarioStep, StepAction } from "../../types.ts"
 import { HTTP_ACTION_OPTIONS, MOBILE_ACTION_OPTIONS, SHELL_ACTION_OPTIONS, WEB_ACTION_OPTIONS } from "./constants.tsx"
 
-export type StepDriver = "http" | "web" | "mobile" | "shell"
-
-export const capitalize = (str: string) => (str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "")
-
-/** The driver a step target runs on: its configured driver, else a guess from the target's name. */
-export function getTargetDriver(target: string, config?: ConfigMeta): StepDriver {
-  if (target === "shell") return "shell"
-  const targetObj = config?.targets?.[target]
-  if (targetObj) return targetObj.driver
-  if (target.includes("web") || target.includes("browser")) return "web"
-  if (target.includes("mobile") || target.includes("app")) return "mobile"
-  return "http"
-}
-
-export function getTargetBadgeVariant(target: string, config?: ConfigMeta): BadgeVariant {
-  const driver = getTargetDriver(target, config)
-  if (driver === "shell") return "driver-shell"
-  if (driver === "http") return "driver-http"
-  if (driver === "mobile") return "driver-mobile"
-  return "driver-web"
-}
+/** Uppercases the first letter and lowercases the rest: `myApp` becomes `Myapp`. */
+export const titleCase = (str: string) => (str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "")
 
 export function getActionOptions(driver: string) {
   if (driver === "http") return HTTP_ACTION_OPTIONS
@@ -98,7 +79,7 @@ export function defaultActionType(driver: StepDriver): string {
 export function newStep(driverType: StepDriver, target: string): ScenarioStep {
   const step: ScenarioStep = {
     id: `step_${Date.now()}`,
-    name: `New ${capitalize(driverType)} Step`,
+    name: `New ${titleCase(driverType)} Step`,
     target,
   }
 

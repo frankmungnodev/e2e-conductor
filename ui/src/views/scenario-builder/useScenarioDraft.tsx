@@ -1,16 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import type { useConfirmDialog } from "../../components/ConfirmModal.tsx"
 import { useToast } from "../../components/Toast.tsx"
+import { getTargetDriver, type StepDriver } from "../../targetDriver.ts"
 import type { ConfigMeta, ScenarioItem, ScenarioStep, StepAction } from "../../types.ts"
-import {
-  capitalize,
-  defaultActionType,
-  getTargetDriver,
-  newStep,
-  newStepAction,
-  type StepDriver,
-  withDefaultActions,
-} from "./stepDefaults.ts"
+import { defaultActionType, newStep, newStepAction, titleCase, withDefaultActions } from "./stepDefaults.ts"
 
 export type SaveScenario = (
   id: string,
@@ -289,7 +282,7 @@ export function useScenarioDraft({
     updateDraft({ ...draftScenario, steps: newSteps, raw: newRaw })
     setSelectedStepIdx(newSteps.length - 1)
     setShowScenarioSettings(false)
-    toastSuccess(`Added ${capitalize(driverType)} step "${step.name}"`, "Step Added")
+    toastSuccess(`Added ${titleCase(driverType)} step "${step.name}"`, "Step Added")
   }
 
   const deleteStep = (index: number) => {

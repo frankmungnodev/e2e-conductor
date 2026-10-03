@@ -2,7 +2,8 @@
 // behavior of the original components (PlatformModal, RunnerView) before the split.
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type { DetectedService, EnvPlatformRecord, PlatformWithEnvOverrides, RunEvent, ScenarioItem } from "../ui/src/types.ts"
+import { getTargetBadgeVariant, getTargetDriver } from "../ui/src/targetDriver.ts"
+import type { ConfigMeta, DetectedService, EnvPlatformRecord, PlatformWithEnvOverrides, RunEvent, ScenarioItem } from "../ui/src/types.ts"
 import {
   API_DEFAULTS,
   buildNewPlatform,
@@ -204,5 +205,22 @@ describe("buildExecutionTree", () => {
     assert.equal(second.status, "running")
     // A step index the scenario did not configure is added from the event itself.
     assert.deepEqual(second.steps[2], { name: "extra", target: "web", status: "running" })
+  })
+})
+
+describe("getTargetDriver", () => {
+  const config = { targets: { app: { driver: "web" }, backend: { driver: "http" } } } as unknown as ConfigMeta
+
+  it("uses the configured driver before guessing from the name", () => {
+    assert.equal(getTargetDriver("app", config), "web")
+    assert.equal(getTargetBadgeVariant("app", config), "driver-web")
+  })
+
+  it("guesses from the name when the target is not configured", () => {
+    assert.equal(getTargetDriver("shell"), "shell")
+    assert.equal(getTargetDriver("web-admin"), "web")
+    assert.equal(getTargetDriver("mobile-app"), "mobile")
+    assert.equal(getTargetDriver("payments"), "http")
+    assert.equal(getTargetBadgeVariant("payments"), "driver-http")
   })
 })

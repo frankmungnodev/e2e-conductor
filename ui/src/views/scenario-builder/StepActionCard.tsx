@@ -1,10 +1,11 @@
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react"
 import { Button } from "../../components/Button.tsx"
 import { Select } from "../../components/Select.tsx"
+import type { StepDriver } from "../../targetDriver.ts"
 import type { StepAction } from "../../types.ts"
 import { HttpShellActionInputs } from "./HttpShellActionInputs.tsx"
 import { MobileActionInputs } from "./MobileActionInputs.tsx"
-import { getActionOptions, type StepDriver } from "./stepDefaults.ts"
+import { getActionOptions } from "./stepDefaults.ts"
 import { WebActionInputs } from "./WebActionInputs.tsx"
 
 export interface StepActionCardProps {

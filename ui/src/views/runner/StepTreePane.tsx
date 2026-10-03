@@ -1,19 +1,20 @@
 import { CheckCircle2, Layers, Loader2, XCircle } from "lucide-react"
 import { Badge } from "../../components/Badge.tsx"
 import { capitalize } from "../../format.ts"
-import type { RunSummary } from "../../types.ts"
+import { getTargetBadgeVariant } from "../../targetDriver.ts"
+import type { ConfigMeta, RunSummary } from "../../types.ts"
 import type { ScenarioState } from "./executionTree.ts"
 import type { ViewMode } from "./RunnerView.tsx"
-import { getTargetBadgeVariant } from "./targetBadge.ts"
 
 export interface StepTreePaneProps {
   viewMode: ViewMode
   executionTree: ScenarioState[]
   lastSummary?: RunSummary
+  config?: ConfigMeta
 }
 
 /** Live per-scenario step results, or the failure list when a run failed before starting. */
-export function StepTreePane({ viewMode, executionTree, lastSummary }: StepTreePaneProps) {
+export function StepTreePane({ viewMode, executionTree, lastSummary, config }: StepTreePaneProps) {
   return (
     <div
       className={`${
@@ -125,7 +126,7 @@ export function StepTreePane({ viewMode, executionTree, lastSummary }: StepTreeP
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <Badge size="xs" variant={getTargetBadgeVariant(st.target)}>
+                          <Badge size="xs" variant={getTargetBadgeVariant(st.target, config)}>
                             {capitalize(st.target)}
                           </Badge>
                           <span className="font-medium text-fg">{st.name}</span>

@@ -1,7 +1,7 @@
 import { Input } from "../../components/FormControls.tsx"
 import { Select } from "../../components/Select.tsx"
+import type { StepDriver } from "../../targetDriver.ts"
 import type { StepAction } from "../../types.ts"
-import type { StepDriver } from "./stepDefaults.ts"
 
 export interface ActionInputsProps {
   act: StepAction

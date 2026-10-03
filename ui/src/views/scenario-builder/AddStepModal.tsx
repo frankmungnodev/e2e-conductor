@@ -5,9 +5,10 @@ import { EmptyState } from "../../components/EmptyState.tsx"
 import { Input } from "../../components/FormControls.tsx"
 import { Modal } from "../../components/Modal.tsx"
 import { TabButton } from "../../components/Tabs.tsx"
+import type { StepDriver } from "../../targetDriver.ts"
 import type { StepPreset } from "../../types.ts"
 import { DRIVER_OPTIONS } from "./constants.tsx"
-import { capitalize, type StepDriver } from "./stepDefaults.ts"
+import { titleCase } from "./stepDefaults.ts"
 
 export interface AddStepModalProps {
   isAddStepModalOpen: boolean
@@ -170,7 +171,7 @@ export function AddStepModal({
                           variant={getTargetBadgeVariant(preset.target)}
                           size="xs"
                         >
-                          {capitalize(preset.target)}
+                          {titleCase(preset.target)}
                         </Badge>
                         <Badge variant="neutral" size="xs">
                           {preset.step.actions?.length ?? 1}{" "}

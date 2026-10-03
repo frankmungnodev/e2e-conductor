@@ -86,6 +86,8 @@ export function PlatformModal({
   // Initialize or reset state when modal opens
   useEffect(() => {
     if (!isOpen) return
+    // A scan from an earlier open must not overwrite the values of a later one.
+    let ignore = false
 
     if (overridePlatform && targetEnv) {
       setPlatform(overridePlatform.type)
@@ -104,6 +106,7 @@ export function PlatformModal({
 
       detectWorkspaceProjects()
         .then((res) => {
+          if (ignore) return
           const found = res.detected ?? []
           setDetected(found)
           if (found.length > 0) {
@@ -113,6 +116,9 @@ export function PlatformModal({
         .catch(() => {
           // ignore scan errors
         })
+    }
+    return () => {
+      ignore = true
     }
   }, [isOpen, overridePlatform, targetEnv, allEnvPlatforms])
 

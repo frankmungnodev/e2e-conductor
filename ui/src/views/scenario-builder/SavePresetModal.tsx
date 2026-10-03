@@ -2,7 +2,7 @@ import { Button } from "../../components/Button.tsx"
 import { Input } from "../../components/FormControls.tsx"
 import { Modal } from "../../components/Modal.tsx"
 import type { ScenarioStep } from "../../types.ts"
-import { capitalize } from "./stepDefaults.ts"
+import { titleCase } from "./stepDefaults.ts"
 
 export interface SavePresetModalProps {
   isSavePresetModalOpen: boolean
@@ -73,7 +73,7 @@ export function SavePresetModal({
         <div className="p-2.5 rounded-xs bg-sidebar border border-border text-xs text-fg-muted flex items-center justify-between">
           <span>Target Platform:</span>
           <span className="font-semibold text-fg-bright">
-            {capitalize(selectedStep?.target || "None")}
+            {titleCase(selectedStep?.target || "None")}
           </span>
         </div>
 

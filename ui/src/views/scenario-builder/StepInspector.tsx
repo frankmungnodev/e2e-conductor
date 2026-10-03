@@ -7,9 +7,10 @@ import { NumberInput } from "../../components/NumberInput.tsx"
 import { Panel } from "../../components/Panel.tsx"
 import { Select } from "../../components/Select.tsx"
 import { TabButton } from "../../components/Tabs.tsx"
+import type { StepDriver } from "../../targetDriver.ts"
 import type { ScenarioItem, ScenarioStep, StepAction } from "../../types.ts"
 import { StepActionCard } from "./StepActionCard.tsx"
-import { capitalize, type StepDriver } from "./stepDefaults.ts"
+import { titleCase } from "./stepDefaults.ts"
 
 export interface StepInspectorProps {
   draftScenario: ScenarioItem
@@ -137,14 +138,14 @@ export function StepInspector({
                         }}
                         options={availableTargets.map((t) => ({
                           value: t,
-                          label: `${capitalize(t)} (${capitalize(getTargetDriver(t))})`,
+                          label: `${titleCase(t)} (${titleCase(getTargetDriver(t))})`,
                         }))}
                       />
                     </div>
                     <div className="flex flex-col gap-0.5 justify-center">
                       <span className="text-xs text-fg-muted">Driver runtime:</span>
                       <span className="text-xs font-mono font-semibold text-fg-bright">
-                        {capitalize(stepDriver)} Driver
+                        {titleCase(stepDriver)} Driver
                       </span>
                     </div>
                   </div>

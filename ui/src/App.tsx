@@ -257,6 +257,7 @@ function AppContent() {
         {activeTab === "runner" && (
           <RunnerView
             scenarios={scenarios}
+            config={config ?? undefined}
             isRunning={isRunning}
             currentRunId={currentRunId}
             lastSummary={lastSummary}
