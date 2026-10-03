@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { existsSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
+import { DatabaseSync } from "node:sqlite"
 import { describe, it } from "node:test"
 import { openDatabase } from "../src/db/connection.ts"
 import { deleteEnvPlatform, getEnvPlatforms, getPlatformsForEnv, saveEnvPlatform } from "../src/db/env-platforms.ts"
@@ -480,6 +481,72 @@ describe("sqlite db configuration storage", () => {
     assert.equal(stepRuns.length, 1)
     assert.equal(stepRuns[0].errorMessage, "Order timeout")
 
+    db.close()
+  })
+
+  it("stores failure labels and stop reasons with runs", () => {
+    const db = openDatabase(join(dir, "labels-test.db"))
+    const runId = "2026-10-03T12-00-00-000Z"
+    saveRun(db, {
+      id: runId,
+      environmentName: "dev",
+      status: "FAILED",
+      totalScenarios: 3,
+      passedScenarios: 0,
+      failedScenarios: 1,
+      reason: "environment down",
+      recoveredSteps: 2,
+      notRunScenarios: 2,
+      startedAt: 1,
+    })
+    saveStepRun(db, {
+      id: `${runId}:checkout:1:0:1`,
+      runId,
+      scenarioId: "checkout",
+      iteration: 1,
+      attempt: 1,
+      status: "FAILED",
+      errorMessage: "connect ECONNREFUSED",
+      failureLabel: "Environment down",
+      createdAt: 2,
+    })
+
+    const run = getRun(db, runId)
+    assert.ok(run)
+    assert.equal(run.reason, "environment down")
+    assert.equal(run.recoveredSteps, 2)
+    assert.equal(run.notRunScenarios, 2)
+    assert.equal(run.stepRuns[0].failureLabel, "Environment down")
+    db.close()
+  })
+
+  it("adds the new run columns to a database created before them", () => {
+    const dbPath = join(dir, "old-schema.db")
+    const old = new DatabaseSync(dbPath)
+    old.exec(`
+      CREATE TABLE runs (
+        id TEXT PRIMARY KEY, environment_name TEXT NOT NULL, status TEXT NOT NULL,
+        total_scenarios INTEGER DEFAULT 0, passed_scenarios INTEGER DEFAULT 0, failed_scenarios INTEGER DEFAULT 0,
+        duration_ms INTEGER, artifacts_dir TEXT, started_at INTEGER, completed_at INTEGER
+      );
+      CREATE TABLE step_runs (
+        id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE, step_id TEXT,
+        scenario_id TEXT NOT NULL, iteration INTEGER DEFAULT 1, attempt INTEGER DEFAULT 1, status TEXT NOT NULL,
+        duration_ms INTEGER, status_code INTEGER, error_message TEXT, result_data TEXT, artifacts_path TEXT, created_at INTEGER
+      );
+      INSERT INTO runs (id, environment_name, status, started_at) VALUES ('old-run', 'dev', 'PASSED', 1);
+    `)
+    old.close()
+
+    // Opening twice must not try to add the columns again.
+    openDatabase(dbPath).close()
+    const db = openDatabase(dbPath)
+    const columns = (table: string) => (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((c) => c.name)
+    assert.ok(columns("runs").includes("reason"))
+    assert.ok(columns("runs").includes("recovered_steps"))
+    assert.ok(columns("runs").includes("not_run_scenarios"))
+    assert.ok(columns("step_runs").includes("failure_label"))
+    assert.equal(getRun(db, "old-run")?.status, "PASSED")
     db.close()
   })
 

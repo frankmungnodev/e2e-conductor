@@ -134,7 +134,10 @@ export function openDatabase(dbPath: string): DatabaseSync {
       duration_ms INTEGER,
       artifacts_dir TEXT,
       started_at INTEGER,
-      completed_at INTEGER
+      completed_at INTEGER,
+      reason TEXT,
+      recovered_steps INTEGER DEFAULT 0,
+      not_run_scenarios INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS step_runs (
@@ -150,7 +153,8 @@ export function openDatabase(dbPath: string): DatabaseSync {
       error_message TEXT,
       result_data TEXT,
       artifacts_path TEXT,
-      created_at INTEGER
+      created_at INTEGER,
+      failure_label TEXT
     );
 
     CREATE TABLE IF NOT EXISTS step_groups (
@@ -179,6 +183,12 @@ export function openDatabase(dbPath: string): DatabaseSync {
     CREATE INDEX IF NOT EXISTS idx_step_runs_scenario ON step_runs(scenario_id);
     CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at DESC);
   `)
+
+  // Databases created before these columns existed get them here: CREATE TABLE IF NOT EXISTS skips existing tables.
+  addMissingColumn(db, "runs", "reason", "TEXT")
+  addMissingColumn(db, "runs", "recovered_steps", "INTEGER DEFAULT 0")
+  addMissingColumn(db, "runs", "not_run_scenarios", "INTEGER DEFAULT 0")
+  addMissingColumn(db, "step_runs", "failure_label", "TEXT")
 
   // Backfill env_platform if it's empty but platforms and environments exist
   try {
@@ -228,4 +238,9 @@ export function openDatabase(dbPath: string): DatabaseSync {
   }
 
   return db
+}
+
+function addMissingColumn(db: DatabaseSync, table: string, column: string, type: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+  if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`)
 }

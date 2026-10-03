@@ -335,7 +335,7 @@ async function runScenario(
         if (signal?.aborted) throw new Error("Execution cancelled")
         const attemptBegan = Date.now()
         const stepId = raw.id || `${scenario.id}:step:${index + 1}`
-        const stepRunId = `${runId}:${scenario.id}:${index}:${attempt}`
+        const stepRunId = `${runId}:${scenario.id}:${run.iteration}:${index}:${attempt}`
         if (db) {
           try {
             saveStepRun(db, {

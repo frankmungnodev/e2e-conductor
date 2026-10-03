@@ -12,6 +12,10 @@ export type RunRecord = {
   artifactsDir?: string
   startedAt: number
   completedAt?: number
+  /** Why a failed run failed when no single step explains it, e.g. "environment down". */
+  reason?: string
+  recoveredSteps?: number
+  notRunScenarios?: number
 }
 
 export type StepRunRecord = {
@@ -28,14 +32,15 @@ export type StepRunRecord = {
   resultData?: unknown
   artifactsPath?: string
   createdAt: number
+  failureLabel?: string
 }
 
 export function saveRun(db: DatabaseSync, run: RunRecord): void {
   db.prepare(`
     INSERT INTO runs (
       id, environment_name, status, total_scenarios, passed_scenarios, failed_scenarios,
-      duration_ms, artifacts_dir, started_at, completed_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      duration_ms, artifacts_dir, started_at, completed_at, reason, recovered_steps, not_run_scenarios
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       environment_name = excluded.environment_name,
       status = excluded.status,
@@ -44,7 +49,10 @@ export function saveRun(db: DatabaseSync, run: RunRecord): void {
       failed_scenarios = excluded.failed_scenarios,
       duration_ms = excluded.duration_ms,
       artifacts_dir = excluded.artifacts_dir,
-      completed_at = excluded.completed_at
+      completed_at = excluded.completed_at,
+      reason = excluded.reason,
+      recovered_steps = excluded.recovered_steps,
+      not_run_scenarios = excluded.not_run_scenarios
   `).run(
     run.id,
     run.environmentName,
@@ -56,6 +64,9 @@ export function saveRun(db: DatabaseSync, run: RunRecord): void {
     run.artifactsDir || null,
     run.startedAt,
     run.completedAt || null,
+    run.reason || null,
+    run.recoveredSteps ?? 0,
+    run.notRunScenarios ?? 0,
   )
 }
 
@@ -70,6 +81,9 @@ type RunRow = {
   artifacts_dir?: string | null
   started_at: number
   completed_at?: number | null
+  reason?: string | null
+  recovered_steps?: number | null
+  not_run_scenarios?: number | null
 }
 
 function mapRunRow(r: RunRow): RunRecord {
@@ -84,6 +98,9 @@ function mapRunRow(r: RunRow): RunRecord {
     artifactsDir: r.artifacts_dir || undefined,
     startedAt: r.started_at,
     completedAt: r.completed_at ?? undefined,
+    reason: r.reason || undefined,
+    recoveredSteps: r.recovered_steps ?? 0,
+    notRunScenarios: r.not_run_scenarios ?? 0,
   }
 }
 
@@ -106,6 +123,7 @@ type StepRunRow = {
   result_data?: string | null
   artifacts_path?: string | null
   created_at: number
+  failure_label?: string | null
 }
 
 function mapStepRunRow(sr: StepRunRow): StepRunRecord {
@@ -123,6 +141,7 @@ function mapStepRunRow(sr: StepRunRow): StepRunRecord {
     resultData: safeJsonParse<unknown>(sr.result_data),
     artifactsPath: sr.artifacts_path || undefined,
     createdAt: sr.created_at,
+    failureLabel: sr.failure_label || undefined,
   }
 }
 
@@ -143,15 +162,17 @@ export function saveStepRun(db: DatabaseSync, stepRun: StepRunRecord): void {
   db.prepare(`
     INSERT INTO step_runs (
       id, run_id, step_id, scenario_id, iteration, attempt, status,
-      duration_ms, status_code, error_message, result_data, artifacts_path, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      duration_ms, status_code, error_message, result_data, artifacts_path, created_at, failure_label
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
+      iteration = excluded.iteration,
       status = excluded.status,
       duration_ms = excluded.duration_ms,
       status_code = excluded.status_code,
       error_message = excluded.error_message,
       result_data = excluded.result_data,
-      artifacts_path = excluded.artifacts_path
+      artifacts_path = excluded.artifacts_path,
+      failure_label = excluded.failure_label
   `).run(
     stepRun.id,
     stepRun.runId,
@@ -166,6 +187,7 @@ export function saveStepRun(db: DatabaseSync, stepRun: StepRunRecord): void {
     resultDataJson,
     stepRun.artifactsPath || null,
     stepRun.createdAt,
+    stepRun.failureLabel || null,
   )
 }
 
