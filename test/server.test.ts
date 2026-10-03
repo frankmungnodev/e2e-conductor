@@ -3,6 +3,9 @@ import { mkdirSync, symlinkSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
+import { withDb } from "../src/db/connection.ts"
+import { resolveDbPath } from "../src/db/paths.ts"
+import { saveRun, saveStepRun } from "../src/db/runs.ts"
 import { startServer } from "../src/server.ts"
 import { tempDir } from "./temp-dir.ts"
 
@@ -320,6 +323,41 @@ describe("startServer", () => {
     } finally {
       await new Promise<void>((resolveClose) => a.server.close(() => resolveClose()))
       await new Promise<void>((resolveClose) => b.server.close(() => resolveClose()))
+    }
+  })
+
+  it("returns the stop reason, not-run count and step failure labels for a stored run", async () => {
+    const config = mockProject()
+    const runId = "run-stopped"
+    withDb(resolveDbPath(config.configDir), (db) => {
+      saveRun(db, {
+        id: runId,
+        environmentName: "dev",
+        status: "FAILED",
+        totalScenarios: 3,
+        passedScenarios: 0,
+        failedScenarios: 1,
+        startedAt: 1,
+        reason: "environment down",
+        recoveredSteps: 1,
+        notRunScenarios: 2,
+      })
+      const row = { runId, scenarioId: "s1", iteration: 1, createdAt: 1 }
+      saveStepRun(db, { ...row, id: `${runId}:s1:1:0:1`, attempt: 1, status: "FAILED", failureLabel: "Environment down" })
+    })
+    const { server, url } = await startServer(config, { port: 0, host: "127.0.0.1", open: false })
+    try {
+      const detail = (await (await fetch(`${url}/api/runs/${runId}`)).json()) as any
+      assert.equal(detail.reason, "environment down")
+      assert.equal(detail.recoveredSteps, 1)
+      assert.equal(detail.notRunScenarios, 2)
+      assert.equal(detail.stepRuns[0].failureLabel, "Environment down")
+
+      const list = (await (await fetch(`${url}/api/runs`)).json()) as any
+      const item = list.runs.find((r: any) => r.runId === runId)
+      assert.deepEqual([item.reason, item.recoveredSteps, item.notRunScenarios], ["environment down", 1, 2])
+    } finally {
+      await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
     }
   })
 })

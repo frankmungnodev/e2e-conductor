@@ -3,16 +3,15 @@ import { Badge } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
 import { Input } from "../../components/FormControls.tsx"
 import { TabButton } from "../../components/Tabs.tsx"
+import { ENVIRONMENT_DOWN } from "../../runResult.ts"
 import type { RunSummary } from "../../types.ts"
 import type { ViewMode } from "./RunnerView.tsx"
+import type { RunCounts } from "./runCounts.ts"
 
 export interface RunStatusBarProps {
   isRunning: boolean
   lastSummary?: RunSummary
-  passedCount: number
-  failedCount: number
-  totalCount: number
-  percentComplete: number
+  counts: RunCounts
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
   logFilter: string
@@ -26,10 +25,7 @@ export interface RunStatusBarProps {
 export function RunStatusBar({
   isRunning,
   lastSummary,
-  passedCount,
-  failedCount,
-  totalCount,
-  percentComplete,
+  counts,
   viewMode,
   setViewMode,
   logFilter,
@@ -57,30 +53,40 @@ export function RunStatusBar({
           ) : (
             <Badge variant="neutral">Ready</Badge>
           )}
+          {!isRunning && lastSummary?.reason === ENVIRONMENT_DOWN && (
+            <>
+              <Badge variant="danger">Environment Down</Badge>
+              {(lastSummary.down?.length ?? 0) > 0 && (
+                <span className="text-xs text-fg-muted font-mono">{lastSummary.down?.join(", ")}</span>
+              )}
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5 text-xs font-mono">
-          <span className="text-success font-medium">Passed: {passedCount}</span>
-          <span className="text-error font-medium">Failed: {failedCount}</span>
-          <span className="text-fg-muted">Total: {totalCount}</span>
+          <span className="text-success font-medium">Passed: {counts.passed}</span>
+          <span className="text-error font-medium">Failed: {counts.failed}</span>
+          {counts.notRun > 0 && <span className="text-fg-muted">Not Run: {counts.notRun}</span>}
+          {counts.recovered > 0 && <span className="text-warning font-medium">Recovered: {counts.recovered}</span>}
+          <span className="text-fg-muted">Total: {counts.total}</span>
           {lastSummary?.duration_ms !== undefined && (
             <span className="text-fg-muted">({lastSummary.duration_ms}ms)</span>
           )}
         </div>
 
         {/* Progress Bar */}
-        {totalCount > 0 && (
+        {counts.total > 0 && (
           <div className="hidden sm:flex items-center gap-2 w-32">
             <div className="flex-1 bg-input h-1.5 rounded-full overflow-hidden border border-border">
               <div
                 className={`h-full transition-all duration-300 ${
-                  failedCount > 0 ? "bg-error" : "bg-primary"
+                  counts.failed > 0 ? "bg-error" : "bg-primary"
                 }`}
-                style={{ width: `${percentComplete}%` }}
+                style={{ width: `${counts.percent}%` }}
               />
             </div>
             <span className="text-xs font-mono text-fg-muted w-7 text-right">
-              {percentComplete}%
+              {counts.percent}%
             </span>
           </div>
         )}

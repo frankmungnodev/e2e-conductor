@@ -1,10 +1,41 @@
-import { CheckCircle2, Layers, Loader2, XCircle } from "lucide-react"
-import { Badge } from "../../components/Badge.tsx"
+import { CheckCircle2, CircleSlash, Layers, Loader2, XCircle } from "lucide-react"
+import { Badge, type BadgeVariant } from "../../components/Badge.tsx"
 import { capitalize } from "../../format.ts"
+import { failureLabelText } from "../../runResult.ts"
 import { getTargetBadgeVariant } from "../../targetDriver.ts"
-import type { ConfigMeta, RunSummary } from "../../types.ts"
-import type { ScenarioState } from "./executionTree.ts"
+import type { ConfigMeta, FailureLabel, RunSummary } from "../../types.ts"
+import type { RunState, ScenarioState } from "./executionTree.ts"
 import type { ViewMode } from "./RunnerView.tsx"
+
+const STATE_BADGE: Record<RunState, { variant: BadgeVariant; text: string }> = {
+  pending: { variant: "neutral", text: "Pending" },
+  running: { variant: "warning", text: "Running" },
+  passed: { variant: "success", text: "Passed" },
+  failed: { variant: "danger", text: "Failed" },
+  not_run: { variant: "neutral", text: "Not Run" },
+}
+
+/** The status icon for a scenario header, or the smaller one for a step row. */
+function StateIcon({ status, step }: { status: RunState; step?: boolean }) {
+  const size = step ? "w-3 h-3" : "w-3.5 h-3.5 shrink-0"
+  if (status === "running") return <Loader2 className={`${size} text-warning animate-spin`} />
+  if (status === "passed") return <CheckCircle2 className={`${size} text-success`} />
+  if (status === "failed") return <XCircle className={`${size} text-error`} />
+  if (status === "not_run") return <CircleSlash className={`${size} text-fg-muted`} aria-label="Not run" />
+  return step ? (
+    <div className="w-1.5 h-1.5 rounded-full bg-fg-muted my-1 mx-0.5" />
+  ) : (
+    <div className="w-2 h-2 rounded-full bg-fg-muted shrink-0 mx-0.5" />
+  )
+}
+
+function LabelBadge({ label }: { label: FailureLabel }) {
+  return (
+    <Badge size="xs" variant="danger">
+      {failureLabelText(label)}
+    </Badge>
+  )
+}
 
 export interface StepTreePaneProps {
   viewMode: ViewMode
@@ -54,20 +85,10 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
               className="bg-sidebar border border-border rounded-xs overflow-hidden shadow-xs"
             >
               {/* Scenario Header */}
-              <div className="px-3 py-2 bg-titlebar border-b border-border flex items-center justify-between">
+              <div className="px-3 py-2 bg-titlebar border-b border-border">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  {sc.status === "running" && (
-                    <Loader2 className="w-3.5 h-3.5 text-warning animate-spin shrink-0" />
-                  )}
-                  {sc.status === "passed" && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
-                  )}
-                  {sc.status === "failed" && (
-                    <XCircle className="w-3.5 h-3.5 text-error shrink-0" />
-                  )}
-                  {sc.status === "pending" && (
-                    <div className="w-2 h-2 rounded-full bg-fg-muted shrink-0 mx-0.5" />
-                  )}
+                  <StateIcon status={sc.status} />
                   <div className="truncate">
                     <div className="font-semibold text-xs text-fg-bright truncate">
                       {sc.name}
@@ -85,21 +106,23 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
                       {sc.duration_ms}ms
                     </span>
                   )}
-                  <Badge
-                    size="xs"
-                    variant={
-                      sc.status === "passed"
-                        ? "success"
-                        : sc.status === "failed"
-                        ? "danger"
-                        : sc.status === "running"
-                        ? "warning"
-                        : "neutral"
-                    }
-                  >
-                    {capitalize(sc.status)}
+                  {recoveredCount(sc) > 0 && (
+                    <Badge size="xs" variant="warning">
+                      Recovered {recoveredCount(sc)}
+                    </Badge>
+                  )}
+                  {sc.label && hasNoFailedStep(sc) && <LabelBadge label={sc.label} />}
+                  <Badge size="xs" variant={STATE_BADGE[sc.status].variant}>
+                    {STATE_BADGE[sc.status].text}
                   </Badge>
                 </div>
+              </div>
+              {/* A failed setup fixture has no failed step, so its error shows here with the label. */}
+              {sc.status === "failed" && sc.error && hasNoFailedStep(sc) && (
+                <div className="mt-2 p-2 bg-error-bg border border-error-border rounded-xs text-error text-xs font-mono whitespace-pre-wrap">
+                  {sc.error}
+                </div>
+              )}
               </div>
 
               {/* Steps List */}
@@ -111,18 +134,7 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
                   >
                     <div className="flex items-start gap-2 min-w-0">
                       <div className="mt-0.5 shrink-0">
-                        {st.status === "running" && (
-                          <Loader2 className="w-3 h-3 text-warning animate-spin" />
-                        )}
-                        {st.status === "passed" && (
-                          <CheckCircle2 className="w-3 h-3 text-success" />
-                        )}
-                        {st.status === "failed" && (
-                          <XCircle className="w-3 h-3 text-error" />
-                        )}
-                        {st.status === "pending" && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-fg-muted my-1 mx-0.5" />
-                        )}
+                        <StateIcon status={st.status} step />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -130,6 +142,12 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
                             {capitalize(st.target)}
                           </Badge>
                           <span className="font-medium text-fg">{st.name}</span>
+                          {st.label && <LabelBadge label={st.label} />}
+                          {st.recovered && (
+                            <Badge size="xs" variant="warning">
+                              Recovered
+                            </Badge>
+                          )}
                         </div>
                         {st.error && (
                           <div className="mt-1 p-2 bg-error-bg border border-error-border rounded-xs text-error text-xs font-mono whitespace-pre-wrap">
@@ -153,4 +171,13 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
       </div>
     </div>
   )
+}
+
+/** A failed scenario with no failed step failed in a setup fixture; its label and error show in the header. */
+function hasNoFailedStep(scenario: ScenarioState): boolean {
+  return !scenario.steps.some((st) => st.status === "failed")
+}
+
+function recoveredCount(scenario: ScenarioState): number {
+  return scenario.steps.filter((st) => st.recovered).length
 }

@@ -20,6 +20,7 @@ import { Header, type TabType } from "./components/Header.tsx"
 import { PreflightView } from "./components/PreflightView.tsx"
 import { useUrlTab } from "./components/Tabs.tsx"
 import { ToastProvider, useToast } from "./components/Toast.tsx"
+import { finishToast } from "./runResult.ts"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 import { ConfigView } from "./views/config/ConfigView.tsx"
 import { RunnerView } from "./views/runner/RunnerView.tsx"
@@ -121,17 +122,9 @@ function AppContent() {
           setIsRunning(false)
           setLastSummary(event.summary)
           fetchScenarios().then(setScenarios).catch(() => {})
-          if (event.summary.status === "PASSED") {
-            toastSuccess(
-              `All ${event.summary.total} scenarios passed (${event.summary.duration_ms}ms)`,
-              "Run Complete",
-            )
-          } else {
-            toastError(
-              `${event.summary.failed} of ${event.summary.total} scenarios failed`,
-              "Run Failed",
-            )
-          }
+          const toast = finishToast(event.summary)
+          if (toast.tone === "success") toastSuccess(toast.message, toast.title)
+          else toastError(toast.message, toast.title)
         }
       },
       (connected) => {

@@ -5,6 +5,7 @@ import { buildExecutionTree, type ScenarioState } from "./executionTree.ts"
 import { LogPane } from "./LogPane.tsx"
 import { RunControls } from "./RunControls.tsx"
 import { RunStatusBar } from "./RunStatusBar.tsx"
+import { runCounts } from "./runCounts.ts"
 import { ScenarioExplorer } from "./ScenarioExplorer.tsx"
 import { ScenarioPreview } from "./ScenarioPreview.tsx"
 import { StepTreePane } from "./StepTreePane.tsx"
@@ -126,27 +127,8 @@ export function RunnerView({
     })
   }
 
-  // Summary statistics
-  const totalCount =
-    executionTree.length > 0 ? executionTree.length : lastSummary ? lastSummary.total : 0
-  const passedCount =
-    executionTree.length > 0
-      ? executionTree.filter((s) => s.status === "passed").length
-      : lastSummary
-      ? lastSummary.passed
-      : 0
-  const failedCount =
-    executionTree.length > 0
-      ? executionTree.filter((s) => s.status === "failed").length
-      : lastSummary
-      ? lastSummary.failed
-      : 0
-  const percentComplete =
-    totalCount > 0
-      ? Math.round(((passedCount + failedCount) / totalCount) * 100)
-      : lastSummary
-      ? 100
-      : 0
+  // Summary statistics; not-run scenarios count as complete once the run has finished.
+  const counts = runCounts(executionTree, lastSummary)
 
   const filteredLogs = useMemo(() => {
     if (!logFilter) return logs
@@ -200,10 +182,7 @@ export function RunnerView({
         <RunStatusBar
           isRunning={isRunning}
           lastSummary={lastSummary}
-          passedCount={passedCount}
-          failedCount={failedCount}
-          totalCount={totalCount}
-          percentComplete={percentComplete}
+          counts={counts}
           viewMode={viewMode}
           setViewMode={setViewMode}
           logFilter={logFilter}

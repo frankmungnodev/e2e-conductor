@@ -160,6 +160,9 @@ export const runRoutes: Route[] = [
           passedScenarios?: number
           failedScenarios?: number
           durationMs?: number
+          reason?: string
+          recoveredSteps?: number
+          notRunScenarios?: number
         }
       >()
 
@@ -178,6 +181,9 @@ export const runRoutes: Route[] = [
                 passedScenarios: r.passedScenarios,
                 failedScenarios: r.failedScenarios,
                 durationMs: r.durationMs,
+                reason: r.reason,
+                recoveredSteps: r.recoveredSteps,
+                notRunScenarios: r.notRunScenarios,
                 scenarios: [],
               })
             }
@@ -269,6 +275,9 @@ export const runRoutes: Route[] = [
         totalScenarios: dbRun?.totalScenarios,
         passedScenarios: dbRun?.passedScenarios,
         failedScenarios: dbRun?.failedScenarios,
+        reason: dbRun?.reason,
+        recoveredSteps: dbRun?.recoveredSteps,
+        notRunScenarios: dbRun?.notRunScenarios,
         stepRuns: dbRun?.stepRuns ?? [],
         scenarios: scenarioArtifacts,
         runLog,

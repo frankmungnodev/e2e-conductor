@@ -2,8 +2,17 @@
 // behavior of the original components (PlatformModal, RunnerView) before the split.
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { failureLabelText, finishToast } from "../ui/src/runResult.ts"
 import { getTargetBadgeVariant, getTargetDriver } from "../ui/src/targetDriver.ts"
-import type { ConfigMeta, DetectedService, EnvPlatformRecord, PlatformWithEnvOverrides, RunEvent, ScenarioItem } from "../ui/src/types.ts"
+import type {
+  ConfigMeta,
+  DetectedService,
+  EnvPlatformRecord,
+  PlatformWithEnvOverrides,
+  RunEvent,
+  RunSummary,
+  ScenarioItem,
+} from "../ui/src/types.ts"
 import { exportSummary } from "../ui/src/views/config/exportSummary.ts"
 import {
   API_DEFAULTS,
@@ -18,6 +27,7 @@ import {
   WEB_DEFAULTS,
 } from "../ui/src/views/config/platform-modal/platformForms.ts"
 import { buildExecutionTree } from "../ui/src/views/runner/executionTree.ts"
+import { runCounts } from "../ui/src/views/runner/runCounts.ts"
 
 const defaults = (): PlatformForms => ({ web: { ...WEB_DEFAULTS }, mobile: { ...MOBILE_DEFAULTS }, api: { ...API_DEFAULTS } })
 const base = { envName: "dev", platformId: "plat-x", enabled: true }
@@ -193,8 +203,8 @@ describe("buildExecutionTree", () => {
     const events: RunEvent[] = [
       { type: "run_start", runId: "r", totalScenarios: 1, repeat: 2, scenarios: [{ id: "s1", name: "One", stepsCount: 2 }] },
       { type: "scenario_start", scenarioId: "s1", scenarioName: "One", iteration: 1, totalIterations: 2 },
-      { type: "step_pass", scenarioId: "s1", stepName: "a", target: "shell", index: 0, duration_ms: 5 },
-      { type: "step_fail", scenarioId: "s1", stepName: "b", target: "shell", index: 1, duration_ms: 7, error: "boom" },
+      { type: "step_pass", scenarioId: "s1", stepName: "a", target: "shell", index: 0, duration_ms: 5, recovered: false },
+      { type: "step_fail", scenarioId: "s1", stepName: "b", target: "shell", index: 1, duration_ms: 7, error: "boom", label: "Step error" },
       { type: "scenario_end", scenarioId: "s1", iteration: 1, passed: false, duration_ms: 12, error: "boom" },
       { type: "scenario_start", scenarioId: "s1", scenarioName: "One", iteration: 2, totalIterations: 2 },
       { type: "step_start", scenarioId: "s1", stepName: "extra", target: "web", index: 2, totalSteps: 3 },
@@ -202,10 +212,197 @@ describe("buildExecutionTree", () => {
     const [first, second] = buildExecutionTree(events, scenarios)
     assert.equal(first.status, "failed")
     assert.equal(first.duration_ms, 12)
-    assert.deepEqual(first.steps[1], { name: "b", target: "shell", status: "failed", duration_ms: 7, error: "boom" })
+    assert.deepEqual(first.steps[1], { name: "b", target: "shell", status: "failed", duration_ms: 7, error: "boom", label: "Step error" })
     assert.equal(second.status, "running")
     // A step index the scenario did not configure is added from the event itself.
     assert.deepEqual(second.steps[2], { name: "extra", target: "web", status: "running" })
+  })
+})
+
+describe("buildExecutionTree labels, recovered and not run", () => {
+  const scenarios = [
+    { id: "a", name: "A", steps: [{ name: "a1", target: "shell" }, { name: "a2", target: "shell" }] },
+    { id: "b", name: "B", steps: [{ name: "b1", target: "shell" }] },
+  ] as unknown as ScenarioItem[]
+  const start: RunEvent = {
+    type: "run_start",
+    runId: "r",
+    totalScenarios: 2,
+    repeat: 1,
+    scenarios: [
+      { id: "a", name: "A", stepsCount: 2 },
+      { id: "b", name: "B", stepsCount: 1 },
+    ],
+  }
+  const startA: RunEvent = { type: "scenario_start", scenarioId: "a", scenarioName: "A", iteration: 1, totalIterations: 1 }
+  const summary = (fields: Partial<RunSummary>): RunSummary => ({
+    status: "FAILED",
+    total: 2,
+    passed: 0,
+    failed: 1,
+    duration_ms: 1,
+    failures: [],
+    artifacts: "",
+    ...fields,
+  })
+  /** Scenario A's first step fails with `label`, then the run finishes with `finish`. */
+  const failA = (label: "Environment down" | "Assertion failed", finish: RunSummary): RunEvent[] => [
+    start,
+    startA,
+    { type: "step_fail", scenarioId: "a", stepName: "a1", target: "shell", index: 0, duration_ms: 3, error: "x", label },
+    { type: "scenario_end", scenarioId: "a", iteration: 1, passed: false, duration_ms: 3, error: "x", label },
+    { type: "finish", summary: finish },
+  ]
+
+  it("puts a step_fail label on the tree step", () => {
+    const [a] = buildExecutionTree(failA("Assertion failed", summary({})), scenarios)
+    assert.equal(a.steps[0].label, "Assertion failed")
+    assert.equal(a.label, "Assertion failed")
+  })
+
+  it("marks a step that passed after a retry as recovered, and only that one", () => {
+    const [a] = buildExecutionTree(
+      [
+        start,
+        startA,
+        { type: "step_pass", scenarioId: "a", stepName: "a1", target: "shell", index: 0, duration_ms: 3, recovered: true },
+        { type: "step_pass", scenarioId: "a", stepName: "a2", target: "shell", index: 1, duration_ms: 3, recovered: false },
+      ],
+      scenarios,
+    )
+    assert.equal(a.steps[0].recovered, true)
+    assert.equal(a.steps[1].recovered, undefined)
+  })
+
+  it("sets the iterations finish lists in notRun to not_run and leaves passed and failed entries alone", () => {
+    const events: RunEvent[] = [
+      { ...start, repeat: 2 },
+      startA,
+      { type: "step_pass", scenarioId: "a", stepName: "a1", target: "shell", index: 0, duration_ms: 1, recovered: false },
+      { type: "step_pass", scenarioId: "a", stepName: "a2", target: "shell", index: 1, duration_ms: 1, recovered: false },
+      { type: "scenario_end", scenarioId: "a", iteration: 1, passed: true, duration_ms: 2 },
+      { type: "scenario_start", scenarioId: "b", scenarioName: "B", iteration: 1, totalIterations: 2 },
+      { type: "step_fail", scenarioId: "b", stepName: "b1", target: "shell", index: 0, duration_ms: 1, error: "x", label: "Environment down" },
+      { type: "scenario_end", scenarioId: "b", iteration: 1, passed: false, duration_ms: 1, error: "x", label: "Environment down" },
+      {
+        type: "finish",
+        summary: summary({
+          reason: "environment down",
+          notRun: [
+            { scenario: "a", iteration: 2 },
+            { scenario: "b", iteration: 2 },
+          ],
+        }),
+      },
+    ]
+    const tree = buildExecutionTree(events, scenarios)
+    assert.deepEqual(
+      tree.map((s) => [s.id, s.iteration, s.status, s.steps.map((st) => st.status)]),
+      [
+        ["a", 1, "passed", ["passed", "passed"]],
+        ["b", 1, "failed", ["failed"]],
+        ["a", 2, "not_run", ["not_run", "not_run"]],
+        ["b", 2, "not_run", ["not_run"]],
+      ],
+    )
+  })
+
+  it("leaves pending entries pending when finish has no notRun (a summary from before this change)", () => {
+    const [a, b] = buildExecutionTree(failA("Assertion failed", summary({})), scenarios)
+    assert.deepEqual(a.steps.map((st) => st.status), ["failed", "pending"])
+    assert.equal(b.status, "pending")
+  })
+
+  it("puts a scenario_end label on a scenario that has no failed step (a fixture failure)", () => {
+    const [a] = buildExecutionTree(
+      [
+        start,
+        startA,
+        { type: "scenario_end", scenarioId: "a", iteration: 1, passed: false, duration_ms: 2, error: "seed failed", label: "Environment down" },
+      ],
+      scenarios,
+    )
+    assert.equal(a.status, "failed")
+    assert.equal(a.label, "Environment down")
+    assert.equal(a.error, "seed failed")
+    assert.ok(a.steps.every((st) => st.label === undefined))
+  })
+
+  it("marks the cut-off scenario's steps that never started as not_run after an environment-down stop", () => {
+    const tree = buildExecutionTree(
+      failA("Environment down", summary({ reason: "environment down", notRun: [{ scenario: "b", iteration: 1 }] })),
+      scenarios,
+    )
+    assert.deepEqual(
+      tree.map((s) => [s.status, s.steps.map((st) => st.status)]),
+      [
+        ["failed", ["failed", "not_run"]],
+        ["not_run", ["not_run"]],
+      ],
+    )
+  })
+})
+
+describe("runCounts", () => {
+  const entry = (status: string, steps: Array<{ recovered?: boolean }> = []) =>
+    ({ status, steps: steps.map((st) => ({ name: "s", target: "shell", status: "passed", ...st })) }) as never
+
+  it("counts not-run entries as complete so a stopped run reaches 100%", () => {
+    const counts = runCounts([entry("passed", [{ recovered: true }, {}]), entry("failed"), entry("not_run"), entry("not_run")])
+    assert.deepEqual(counts, { passed: 1, failed: 1, notRun: 2, recovered: 1, total: 4, percent: 100 })
+  })
+
+  it("reads counts from the summary when there is no live tree", () => {
+    const counts = runCounts([], {
+      status: "FAILED",
+      total: 3,
+      passed: 1,
+      failed: 1,
+      duration_ms: 1,
+      failures: [],
+      artifacts: "",
+      recovered: 2,
+      notRun: [{ scenario: "c", iteration: 1 }],
+    })
+    assert.deepEqual(counts, { passed: 1, failed: 1, notRun: 1, recovered: 2, total: 3, percent: 100 })
+  })
+
+  it("is zero with neither a tree nor a summary", () => {
+    assert.deepEqual(runCounts([]), { passed: 0, failed: 0, notRun: 0, recovered: 0, total: 0, percent: 0 })
+  })
+})
+
+describe("finish toast and failure label text", () => {
+  const base: RunSummary = { status: "FAILED", total: 3, passed: 0, failed: 1, duration_ms: 40, failures: [], artifacts: "" }
+
+  it("names what is down when an environment-down failure stopped the run", () => {
+    assert.deepEqual(finishToast({ ...base, reason: "environment down", down: ["service api (http://x)", "device emulator-5554"] }), {
+      tone: "error",
+      title: "Run Stopped",
+      message: "Stopped: environment down (service api (http://x), device emulator-5554)",
+    })
+  })
+
+  it("says a strict run failed from its recovered steps", () => {
+    const strict = { ...base, failed: 0, reason: "recovered steps (strict)", strict: true }
+    assert.equal(finishToast({ ...strict, recovered: 2 }).message, "Failed (strict): 2 recovered steps")
+    assert.equal(finishToast({ ...strict, recovered: 1 }).message, "Failed (strict): 1 recovered step")
+  })
+
+  it("keeps the plain passed and failed messages", () => {
+    assert.deepEqual(finishToast({ ...base, status: "PASSED", passed: 3, failed: 0 }), {
+      tone: "success",
+      title: "Run Complete",
+      message: "All 3 scenarios passed (40ms)",
+    })
+    assert.deepEqual(finishToast(base), { tone: "error", title: "Run Failed", message: "1 of 3 scenarios failed" })
+  })
+
+  it("renders each label in Title Case", () => {
+    assert.deepEqual(
+      (["Environment down", "Assertion failed", "Step error"] as const).map(failureLabelText),
+      ["Environment Down", "Assertion Failed", "Step Error"],
+    )
   })
 })
 

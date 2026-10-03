@@ -79,5 +79,45 @@ describe("Runner view options and failures", () => {
     )
     await page.getByText(/Failed: 1/).first().waitFor()
     await page.getByText("Exit non-zero").first().waitFor()
+    // A shell command exiting non-zero is a check the scenario expects, so it is an assertion failure.
+    await page.getByText("Assertion Failed", { exact: true }).first().waitFor()
+
+    // Run history keeps the label on the failed step run.
+    await page.goto(`${url}/?tab=artifacts&subtab=steps`)
+    const stepRuns = page.getByRole("table")
+    await stepRuns.getByText("02-failing").first().waitFor()
+    await stepRuns.getByText("Assertion Failed", { exact: true }).waitFor()
+  })
+
+  it("marks a step that passed on retry as recovered and still passes the run", async () => {
+    const { url, page, api, projectDir } = await startUiSession("runner-recovered")
+    const marker = join(projectDir, "flaky-marker")
+    writeFileSync(
+      join(projectDir, "scenarios", "03-flaky.json"),
+      JSON.stringify({
+        name: "Flaky Smoke",
+        steps: [
+          {
+            name: "Fail once",
+            target: "shell",
+            // The first attempt leaves the marker and fails; the retry finds it and passes.
+            command: `if [ -f "${marker}" ]; then echo ok; else touch "${marker}"; exit 1; fi`,
+            retry: { times: 1 },
+          },
+        ],
+      }),
+    )
+    await page.goto(`${url}/?tab=runner`)
+    await page.getByRole("button", { name: "Run Flaky Smoke only" }).click()
+    const status = await eventually(
+      () => api<RunStatus>("/api/run/status"),
+      (s) => !s.isRunning && s.lastSummary != null,
+      20000,
+    )
+    assert.equal(status.lastSummary?.failed, 0)
+    assert.equal(status.lastSummary?.passed, 1)
+    await page.getByText("Recovered", { exact: true }).first().waitFor()
+    await page.getByText("Recovered 1", { exact: true }).waitFor()
+    await page.getByText(/Recovered: 1/).waitFor()
   })
 })

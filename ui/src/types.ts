@@ -219,8 +219,15 @@ export type ConfigMeta = {
   platformsWithEnv?: PlatformWithEnvOverrides[]
 }
 
+/** Mirrors `FailureLabel` in src/assertions.ts. */
+export type FailureLabel = "Environment down" | "Assertion failed" | "Step error"
+
+/** A scenario-iteration an environment-down stop never reached. */
+export type NotRun = { scenario: string; iteration: number }
+
 export type RunSummary = {
   status: "PASSED" | "FAILED"
+  /** Scenario-iterations in the run, including the ones `notRun` lists. */
   total: number
   passed: number
   failed: number
@@ -230,8 +237,17 @@ export type RunSummary = {
     iteration: number
     step: string
     error: string
+    label?: FailureLabel
   }>
   artifacts: string
+  /** "environment down" or "recovered steps (strict)". */
+  reason?: string
+  /** What the health re-check found down. */
+  down?: string[]
+  // Optional here because summaries written before these fields existed lack them.
+  recovered?: number
+  notRun?: NotRun[]
+  strict?: boolean
 }
 
 export type StepRunItem = {
@@ -248,6 +264,7 @@ export type StepRunItem = {
   resultData?: unknown
   artifactsPath?: string
   createdAt: number
+  failureLabel?: FailureLabel
 }
 
 export type RunDetails = {
@@ -255,6 +272,9 @@ export type RunDetails = {
   status?: string
   environmentName?: string
   durationMs?: number
+  reason?: string
+  recoveredSteps?: number
+  notRunScenarios?: number
   stepRuns?: StepRunItem[]
   scenarios: Record<string, Array<{ name: string; url: string; isImage: boolean }>>
   runLog: string
@@ -270,6 +290,9 @@ export type RunHistoryItem = {
   passedScenarios?: number
   failedScenarios?: number
   durationMs?: number
+  reason?: string
+  recoveredSteps?: number
+  notRunScenarios?: number
 }
 
 export type RunEvent =
@@ -279,9 +302,9 @@ export type RunEvent =
   | { type: "run_start"; runId: string; totalScenarios: number; repeat: number; scenarios: Array<{ id: string; name: string; stepsCount: number }> }
   | { type: "scenario_start"; scenarioId: string; scenarioName: string; iteration: number; totalIterations: number }
   | { type: "step_start"; scenarioId: string; stepName: string; target: string; index: number; totalSteps: number }
-  | { type: "step_pass"; scenarioId: string; stepName: string; target: string; index: number; duration_ms: number }
-  | { type: "step_fail"; scenarioId: string; stepName: string; target: string; index: number; duration_ms: number; error: string }
-  | { type: "scenario_end"; scenarioId: string; iteration: number; passed: boolean; duration_ms: number; error?: string }
+  | { type: "step_pass"; scenarioId: string; stepName: string; target: string; index: number; duration_ms: number; recovered: boolean }
+  | { type: "step_fail"; scenarioId: string; stepName: string; target: string; index: number; duration_ms: number; error: string; label: FailureLabel }
+  | { type: "scenario_end"; scenarioId: string; iteration: number; passed: boolean; duration_ms: number; error?: string; label?: FailureLabel }
   | { type: "log"; text: string; level: "info" | "detail" }
   | { type: "finish"; summary: RunSummary }
 

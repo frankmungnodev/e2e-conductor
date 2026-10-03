@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { fetchRunDetails, fetchRuns } from "../api.ts"
+import { failureLabelText } from "../runResult.ts"
 import type { RunDetails, RunHistoryItem, RunSummary } from "../types.ts"
 import { Badge } from "./Badge.tsx"
 import { CodeBlock } from "./CodeBlock.tsx"
@@ -368,6 +369,17 @@ export function ArtifactsView() {
                                           ? "Running"
                                           : "Skipped"}
                                   </Badge>
+                                  {sr.failureLabel && (
+                                    <Badge size="xs" variant="danger" className="ml-1">
+                                      {failureLabelText(sr.failureLabel)}
+                                    </Badge>
+                                  )}
+                                  {/* A passing attempt after the first is a step a retry rescued. */}
+                                  {sr.status === "PASSED" && sr.attempt > 1 && (
+                                    <Badge size="xs" variant="warning" className="ml-1">
+                                      Recovered
+                                    </Badge>
+                                  )}
                                 </td>
                                 <td className="py-2 px-3 font-mono font-medium text-fg-bright">
                                   {sr.stepId || sr.id}
