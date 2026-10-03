@@ -16,7 +16,7 @@ import { findDown, listDevicesBounded } from "./health.ts"
 import { color, RunLog, stripAnsi } from "./logger.ts"
 import { prepareMobile, prepareServices, type StartedService, stopService } from "./preflight.ts"
 import { runShell, sleep } from "./process.ts"
-import { ENVIRONMENT_DOWN, type NotRun, notRunAfter, resultLine, settleStatus } from "./run-result.ts"
+import { ENVIRONMENT_DOWN, type NotRun, notRunAfter, type RunReason, resultLine, settleStatus } from "./run-result.ts"
 import { loadScenarios, type Scenario, targetsUsed } from "./scenario.ts"
 
 export type RunEvent =
@@ -69,7 +69,7 @@ export type Summary = {
   failures: Failure[]
   artifacts: string
   /** Why the run failed when no single failure explains it: "environment down" or "recovered steps (strict)". */
-  reason?: string
+  reason?: RunReason
   /** What the re-check found down when the run stopped. */
   down?: string[]
   /** Step executions that passed only on a retry. */

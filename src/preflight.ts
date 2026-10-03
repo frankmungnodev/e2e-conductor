@@ -134,23 +134,20 @@ export async function prepareServices(
 
 export type MobileSetup = { device: string; adb: string }
 
-/**
- * Serials of devices `adb devices` reports as ready, plus the raw output for diagnostics.
- * `error` is why adb could not be run, e.g. ETIMEDOUT past `timeoutMs` or ENOENT for no adb.
- */
-export function listAdbDevices(
-  adb: string,
-  { timeoutMs }: { timeoutMs?: number } = {},
-): { output: string; serials: string[]; error?: string } {
-  const result = spawnSync(adb, ["devices"], { encoding: "utf8", timeout: timeoutMs })
-  const output = result.stdout ?? ""
-  const serials = output
+/** Serials of devices `adb devices` reports as ready, plus the raw output for diagnostics. */
+export function listAdbDevices(adb: string): { output: string; serials: string[] } {
+  const output = spawnSync(adb, ["devices"], { encoding: "utf8" }).stdout ?? ""
+  return { output, serials: readySerials(output) }
+}
+
+/** The serials an `adb devices` listing reports in the ready ("device") state. */
+export function readySerials(output: string): string[] {
+  return output
     .split("\n")
     .slice(1)
     .map((line) => line.trim().split(/\s+/))
     .filter(([serial, state]) => serial && state === "device")
     .map(([serial]) => serial)
-  return { output, serials, error: (result.error as NodeJS.ErrnoException | undefined)?.code }
 }
 
 function pickDevice(adb: string, env: Record<string, string>): string {

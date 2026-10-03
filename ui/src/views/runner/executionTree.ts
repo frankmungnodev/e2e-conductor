@@ -49,6 +49,11 @@ function applyStop(tree: ScenarioState[], summary: RunSummary, lastEnded?: Scena
 }
 
 /** Rebuilds the live scenario/step tree from the run's event stream. */
+/** How many of a scenario's steps passed only on a retry. */
+export function recoveredIn(scenario: ScenarioState): number {
+  return scenario.steps.filter((st) => st.recovered).length
+}
+
 export function buildExecutionTree(events: RunEvent[], scenarios: ScenarioItem[]): ScenarioState[] {
   let tree: ScenarioState[] = []
   let lastEnded: ScenarioState | undefined

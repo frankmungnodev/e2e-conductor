@@ -4,7 +4,7 @@ import { capitalize } from "../../format.ts"
 import { failureLabelText } from "../../runResult.ts"
 import { getTargetBadgeVariant } from "../../targetDriver.ts"
 import type { ConfigMeta, FailureLabel, RunSummary } from "../../types.ts"
-import type { RunState, ScenarioState } from "./executionTree.ts"
+import { type RunState, recoveredIn, type ScenarioState } from "./executionTree.ts"
 import type { ViewMode } from "./RunnerView.tsx"
 
 const STATE_BADGE: Record<RunState, { variant: BadgeVariant; text: string }> = {
@@ -106,9 +106,9 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
                       {sc.duration_ms}ms
                     </span>
                   )}
-                  {recoveredCount(sc) > 0 && (
+                  {recoveredIn(sc) > 0 && (
                     <Badge size="xs" variant="warning">
-                      Recovered {recoveredCount(sc)}
+                      Recovered {recoveredIn(sc)}
                     </Badge>
                   )}
                   {sc.label && hasNoFailedStep(sc) && <LabelBadge label={sc.label} />}
@@ -178,6 +178,4 @@ function hasNoFailedStep(scenario: ScenarioState): boolean {
   return !scenario.steps.some((st) => st.status === "failed")
 }
 
-function recoveredCount(scenario: ScenarioState): number {
-  return scenario.steps.filter((st) => st.recovered).length
-}
+

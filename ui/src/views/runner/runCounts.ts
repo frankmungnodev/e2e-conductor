@@ -1,5 +1,5 @@
 import type { RunSummary } from "../../types.ts"
-import type { ScenarioState } from "./executionTree.ts"
+import { recoveredIn, type ScenarioState } from "./executionTree.ts"
 
 export type RunCounts = { passed: number; failed: number; notRun: number; recovered: number; total: number; percent: number }
 
@@ -17,7 +17,7 @@ export function runCounts(tree: ScenarioState[], lastSummary?: RunSummary): RunC
   const passed = count("passed")
   const failed = count("failed")
   const notRun = count("not_run")
-  const recovered = tree.reduce((sum, s) => sum + s.steps.filter((st) => st.recovered).length, 0)
+  const recovered = tree.reduce((sum, s) => sum + recoveredIn(s), 0)
   const percent = Math.round(((passed + failed + notRun) / tree.length) * 100)
   return { passed, failed, notRun, recovered, total: tree.length, percent }
 }

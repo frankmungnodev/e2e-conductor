@@ -5,6 +5,8 @@ export type NotRun = { scenario: string; iteration: number }
 
 export const ENVIRONMENT_DOWN = "environment down"
 export const STRICT_RECOVERED = "recovered steps (strict)"
+/** Why a run failed when no single step explains it. */
+export type RunReason = typeof ENVIRONMENT_DOWN | typeof STRICT_RECOVERED
 
 /**
  * Everything after the scenario at `index` in `iteration`: the rest of that iteration, then every

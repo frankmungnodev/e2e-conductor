@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
-import { chmodSync, writeFileSync } from "node:fs"
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { join } from "node:path"
 import { after, describe, it } from "node:test"
 import { findDown, listDevicesBounded } from "../src/health.ts"
+import { fakeAdb } from "./fake-adb.ts"
 import { tempDir } from "./temp-dir.ts"
 
 async function listen(server: Server): Promise<string> {
@@ -60,27 +60,21 @@ describe("findDown devices", () => {
 
 describe("listDevicesBounded", () => {
   const dir = tempDir("health-adb")
-  function fakeAdb(name: string, script: string): string {
-    const path = join(dir, name)
-    writeFileSync(path, `#!/bin/sh\n${script}\n`)
-    chmodSync(path, 0o755)
-    return path
-  }
 
-  it("lists ready serials", () => {
-    const adb = fakeAdb("ok", 'printf "List of devices attached\\nR58M\\tdevice\\nX1\\toffline\\n"')
-    assert.deepEqual(listDevicesBounded(adb), { serials: ["R58M"] })
+  it("lists ready serials", async () => {
+    const adb = fakeAdb(dir, "ok", 'printf "List of devices attached\\nR58M\\tdevice\\nX1\\toffline\\n"')
+    assert.deepEqual(await listDevicesBounded(adb), { serials: ["R58M"] })
   })
 
-  it("reports adb not responding when adb hangs past 5 seconds", { timeout: 15_000 }, () => {
-    const adb = fakeAdb("hang", "exec sleep 30")
+  it("reports adb not responding when adb hangs past 5 seconds", { timeout: 15_000 }, async () => {
+    const adb = fakeAdb(dir, "hang", "exec sleep 30")
     const began = Date.now()
-    assert.deepEqual(listDevicesBounded(adb), { problem: "adb not responding" })
+    assert.deepEqual(await listDevicesBounded(adb), { problem: "adb not responding" })
     assert.ok(Date.now() - began < 7_000)
   })
 
-  it("reports adb not found when there is no adb", () => {
-    assert.deepEqual(listDevicesBounded(undefined), { problem: "adb not found" })
-    assert.deepEqual(listDevicesBounded(join(dir, "missing-adb")), { problem: "adb not found" })
+  it("reports adb not found when there is no adb", async () => {
+    assert.deepEqual(await listDevicesBounded(undefined), { problem: "adb not found" })
+    assert.deepEqual(await listDevicesBounded(join(dir, "missing-adb")), { problem: "adb not found" })
   })
 })

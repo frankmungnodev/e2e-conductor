@@ -422,7 +422,7 @@ async function assertState(page: Page, selector: string, state: "visible" | "hid
   try {
     await page.locator(selector).waitFor({ state, timeout })
   } catch (error) {
-    if (error instanceof errors.TimeoutError) throw new AssertionFailure((error as Error).message)
+    if (error instanceof errors.TimeoutError) throw new AssertionFailure(error.message)
     throw error
   }
 }

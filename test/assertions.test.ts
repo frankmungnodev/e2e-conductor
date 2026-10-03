@@ -1,10 +1,9 @@
 import assert from "node:assert/strict"
-import { chmodSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
 import { describe, it } from "node:test"
 import { expect } from "playwright/test"
 import { AssertionFailure, checkAssert, extract, failureLabel } from "../src/assertions.ts"
 import { AdbFlowRunner } from "../src/drivers/adb-flow.ts"
+import { fakeAdb } from "./fake-adb.ts"
 import { tempDir } from "./temp-dir.ts"
 
 describe("checkAssert and extract", () => {
@@ -49,10 +48,7 @@ describe("failureLabel", () => {
 describe("AdbFlowRunner assertions", () => {
   it("surfaces a failing assertVisible as AssertionFailure after runCommands adds its prefix", { timeout: 30_000 }, async () => {
     // A fake adb whose UI dump is an empty screen, so the element never appears.
-    const dir = tempDir("fake-adb")
-    const adb = join(dir, "adb")
-    writeFileSync(adb, '#!/bin/sh\necho "<hierarchy></hierarchy>"\n')
-    chmodSync(adb, 0o755)
+    const adb = fakeAdb(tempDir("fake-adb"), "adb", 'echo "<hierarchy></hierarchy>"')
     const runner = new AdbFlowRunner(adb, "emulator-5554", () => {})
 
     const error = await runner.runCommands([{ assertVisible: "Welcome" }], "com.example").catch((caught: unknown) => caught)

@@ -1,5 +1,6 @@
+import { execFile } from "node:child_process"
 import type { ServiceConfig } from "./config.ts"
-import { isUp, listAdbDevices } from "./preflight.ts"
+import { isUp, readySerials } from "./preflight.ts"
 import { adbPath } from "./process.ts"
 
 /** Ready device serials, or why adb could not say. */
@@ -8,14 +9,22 @@ export type AdbListing = { serials: string[] } | { problem: string }
 // A wedged adb server can hang `adb devices` for minutes; the re-check must not stall the run.
 const ADB_TIMEOUT_MS = 5_000
 
-/** List devices with the adb at `adb`, bounded so a hung adb reads as down rather than blocking. */
-export function listDevicesBounded(adb: string | undefined): AdbListing {
-  if (!adb) return { problem: "adb not found" }
-  const { serials, error } = listAdbDevices(adb, { timeoutMs: ADB_TIMEOUT_MS })
-  if (error === "ETIMEDOUT") return { problem: "adb not responding" }
-  if (error === "ENOENT") return { problem: "adb not found" }
-  if (error) return { problem: `adb could not run (${error})` }
-  return { serials }
+/**
+ * List devices with the adb at `adb`, bounded so a hung adb reads as down. Asynchronous because
+ * the re-check runs mid-run, where a blocking call would also freeze the GUI server's requests.
+ */
+export function listDevicesBounded(adb: string | undefined): Promise<AdbListing> {
+  if (!adb) return Promise.resolve({ problem: "adb not found" })
+  return new Promise((resolve) => {
+    execFile(adb, ["devices"], { encoding: "utf8", timeout: ADB_TIMEOUT_MS }, (error, stdout) => {
+      // A non-zero exit still lists devices; only a failure to run adb at all means it is down.
+      const code = (error as NodeJS.ErrnoException | null)?.code
+      if (error?.killed) resolve({ problem: "adb not responding" })
+      else if (code === "ENOENT") resolve({ problem: "adb not found" })
+      else if (typeof code === "string") resolve({ problem: `adb could not run (${code})` })
+      else resolve({ serials: readySerials(stdout) })
+    })
+  })
 }
 
 /**
@@ -26,14 +35,16 @@ export function listDevicesBounded(adb: string | undefined): AdbListing {
 export async function findDown(
   services: Record<string, ServiceConfig>,
   devices: string[],
-  listDevices: () => AdbListing = () => listDevicesBounded(adbPath()),
+  listDevices: () => AdbListing | Promise<AdbListing> = () => listDevicesBounded(adbPath()),
 ): Promise<string[]> {
   const entries = Object.entries(services)
-  const up = await Promise.all(entries.map(([, service]) => isUp(service)))
+  const [up, listing] = await Promise.all([
+    Promise.all(entries.map(([, service]) => isUp(service))),
+    devices.length > 0 ? listDevices() : undefined,
+  ])
   const down = entries.filter((_, i) => !up[i]).map(([name, service]) => `service ${name} (${service.url})`)
 
-  if (devices.length > 0) {
-    const listing = listDevices()
+  if (listing) {
     if ("problem" in listing) down.push(listing.problem)
     else down.push(...devices.filter((serial) => !listing.serials.includes(serial)).map((serial) => `device ${serial}`))
   }
