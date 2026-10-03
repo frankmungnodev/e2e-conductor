@@ -1,6 +1,12 @@
 import { Check, ExternalLink, Trash2 } from "lucide-react"
+import { useEffect, useState } from "react"
 import { Button } from "../../components/Button.tsx"
-import { EnvVariablesEditor, envRowsToRecord, recordToEnvRows } from "../../components/EnvVariablesEditor.tsx"
+import {
+  EnvVariablesEditor,
+  type EnvVarRow,
+  envRowsToRecord,
+  recordToEnvRows,
+} from "../../components/EnvVariablesEditor.tsx"
 import { Input } from "../../components/FormControls.tsx"
 import { Modal } from "../../components/Modal.tsx"
 import type { ScenarioItem } from "../../types.ts"
@@ -25,6 +31,13 @@ export function ScenarioSettingsModal({
   onNavigateToConfig,
   availableFixtures,
 }: ScenarioSettingsModalProps) {
+  // Rows live here, not in the draft: a new row has an empty key, which the vars record cannot hold.
+  const [varRows, setVarRows] = useState<EnvVarRow[]>([])
+  const scenarioId = draftScenario?.id
+  useEffect(() => {
+    if (showScenarioSettings) setVarRows(recordToEnvRows(draftScenario?.vars as Record<string, string> | undefined))
+  }, [showScenarioSettings, scenarioId])
+
   return (
     <Modal
       isOpen={showScenarioSettings && !!draftScenario}
@@ -140,8 +153,9 @@ export function ScenarioSettingsModal({
           {/* Scenario Variables */}
           <div className="pt-2 border-t border-border">
             <EnvVariablesEditor
-              rows={recordToEnvRows(draftScenario.vars as Record<string, string>)}
+              rows={varRows}
               onChange={(newRows) => {
+                setVarRows(newRows)
                 const nextVars = envRowsToRecord(newRows) ?? {}
                 const raw = { ...draftScenario.raw, vars: nextVars }
                 updateDraft({ ...draftScenario, vars: nextVars, raw })

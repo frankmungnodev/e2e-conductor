@@ -10,7 +10,12 @@ function dialogTitled(page: Page, title: string) {
   return page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: title, exact: true }) })
 }
 
-type ScenarioSummary = { id: string; name: string; steps: Array<{ name: string; target: string }> }
+type ScenarioSummary = {
+  id: string
+  name: string
+  vars?: Record<string, unknown>
+  steps: Array<{ name: string; target: string }>
+}
 
 const SECOND_SCENARIO_NAME = "Second Scenario"
 
@@ -55,6 +60,9 @@ describe("Scenario builder", () => {
     await page.getByRole("button", { name: "Scenario Settings & Fixtures" }).click()
     const settings = dialogTitled(page, "Scenario Settings & Fixtures")
     await settings.getByRole("textbox", { name: "Scenario Name" }).fill("UI Smoke Scenario")
+    await settings.getByRole("button", { name: "Add Variable" }).click()
+    await settings.getByRole("textbox", { name: "e.g. API_KEY" }).pressSequentially("BASE_URL")
+    await settings.getByRole("textbox", { name: "e.g. secret_val" }).fill("http://localhost")
     await settings.getByRole("button", { name: "Done" }).click()
     await settings.waitFor({ state: "detached" })
 
@@ -79,6 +87,7 @@ describe("Scenario builder", () => {
     const scenario = saved.find((x) => x.id === id)
     assert.equal(scenario?.steps[0].target, "shell")
     assert.equal(scenario?.steps[1].name, PRESET_NAME)
+    assert.deepEqual(scenario?.vars, { BASE_URL: "http://localhost" })
 
     await page.reload()
     await page.getByText("UI Smoke Scenario").first().waitFor()
