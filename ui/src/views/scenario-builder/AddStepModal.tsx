@@ -82,7 +82,7 @@ export function AddStepModal({
 
         {/* TAB 1: DRIVERS */}
         {addStepModalTab === "drivers" && (
-          <div className="h-[284px] space-y-2 overflow-y-auto pr-0.5">
+          <div className="h-71 space-y-2 overflow-y-auto pr-0.5">
             {DRIVER_OPTIONS.map((driver) => (
               <div
                 key={driver.id}
@@ -127,7 +127,7 @@ export function AddStepModal({
 
         {/* TAB 2: PRESETS */}
         {addStepModalTab === "presets" && (
-          <div className="h-[284px] flex flex-col space-y-3">
+          <div className="h-71 flex flex-col space-y-3">
             {stepPresets.length > 0 && (
               <Input
                 size="sm"

@@ -89,13 +89,13 @@ export function PlatformCard({
                     <span className="text-xs text-primary font-semibold">(overridden)</span>
                   )}
                 </span>
-                <span className="font-mono text-primary truncate max-w-[170px]">
+                <span className="font-mono text-primary truncate max-w-42.5">
                   {plat.url || "Custom Target"}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span>Step Modules:</span>
-                <span className="font-mono text-fg truncate max-w-[170px]">
+                <span className="font-mono text-fg truncate max-w-42.5">
                   {plat.modules || ".e2e/modules/web"}
                 </span>
               </div>
@@ -139,13 +139,13 @@ export function PlatformCard({
                     <span className="text-xs text-primary font-semibold">(overridden)</span>
                   )}
                 </span>
-                <span className="font-mono text-success truncate max-w-[170px]">
+                <span className="font-mono text-success truncate max-w-42.5">
                   {plat.appId}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span>Flows Folder:</span>
-                <span className="font-mono text-fg truncate max-w-[170px]">
+                <span className="font-mono text-fg truncate max-w-42.5">
                   {plat.flows || ".e2e/flows"}
                 </span>
               </div>
@@ -160,7 +160,7 @@ export function PlatformCard({
               {plat.grantPermissions && plat.grantPermissions.length > 0 && (
                 <div className="flex items-center justify-between text-xs">
                   <span>Permissions:</span>
-                  <span className="font-mono text-fg truncate max-w-[160px]" title={plat.grantPermissions.join(", ")}>
+                  <span className="font-mono text-fg truncate max-w-40" title={plat.grantPermissions.join(", ")}>
                     {plat.grantPermissions.join(", ")}
                   </span>
                 </div>
@@ -182,7 +182,7 @@ export function PlatformCard({
                     <span className="text-xs text-primary font-semibold">(overridden)</span>
                   )}
                 </span>
-                <span className="font-mono text-info truncate max-w-[170px]">
+                <span className="font-mono text-info truncate max-w-42.5">
                   {plat.url}
                 </span>
               </div>
@@ -193,7 +193,7 @@ export function PlatformCard({
                     <span className="text-xs text-primary font-semibold">(overridden)</span>
                   )}
                 </span>
-                <span className="font-mono text-fg truncate max-w-[170px]">
+                <span className="font-mono text-fg truncate max-w-42.5">
                   {plat.health || "/"}
                 </span>
               </div>
