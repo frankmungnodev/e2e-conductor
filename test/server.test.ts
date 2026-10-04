@@ -6,6 +6,7 @@ import type { LoadedConfig } from "../src/config.ts"
 import { withDb } from "../src/db/connection.ts"
 import { resolveDbPath } from "../src/db/paths.ts"
 import { saveRun, saveStepRun } from "../src/db/runs.ts"
+import { saveScenarioRun } from "../src/db/scenario-runs.ts"
 import { startServer } from "../src/server.ts"
 import { tempDir } from "./temp-dir.ts"
 
@@ -344,6 +345,9 @@ describe("startServer", () => {
       })
       const row = { runId, scenarioId: "s1", iteration: 1, createdAt: 1 }
       saveStepRun(db, { ...row, id: `${runId}:s1:1:0:1`, attempt: 1, status: "FAILED", failureLabel: "Environment down" })
+      const scenarioRun = { scenarioId: "s1", iteration: 1, artifactsDir: "s1" }
+      saveScenarioRun(db, { ...scenarioRun, runId: "run-earlier", fingerprint: "old", status: "PASSED", startedAt: 0 })
+      saveScenarioRun(db, { ...scenarioRun, runId, fingerprint: "new", status: "FAILED", startedAt: 1 })
     })
     const { server, url } = await startServer(config, { port: 0, host: "127.0.0.1", open: false })
     try {
@@ -352,6 +356,12 @@ describe("startServer", () => {
       assert.equal(detail.recoveredSteps, 1)
       assert.equal(detail.notRunScenarios, 2)
       assert.equal(detail.stepRuns[0].failureLabel, "Environment down")
+      assert.equal(detail.scenarioRuns.length, 1)
+      assert.deepEqual(
+        [detail.scenarioRuns[0].fingerprint, detail.scenarioRuns[0].status, detail.scenarioRuns[0].artifactsDir],
+        ["new", "FAILED", "s1"],
+      )
+      assert.equal(detail.scenarioRuns[0].changedSinceLastPass, true)
 
       const list = (await (await fetch(`${url}/api/runs`)).json()) as any
       const item = list.runs.find((r: any) => r.runId === runId)

@@ -121,4 +121,36 @@ describe("Runner view options and failures", () => {
     await page.getByText("Recovered 1", { exact: true }).waitFor()
     await page.getByText(/Recovered: 1/).waitFor()
   })
+
+  it("marks a scenario whose content changed since it last passed", async () => {
+    const { url, page, api } = await startUiSession("runner-changed")
+    const post = (path: string, body: unknown) =>
+      fetch(`${url}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+    type Runs = { runs: Array<{ runId: string; status?: string }> }
+    const runToEnd = async (count: number) => {
+      await post("/api/run", { scenarios: ["04-edited"] })
+      return eventually(
+        () => api<Runs>("/api/runs"),
+        (data) => data.runs.length >= count && data.runs.every((r) => r.status && r.status !== "RUNNING"),
+        20000,
+      )
+    }
+    const scenario = (command: string) => ({ name: "Edited Smoke", steps: [{ name: "Edited step", target: "shell", command }] })
+
+    await post("/api/scenarios", { id: "04-edited", content: scenario("true") })
+    const first = await runToEnd(1)
+    await post("/api/scenarios", { id: "04-edited", content: scenario("exit 1") })
+    const second = await runToEnd(2)
+
+    await page.goto(`${url}/?tab=artifacts`)
+    await page.getByText(`Test Run: ${second.runs[0].runId}`).waitFor()
+    await page.getByText("Changed Since Last Pass", { exact: true }).waitFor()
+
+    // The run that passed with the original content has nothing to compare against.
+    await page.getByText(first.runs[0].runId).first().click()
+    await page.getByText(`Test Run: ${first.runs[0].runId}`).waitFor()
+    // The header switches before the new run's details load, so wait for the badge to go.
+    await page.getByText("Changed Since Last Pass").waitFor({ state: "detached" })
+    await page.getByText("04-edited", { exact: true }).waitFor()
+  })
 })

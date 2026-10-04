@@ -271,6 +271,18 @@ export type StepRunItem = {
   manual?: boolean
 }
 
+/** One scenario-iteration of a run, pinned to the scenario content it ran. */
+export type ScenarioRunItem = {
+  scenarioId: string
+  iteration: number
+  fingerprint: string
+  status: "RUNNING" | "PASSED" | "FAILED" | "FIXED" | "CANCELLED"
+  /** Matches a key of `RunDetails.scenarios`. */
+  artifactsDir?: string
+  /** The scenario's last pass, in any run or environment, ran different content. */
+  changedSinceLastPass: boolean
+}
+
 export type RunDetails = {
   runId: string
   status?: string
@@ -281,6 +293,7 @@ export type RunDetails = {
   notRunScenarios?: number
   fixedScenarios?: number
   stepRuns?: StepRunItem[]
+  scenarioRuns?: ScenarioRunItem[]
   scenarios: Record<string, Array<{ name: string; url: string; isImage: boolean }>>
   runLog: string
 }

@@ -296,7 +296,16 @@ export function ArtifactsView() {
                               key={scenario}
                               className="p-2.5 flex items-center justify-between text-xs"
                             >
-                              <span className="font-mono font-medium text-fg">{scenario}</span>
+                              <span className="flex items-center gap-2">
+                                <span className="font-mono font-medium text-fg">{scenario}</span>
+                                {runDetails.scenarioRuns?.some(
+                                  (r) => r.artifactsDir === scenario && r.changedSinceLastPass,
+                                ) && (
+                                  <Badge size="xs" variant="warning">
+                                    Changed Since Last Pass
+                                  </Badge>
+                                )}
+                              </span>
                               <div className="flex items-center gap-2">
                                 {files.length > 0 ? (
                                   files.map((file, fIdx) => (

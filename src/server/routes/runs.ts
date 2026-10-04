@@ -4,6 +4,7 @@ import { loadConfig, resolveFromConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { resolveDbPath } from "../../db/paths.ts"
 import { getRun, getRuns, getStepRuns } from "../../db/runs.ts"
+import { getScenarioRuns } from "../../db/scenario-runs.ts"
 import { replaceScenarioStep } from "../../db/scenarios.ts"
 import { HoldController } from "../../hold.ts"
 import { type RunOptions, run, type Summary } from "../../runner.ts"
@@ -270,9 +271,13 @@ export const runRoutes: Route[] = [
       const runId = pathname.replace("/api/runs/", "").trim()
       const dbPath = resolveDbPath(state.config.configDir)
       let dbRun: ReturnType<typeof getRun> | undefined
+      let scenarioRuns: ReturnType<typeof getScenarioRuns> = []
       if (existsSync(dbPath)) {
         try {
-          dbRun = withDb(dbPath, (db) => getRun(db, runId))
+          withDb(dbPath, (db) => {
+            dbRun = getRun(db, runId)
+            scenarioRuns = getScenarioRuns(db, runId)
+          })
         } catch {
           // ignore
         }
@@ -316,6 +321,7 @@ export const runRoutes: Route[] = [
         notRunScenarios: dbRun?.notRunScenarios,
         fixedScenarios: dbRun?.fixedScenarios,
         stepRuns: dbRun?.stepRuns ?? [],
+        scenarioRuns,
         scenarios: scenarioArtifacts,
         runLog,
       })
