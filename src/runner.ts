@@ -12,6 +12,7 @@ import { ShellDriver } from "./drivers/shell.ts"
 import type { Driver } from "./drivers/types.ts"
 import { WebDriver } from "./drivers/web.ts"
 import { findDown, listDevicesBounded } from "./health.ts"
+import type { PausedStep, PauseHook } from "./hold.ts"
 import { color, RunLog } from "./logger.ts"
 import { prepareMobile, prepareServices, type StartedService, stopService } from "./preflight.ts"
 import { ENVIRONMENT_DOWN, type NotRun, notRunAfter, type RunReason, resultLine, settleStatus } from "./run-result.ts"
@@ -36,7 +37,20 @@ export type RunEvent =
       label: FailureLabel
     }
   // `label` is the scenario's failure label; a failed setup fixture has no step_fail, so this is where its label shows.
-  | { type: "scenario_end"; scenarioId: string; iteration: number; passed: boolean; duration_ms: number; error?: string; label?: FailureLabel }
+  // `fixed` marks a scenario that paused on a failure and passed after a manual retry; it is neither passed nor failed.
+  | {
+      type: "scenario_end"
+      scenarioId: string
+      iteration: number
+      passed: boolean
+      fixed?: boolean
+      duration_ms: number
+      error?: string
+      label?: FailureLabel
+    }
+  | ({ type: "hold_start"; stepName: string } & PausedStep)
+  | { type: "hold_retry"; scenarioId: string; index: number; passed: boolean; duration_ms: number; error?: string; label?: FailureLabel }
+  | { type: "hold_end"; scenarioId: string; index: number; how: "continue" | "end" | "stopped" }
   | { type: "log"; text: string; level: "info" | "detail" }
   | { type: "finish"; summary: Summary }
 
@@ -52,7 +66,8 @@ export type RunOptions = {
   /** Optional abort signal to cancel a running execution */
   signal?: AbortSignal
   /** Fail a run whose only issue is steps that passed on a retry. */
-  strict?: boolean
+  strict?: boolean  /** Pause on a failed step so the user can fix and retry it; see `src/hold.ts`. */
+  pause?: PauseHook
 }
 
 // `label` is optional only because summaries written before labels existed lack it.
@@ -224,6 +239,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           runId,
           db,
           recheck,
+          pause: options.pause,
         })
         summary.total++
         summary.recovered += outcome.recovered
