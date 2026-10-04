@@ -67,7 +67,7 @@ CREATE INDEX IF NOT EXISTS idx_scenario_steps_scenario ON scenario_steps(scenari
 Each scenario step represents a milestone or phase (e.g., *Admin Login*, *Add to Cart*, *Verify Order*). The orchestrator employs a **Zero-Code Composite Step Architecture** where each step contains an ordered array of execution actions (`actions: StepAction[]`):
 
 ### Common Step Fields
-- `id`: Optional unique identifier for the step (auto-generated if omitted upon persistence).
+- `id`: Unique identifier for the step, a UUID. The scenario builder gives every new step, including a copy of a preset, a UUID when it is created, and saving assigns one to any step that arrives without an id (an imported JSON file, `POST /api/scenarios`). Ids are never derived from a step's position, so a step added where another was deleted never inherits its id. Steps saved before this rule keep their existing ids.
 - `name`: Human-readable milestone label displayed in test execution runners and logs.
 - `target`: The platform or driver to execute against (e.g. `web`, `http`, `shell`, `android`). Must match a compiled target in configuration.
 - `actions`: An ordered array of declarative execution actions (`StepAction[]`).
@@ -140,7 +140,7 @@ During test execution (`src/runner.ts`):
 4. **Target Dispatch**: The step payload is routed to the designated target driver.
 5. **Assertion & Extraction**: Outcomes are validated against `assert` specifications, and matching values are stored into `scenarioContext.extract` for downstream steps.
 6. **Step Run Persistence**: Each step execution attempt is persisted in `step_runs`.
-7. **Pause on Failure**: In a GUI run started with Pause on Failure, a failed step can be edited and retried on the live run (`runs.md`, section 4). A retry that passes replaces the stored step it was made for, keeping its step id, so the fix applies to future runs. The stored step must still have the same id and the name the run last saw; otherwise nothing is saved. It also replaces the step for the rest of the current run, including later `--repeat` iterations.
+7. **Pause on Failure**: In a GUI run started with Pause on Failure, a failed step can be edited and retried on the live run (`runs.md`, section 4). A retry that passes replaces the stored step it was made for, keeping its step id, so the fix applies to future runs. The stored step is found by its id; if the step was deleted meanwhile, nothing is saved. It also replaces the step for the rest of the current run, including later `--repeat` iterations.
 
 ---
 

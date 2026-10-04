@@ -317,6 +317,23 @@ describe("sqlite db configuration storage", () => {
     db.close()
   })
 
+  it("gives a step saved without an id a UUID that a later step at its position does not reuse", () => {
+    const db = openDatabase(join(dir, "step-ids.db"))
+    saveScenario(db, { id: "s", name: "S", steps: [{ name: "First", target: "shell", command: "true" }] })
+    const [first] = getScenario(db, "s")?.steps ?? []
+    assert.match(first.id ?? "", /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+
+    // Replace the step with a new one at the same position: it must get a different id.
+    saveScenario(db, { id: "s", name: "S", steps: [{ name: "Second", target: "shell", command: "true" }] })
+    const [second] = getScenario(db, "s")?.steps ?? []
+    assert.notEqual(second.id, first.id)
+
+    // A step that already has an id keeps it.
+    saveScenario(db, { id: "s", name: "S", steps: [{ id: "kept", name: "Kept", target: "shell", command: "true" }] })
+    assert.equal(getScenario(db, "s")?.steps[0].id, "kept")
+    db.close()
+  })
+
   it("manages scenarios and steps in the database", () => {
     const dbPath = join(dir, "scenarios-test.db")
     const db = openDatabase(dbPath)

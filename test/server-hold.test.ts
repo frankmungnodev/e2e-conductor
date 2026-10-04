@@ -28,7 +28,10 @@ async function withServer(test: (url: string, dir: string) => Promise<void>) {
   }
 }
 
-type Status = { isRunning: boolean; currentRun: { paused: { index: number; retryPassed: boolean; step: { command?: string } } | null } | null }
+type Status = {
+  isRunning: boolean
+  currentRun: { paused: { index: number; retryPassed: boolean; step: { id?: string; command?: string } } | null } | null
+}
 
 async function status(url: string): Promise<Status> {
   return (await (await fetch(`${url}/api/run/status`)).json()) as Status
@@ -67,7 +70,7 @@ describe("pause on failure over HTTP", () => {
       try {
         const stored = getScenario(db, "a")
         assert.equal(stored?.steps[0].command, "true")
-        assert.equal(stored?.steps[0].id, "a:step:1", "the saved step keeps its id")
+        assert.equal(stored?.steps[0].id, first.currentRun?.paused?.step.id, "the saved step keeps its id")
         assert.equal(stored?.steps[1].command, "true", "the other step is untouched")
       } finally {
         db.close()

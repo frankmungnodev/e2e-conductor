@@ -261,12 +261,15 @@ describe("runner pause on failure", () => {
   })
 
   it("keeps the paused step's id on a retried step, whatever id the edit carries", async () => {
-    const dir = project([threeSteps()])
+    // project() saves the scenario, which writes each step's generated id back onto it.
+    const scenario = threeSteps()
+    const dir = project([scenario])
     const { pause } = scripted((paused) => ({ kind: "retry", step: { ...paused.step, id: "something-else", command: "true" } }), proceed)
     const { events } = await execute(dir, { pause })
 
     const retried = events.find((event) => event.type === "hold_retry")
-    assert.equal(retried?.type === "hold_retry" && retried.step.id, "a:step:2")
+    assert.match(scenario.steps[1].id ?? "", /^[0-9a-f-]{36}$/)
+    assert.equal(retried?.type === "hold_retry" && retried.step.id, scenario.steps[1].id)
   })
 
   it("behaves as before without a pause hook (AE5)", async () => {

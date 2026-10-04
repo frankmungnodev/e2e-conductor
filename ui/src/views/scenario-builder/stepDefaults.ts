@@ -78,7 +78,7 @@ export function defaultActionType(driver: StepDriver): string {
 /** A new step for the chosen driver, aimed at the given target, with one starter action. */
 export function newStep(driverType: StepDriver, target: string): ScenarioStep {
   const step: ScenarioStep = {
-    id: `step_${Date.now()}`,
+    id: crypto.randomUUID(),
     name: `New ${titleCase(driverType)} Step`,
     target,
   }

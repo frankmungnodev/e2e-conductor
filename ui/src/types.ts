@@ -341,7 +341,6 @@ export type RunEvent =
       index: number
       /** The step the retry ran. */
       step: ScenarioStep
-      replaces: string
       passed: boolean
       duration_ms: number
       error?: string

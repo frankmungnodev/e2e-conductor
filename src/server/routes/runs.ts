@@ -13,17 +13,17 @@ import type { Route } from "../route.ts"
 import type { ServerState } from "../state.ts"
 
 /** Saves a step whose retry passed into its stored scenario; returns the scenario's name, or undefined when it was not saved. */
-function saveFixedStep(state: ServerState, scenarioId: string, step: Step, replaces: string): string | undefined {
+function saveFixedStep(state: ServerState, scenarioId: string, step: Step): string | undefined {
   let savedTo: string | undefined
   try {
-    savedTo = withDb(resolveDbPath(state.config.configDir), (db) => replaceScenarioStep(db, scenarioId, step, replaces))
+    savedTo = withDb(resolveDbPath(state.config.configDir), (db) => replaceScenarioStep(db, scenarioId, step))
   } catch (error) {
     state.broadcast({ type: "log", text: `Could not save the fixed step: ${(error as Error).message}`, level: "info" })
     return undefined
   }
   const text = savedTo
     ? `Saved the fixed step to scenario "${savedTo}"`
-    : `Did not save the fixed step: step "${replaces}" is no longer in scenario "${scenarioId}"`
+    : `Did not save the fixed step: step "${step.name}" is no longer in scenario "${scenarioId}"`
   state.broadcast({ type: "log", text, level: "info" })
   return savedTo
 }
@@ -83,7 +83,7 @@ export const runRoutes: Route[] = [
         onEvent: (event) => {
           // Save a passing retry before broadcasting it, and say on the event whether it was saved.
           if (event.type === "hold_retry" && event.passed) {
-            const savedTo = saveFixedStep(state, event.scenarioId, event.step, event.replaces)
+            const savedTo = saveFixedStep(state, event.scenarioId, event.step)
             state.broadcast({ ...event, savedTo })
             return
           }

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import type { DatabaseSync } from "node:sqlite"
 import { safeJsonParse } from "./connection.ts"
 
@@ -189,7 +190,9 @@ export function saveScenario(db: DatabaseSync, scenario: Scenario): void {
 
   scenario.steps.forEach((step, idx) => {
     const orderNum = idx + 1
-    const stepId = step.id || `${scenario.id}:step:${orderNum}`
+    // A step saved without an id gets a UUID, never one derived from its position: a step added later
+    // at the same position must not inherit a deleted step's id.
+    const stepId = step.id || randomUUID()
     step.id = stepId
     const assertJson = step.assert ? JSON.stringify(step.assert) : null
     const extractJson = step.extract ? JSON.stringify(step.extract) : null
@@ -221,15 +224,13 @@ export function saveScenario(db: DatabaseSync, scenario: Scenario): void {
 }
 
 /**
- * Replaces the stored step with `step`'s id and the name `replaces`, and returns the scenario's name.
- * Returns undefined, writing nothing, when no stored step matches, for example because the scenario
- * was edited meanwhile. The name is checked too: a step added later at the same position gets the same
- * default id.
+ * Replaces the stored step with `step`'s id and returns the scenario's name. Returns undefined, writing
+ * nothing, when no stored step has that id, for example because the step was deleted meanwhile.
  */
-export function replaceScenarioStep(db: DatabaseSync, scenarioId: string, step: Step, replaces: string): string | undefined {
+export function replaceScenarioStep(db: DatabaseSync, scenarioId: string, step: Step): string | undefined {
   if (!step.id) return undefined
   const scenario = getScenario(db, scenarioId)
-  const index = scenario?.steps.findIndex((stored) => stored.id === step.id && stored.name === replaces) ?? -1
+  const index = scenario?.steps.findIndex((stored) => stored.id === step.id) ?? -1
   if (!scenario || index < 0) return undefined
   scenario.steps[index] = step
   saveScenario(db, scenario)
