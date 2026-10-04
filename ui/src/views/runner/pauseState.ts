@@ -8,8 +8,8 @@ export function pausedFrom(events: RunEvent[], initial: PausedStep | null): Paus
   let paused = initial
   for (const ev of events) {
     if (ev.type === "hold_start") {
-      const { type: _type, stepName: _stepName, ...step } = ev
-      paused = step
+      const { type: _type, stepName: _stepName, ...pausedStep } = ev
+      paused = pausedStep
     } else if (ev.type === "hold_retry" && paused) {
       paused = ev.passed
         ? { ...paused, retryPassed: true }

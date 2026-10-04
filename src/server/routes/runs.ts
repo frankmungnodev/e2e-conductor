@@ -63,7 +63,7 @@ export const runRoutes: Route[] = [
         signal: controller.signal,
         pause: hold?.hook,
         onEvent: (event) => {
-          // Save a passing retry before the GUI hears about it, so its toast can name the scenario.
+          // Save a passing retry before broadcasting it, so the fix is stored by the time the GUI reports it saved.
           if (event.type === "hold_retry" && event.passed) {
             try {
               const saved = saveFixedStep(state)
