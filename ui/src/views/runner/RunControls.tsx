@@ -31,6 +31,8 @@ export function RunControls({
     setHeadless,
     verbose,
     setVerbose,
+    pauseOnFailure,
+    setPauseOnFailure,
     showOptions,
     setShowOptions,
   } = options
@@ -50,7 +52,11 @@ export function RunControls({
             <span>Run Options</span>
           </div>
           <div className="flex items-center gap-1 text-xs text-fg-muted">
-            <span>{repeat > 1 ? `${repeat}x • ` : ""}{headless ? "Silent" : "Visible"}</span>
+            <span>
+              {repeat > 1 ? `${repeat}x • ` : ""}
+              {pauseOnFailure ? "Pause • " : ""}
+              {headless ? "Silent" : "Visible"}
+            </span>
             {showOptions ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </div>
         </Button>
@@ -74,6 +80,13 @@ export function RunControls({
             </div>
 
             <div className="space-y-1.5 pt-1">
+              <Checkbox
+                size="sm"
+                label="Pause on Failure"
+                checked={pauseOnFailure}
+                onChange={(e) => setPauseOnFailure(e.target.checked)}
+                disabled={isRunning}
+              />
               <Checkbox
                 size="sm"
                 label="Auto-Start Servers"

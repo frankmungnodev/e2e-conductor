@@ -3,12 +3,14 @@ import { useUrlTab } from "../../components/Tabs.tsx"
 import type { ConfigMeta, RunEvent, RunSummary, ScenarioItem } from "../../types.ts"
 import { buildExecutionTree, type ScenarioState } from "./executionTree.ts"
 import { LogPane } from "./LogPane.tsx"
+import { PausePanel } from "./PausePanel.tsx"
 import { RunControls } from "./RunControls.tsx"
 import { RunStatusBar } from "./RunStatusBar.tsx"
 import { runCounts } from "./runCounts.ts"
 import { ScenarioExplorer } from "./ScenarioExplorer.tsx"
 import { ScenarioPreview } from "./ScenarioPreview.tsx"
 import { StepTreePane } from "./StepTreePane.tsx"
+import { usePause } from "./usePause.ts"
 import { useRunOptions } from "./useRunOptions.ts"
 
 type RunnerViewProps = {
@@ -24,6 +26,7 @@ type RunnerViewProps = {
     install: boolean
     headless: boolean
     verbose: boolean
+    pauseOnFailure: boolean
   }) => void
   onStopRun: () => void
   events: RunEvent[]
@@ -49,7 +52,8 @@ export function RunnerView({
   // Controls state
   const [selectedScenarios, setSelectedScenarios] = useState<string[]>([])
   const options = useRunOptions()
-  const { repeat, startServices, installMobile, headless, verbose } = options
+  const { repeat, startServices, installMobile, headless, verbose, pauseOnFailure } = options
+  const pause = usePause(events, scenarios, isRunning)
   const [scenarioFilter, setScenarioFilter] = useState<string>("")
   const [logFilter, setLogFilter] = useState<string>("")
   const [autoScroll, setAutoScroll] = useState<boolean>(true)
@@ -113,6 +117,7 @@ export function RunnerView({
       install: installMobile,
       headless,
       verbose,
+      pauseOnFailure,
     })
   }
 
@@ -124,6 +129,7 @@ export function RunnerView({
       install: installMobile,
       headless,
       verbose,
+      pauseOnFailure,
     })
   }
 
@@ -191,6 +197,8 @@ export function RunnerView({
           setAutoScroll={setAutoScroll}
           onClearLogs={onClearLogs}
         />
+
+        <PausePanel pause={pause} scenarios={scenarios} onStopRun={onStopRun} />
 
         {/* Center Canvas Area */}
         <div className="flex-1 flex overflow-hidden">

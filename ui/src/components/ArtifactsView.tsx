@@ -374,10 +374,15 @@ export function ArtifactsView() {
                                       {failureLabelText(sr.failureLabel)}
                                     </Badge>
                                   )}
-                                  {/* A passing attempt after the first is a step a retry rescued. */}
-                                  {sr.status === "PASSED" && sr.attempt > 1 && (
+                                  {/* A passing automatic attempt after the first is a step a retry rescued. */}
+                                  {sr.status === "PASSED" && sr.attempt > 1 && !sr.manual && (
                                     <Badge size="xs" variant="warning" className="ml-1">
                                       Recovered
+                                    </Badge>
+                                  )}
+                                  {sr.manual && (
+                                    <Badge size="xs" variant="info" className="ml-1">
+                                      Manual Retry
                                     </Badge>
                                   )}
                                 </td>

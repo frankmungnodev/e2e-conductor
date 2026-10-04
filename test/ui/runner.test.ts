@@ -54,6 +54,7 @@ describe("Runner view options and failures", () => {
       install: true,
       headless: true,
       verbose: false,
+      pauseOnFailure: false,
     })
 
     await eventually(

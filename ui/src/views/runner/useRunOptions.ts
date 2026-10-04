@@ -7,6 +7,7 @@ export function useRunOptions() {
   const [installMobile, setInstallMobile] = useState<boolean>(false)
   const [headless, setHeadless] = useState<boolean>(false)
   const [verbose, setVerbose] = useState<boolean>(true)
+  const [pauseOnFailure, setPauseOnFailure] = useState<boolean>(false)
   const [showOptions, setShowOptions] = useState<boolean>(false)
   return {
     repeat,
@@ -19,6 +20,8 @@ export function useRunOptions() {
     setHeadless,
     verbose,
     setVerbose,
+    pauseOnFailure,
+    setPauseOnFailure,
     showOptions,
     setShowOptions,
   }

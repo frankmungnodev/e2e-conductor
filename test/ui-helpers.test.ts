@@ -349,7 +349,7 @@ describe("runCounts", () => {
 
   it("counts not-run entries as complete so a stopped run reaches 100%", () => {
     const counts = runCounts([entry("passed", [{ recovered: true }, {}]), entry("failed"), entry("not_run"), entry("not_run")])
-    assert.deepEqual(counts, { passed: 1, failed: 1, notRun: 2, recovered: 1, total: 4, percent: 100 })
+    assert.deepEqual(counts, { passed: 1, failed: 1, fixed: 0, notRun: 2, recovered: 1, total: 4, percent: 100 })
   })
 
   it("reads counts from the summary when there is no live tree", () => {
@@ -364,11 +364,11 @@ describe("runCounts", () => {
       recovered: 2,
       notRun: [{ scenario: "c", iteration: 1 }],
     })
-    assert.deepEqual(counts, { passed: 1, failed: 1, notRun: 1, recovered: 2, total: 3, percent: 100 })
+    assert.deepEqual(counts, { passed: 1, failed: 1, fixed: 0, notRun: 1, recovered: 2, total: 3, percent: 100 })
   })
 
   it("is zero with neither a tree nor a summary", () => {
-    assert.deepEqual(runCounts([]), { passed: 0, failed: 0, notRun: 0, recovered: 0, total: 0, percent: 0 })
+    assert.deepEqual(runCounts([]), { passed: 0, failed: 0, fixed: 0, notRun: 0, recovered: 0, total: 0, percent: 0 })
   })
 })
 

@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleSlash, Layers, Loader2, XCircle } from "lucide-react"
+import { CheckCircle2, CircleSlash, Layers, Loader2, Wrench, XCircle } from "lucide-react"
 import { Badge, type BadgeVariant } from "../../components/Badge.tsx"
 import { capitalize } from "../../format.ts"
 import { failureLabelText } from "../../runResult.ts"
@@ -13,6 +13,7 @@ const STATE_BADGE: Record<RunState, { variant: BadgeVariant; text: string }> = {
   passed: { variant: "success", text: "Passed" },
   failed: { variant: "danger", text: "Failed" },
   not_run: { variant: "neutral", text: "Not Run" },
+  fixed: { variant: "warning", text: "Fixed" },
 }
 
 /** The status icon for a scenario header, or the smaller one for a step row. */
@@ -22,6 +23,7 @@ function StateIcon({ status, step }: { status: RunState; step?: boolean }) {
   if (status === "passed") return <CheckCircle2 className={`${size} text-success`} />
   if (status === "failed") return <XCircle className={`${size} text-error`} />
   if (status === "not_run") return <CircleSlash className={`${size} text-fg-muted`} aria-label="Not run" />
+  if (status === "fixed") return <Wrench className={`${size} text-warning`} aria-label="Fixed" />
   return step ? (
     <div className="w-1.5 h-1.5 rounded-full bg-fg-muted my-1 mx-0.5" />
   ) : (
@@ -147,6 +149,16 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
                             <Badge size="xs" variant="warning">
                               Recovered
                             </Badge>
+                          )}
+                          {st.fixed && (
+                            <Badge size="xs" variant="warning">
+                              Fixed By Retry
+                            </Badge>
+                          )}
+                          {(st.manualRetries ?? 0) > 0 && (
+                            <span className="text-xs text-fg-muted font-mono">
+                              {st.manualRetries} manual {st.manualRetries === 1 ? "retry" : "retries"}
+                            </span>
                           )}
                         </div>
                         {st.error && (

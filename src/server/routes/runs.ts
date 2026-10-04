@@ -182,6 +182,7 @@ export const runRoutes: Route[] = [
           reason?: string
           recoveredSteps?: number
           notRunScenarios?: number
+          fixedScenarios?: number
         }
       >()
 
@@ -202,6 +203,7 @@ export const runRoutes: Route[] = [
                 durationMs: r.durationMs,
                 reason: r.reason,
                 recoveredSteps: r.recoveredSteps,
+                fixedScenarios: r.fixedScenarios,
                 notRunScenarios: r.notRunScenarios,
                 scenarios: [],
               })
@@ -297,6 +299,7 @@ export const runRoutes: Route[] = [
         reason: dbRun?.reason,
         recoveredSteps: dbRun?.recoveredSteps,
         notRunScenarios: dbRun?.notRunScenarios,
+        fixedScenarios: dbRun?.fixedScenarios,
         stepRuns: dbRun?.stepRuns ?? [],
         scenarios: scenarioArtifacts,
         runLog,
