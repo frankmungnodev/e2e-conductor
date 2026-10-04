@@ -324,7 +324,7 @@ export function useScenarioDraft({
   const insertPresetStep = (presetStep: ScenarioStep) => {
     if (!draftScenario) return
     const clonedStep = JSON.parse(JSON.stringify(presetStep)) as ScenarioStep
-    clonedStep.id = `step_${Date.now()}`
+    clonedStep.id = crypto.randomUUID()
     const insertAt = draftScenario.steps.length > 0 ? selectedStepIdx + 1 : 0
     const newSteps = [...draftScenario.steps.slice(0, insertAt), clonedStep, ...draftScenario.steps.slice(insertAt)]
     const newRaw = { ...draftScenario.raw, steps: newSteps }

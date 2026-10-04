@@ -56,8 +56,6 @@ export type RunEvent =
       scenarioId: string
       index: number
       step: Step
-      /** The name the stored step had when the run last saved or loaded it. */
-      replaces: string
       passed: boolean
       duration_ms: number
       error?: string

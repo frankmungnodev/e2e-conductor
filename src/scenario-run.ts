@@ -150,8 +150,6 @@ export async function runScenario(
       targets: [...drivers.keys()],
     }
     const stepId = scenario.steps[index].id
-    // The step's name as stored, so a fix is saved only over the step it was made for.
-    let storedName = scenario.steps[index].name
     out.line(color.yellow("  paused: fix the step and retry it, or end the scenario"))
     onEvent?.({ type: "hold_start", ...paused, stepName: paused.step.name })
     for (let attempt = firstAttempt; ; attempt++) {
@@ -170,8 +168,7 @@ export async function runScenario(
         scenario.steps[index] = step
         paused = { ...paused, step, retryPassed: true }
         out.line(`  ${color.green("✓")} ${tag} ${step.name} ${color.dim(`${duration}ms`)}${color.yellow("  fixed by a manual retry")}`)
-        onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, step, replaces: storedName, passed: true, duration_ms: duration })
-        storedName = step.name
+        onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, step, passed: true, duration_ms: duration })
         continue
       }
       const { label, down } = await settle(tried.error)
@@ -184,7 +181,6 @@ export async function runScenario(
         scenarioId: scenario.id,
         index,
         step,
-        replaces: storedName,
         passed: false,
         duration_ms: duration,
         error,
