@@ -2,11 +2,12 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { stdin as input, stdout as output } from "node:process"
 import * as readline from "node:readline/promises"
+import type { DatabaseSync } from "node:sqlite"
 import { openDatabase } from "./db/connection.ts"
-import { saveEnvironment } from "./db/environments.ts"
+import { getEnvironments, saveEnvironment } from "./db/environments.ts"
 import { resolveDbPath, resolveProjectDir } from "./db/paths.ts"
 import { savePlatform } from "./db/platforms.ts"
-import { saveScenario } from "./db/scenarios.ts"
+import { getScenario, saveScenario } from "./db/scenarios.ts"
 import { color } from "./logger.ts"
 import {
   detectWorkspace,
@@ -14,6 +15,23 @@ import {
   scaffoldWizardFiles,
   type WizardComponent,
 } from "./wizard.ts"
+
+/**
+ * The database to seed: a new one, or an existing one with no environment yet. Undefined when the
+ * database already has an environment, or exists but cannot be read, so it is left untouched.
+ */
+function openSeedTarget(dbPath: string): DatabaseSync | undefined {
+  const existed = existsSync(dbPath)
+  let db: DatabaseSync | undefined
+  try {
+    db = openDatabase(dbPath)
+    if (!existed || Object.keys(getEnvironments(db)).length === 0) return db
+  } catch {
+    // Not a database we can read: never overwrite it.
+  }
+  db?.close()
+  return undefined
+}
 
 const SMOKE = {
   $schema: "../../node_modules/e2e-orchestrator/schema/v1/scenario.schema.json",
@@ -23,7 +41,7 @@ const SMOKE = {
 
 /**
  * Write a starter SQLite database and smoke scenario under .e2e.
- * Never overwrites: an artifact that exists is skipped.
+ * Never overwrites: a database that already has an environment, or a file that exists, is skipped.
  */
 export function initProject(targetPath: string = process.cwd()): { created: string[]; skipped: string[] } {
   const rootDir = resolveProjectDir(targetPath)
@@ -31,11 +49,13 @@ export function initProject(targetPath: string = process.cwd()): { created: stri
   const created: string[] = []
   const skipped: string[] = []
 
+  // Seed by content, not file presence: saving a scenario in the GUI before initializing creates an
+  // empty database, and skipping it would leave the project with no environment or platform.
   const dbPath = resolveDbPath(rootDir)
-  if (existsSync(dbPath)) {
+  const db = openSeedTarget(dbPath)
+  if (!db) {
     skipped.push(dbPath)
   } else {
-    const db = openDatabase(dbPath)
     saveEnvironment(
       db,
       "dev",
@@ -58,11 +78,8 @@ export function initProject(targetPath: string = process.cwd()): { created: stri
       serviceName: "api",
       health: "/",
     })
-    saveScenario(db, {
-      id: "smoke",
-      name: SMOKE.name,
-      steps: SMOKE.steps,
-    })
+    // Never overwrite a smoke scenario the user already saved.
+    if (!getScenario(db, "smoke")) saveScenario(db, { id: "smoke", name: SMOKE.name, steps: SMOKE.steps })
     db.close()
     created.push(dbPath)
   }
