@@ -231,6 +231,8 @@ export type RunSummary = {
   total: number
   passed: number
   failed: number
+  /** Scenarios that paused on a failure and passed after a manual retry; optional for older summaries. */
+  fixed?: number
   duration_ms: number
   failures: Array<{
     scenario: string
@@ -240,7 +242,7 @@ export type RunSummary = {
     label?: FailureLabel
   }>
   artifacts: string
-  /** "environment down" or "recovered steps (strict)". */
+  /** "environment down", "fixed during run" or "recovered steps (strict)". */
   reason?: string
   /** What the health re-check found down. */
   down?: string[]
@@ -265,6 +267,8 @@ export type StepRunItem = {
   artifactsPath?: string
   createdAt: number
   failureLabel?: FailureLabel
+  /** A retry the user started while the run was paused. */
+  manual?: boolean
 }
 
 export type RunDetails = {
@@ -275,6 +279,7 @@ export type RunDetails = {
   reason?: string
   recoveredSteps?: number
   notRunScenarios?: number
+  fixedScenarios?: number
   stepRuns?: StepRunItem[]
   scenarios: Record<string, Array<{ name: string; url: string; isImage: boolean }>>
   runLog: string
@@ -293,6 +298,20 @@ export type RunHistoryItem = {
   reason?: string
   recoveredSteps?: number
   notRunScenarios?: number
+  fixedScenarios?: number
+}
+
+/** A failed step the run is paused on, mirroring `PausedStep` in src/hold.ts. */
+export type PausedStep = {
+  scenarioId: string
+  iteration: number
+  index: number
+  step: ScenarioStep
+  error: string
+  label: FailureLabel
+  /** The last retry passed, so the scenario may continue. */
+  retryPassed: boolean
+  targets: string[]
 }
 
 export type RunEvent =
@@ -304,7 +323,33 @@ export type RunEvent =
   | { type: "step_start"; scenarioId: string; stepName: string; target: string; index: number; totalSteps: number }
   | { type: "step_pass"; scenarioId: string; stepName: string; target: string; index: number; duration_ms: number; recovered: boolean }
   | { type: "step_fail"; scenarioId: string; stepName: string; target: string; index: number; duration_ms: number; error: string; label: FailureLabel }
-  | { type: "scenario_end"; scenarioId: string; iteration: number; passed: boolean; duration_ms: number; error?: string; label?: FailureLabel }
+  | {
+      type: "scenario_end"
+      scenarioId: string
+      iteration: number
+      passed: boolean
+      /** Paused on a failure and passed after a manual retry. */
+      fixed?: boolean
+      duration_ms: number
+      error?: string
+      label?: FailureLabel
+    }
+  | ({ type: "hold_start"; stepName: string } & PausedStep)
+  | {
+      type: "hold_retry"
+      scenarioId: string
+      index: number
+      /** The step the retry ran. */
+      step: ScenarioStep
+      replaces: string
+      passed: boolean
+      duration_ms: number
+      error?: string
+      label?: FailureLabel
+      /** The scenario's name when the server saved a passing retry to it; absent when it could not. */
+      savedTo?: string
+    }
+  | { type: "hold_end"; scenarioId: string; index: number; how: "continue" | "end" | "stopped" }
   | { type: "log"; text: string; level: "info" | "detail" }
   | { type: "finish"; summary: RunSummary }
 

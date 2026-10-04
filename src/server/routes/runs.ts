@@ -4,9 +4,29 @@ import { loadConfig, resolveFromConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { resolveDbPath } from "../../db/paths.ts"
 import { getRun, getRuns, getStepRuns } from "../../db/runs.ts"
+import { replaceScenarioStep } from "../../db/scenarios.ts"
+import { HoldController } from "../../hold.ts"
 import { type RunOptions, run, type Summary } from "../../runner.ts"
+import type { Step } from "../../scenario.ts"
 import { readBody, sendJson } from "../http.ts"
 import type { Route } from "../route.ts"
+import type { ServerState } from "../state.ts"
+
+/** Saves a step whose retry passed into its stored scenario; returns the scenario's name, or undefined when it was not saved. */
+function saveFixedStep(state: ServerState, scenarioId: string, step: Step, replaces: string): string | undefined {
+  let savedTo: string | undefined
+  try {
+    savedTo = withDb(resolveDbPath(state.config.configDir), (db) => replaceScenarioStep(db, scenarioId, step, replaces))
+  } catch (error) {
+    state.broadcast({ type: "log", text: `Could not save the fixed step: ${(error as Error).message}`, level: "info" })
+    return undefined
+  }
+  const text = savedTo
+    ? `Saved the fixed step to scenario "${savedTo}"`
+    : `Did not save the fixed step: step "${replaces}" is no longer in scenario "${scenarioId}"`
+  state.broadcast({ type: "log", text, level: "info" })
+  return savedTo
+}
 
 export const runRoutes: Route[] = [
   // SSE events stream
@@ -45,11 +65,13 @@ export const runRoutes: Route[] = [
         headless?: boolean
         verbose?: boolean
         environment?: string
+        pauseOnFailure?: boolean
       }
       if (body.headless) process.env.E2E_HEADLESS = "1"
       if (body.verbose) process.env.E2E_VERBOSE = "1"
 
       const controller = new AbortController()
+      const hold = body.pauseOnFailure ? new HoldController(controller.signal) : undefined
       const runOptions: RunOptions = {
         scenarios: body.scenarios ?? [],
         repeat: Math.max(1, body.repeat ?? 1),
@@ -57,7 +79,16 @@ export const runRoutes: Route[] = [
         install: Boolean(body.install),
         checkOnly: false,
         signal: controller.signal,
-        onEvent: (event) => state.broadcast(event),
+        pause: hold?.hook,
+        onEvent: (event) => {
+          // Save a passing retry before broadcasting it, and say on the event whether it was saved.
+          if (event.type === "hold_retry" && event.passed) {
+            const savedTo = saveFixedStep(state, event.scenarioId, event.step, event.replaces)
+            state.broadcast({ ...event, savedTo })
+            return
+          }
+          state.broadcast(event)
+        },
       }
 
       const runId = new Date().toISOString().replace(/[:.]/g, "-")
@@ -66,6 +97,7 @@ export const runRoutes: Route[] = [
         options: runOptions,
         startedAt: Date.now(),
         controller,
+        hold,
       }
 
       // Launch run asynchronously
@@ -98,6 +130,7 @@ export const runRoutes: Route[] = [
               duration_ms: Date.now() - (state.activeRun?.startedAt ?? Date.now()),
               failures: [{ scenario: "run", iteration: 1, step: "init", error: errorMsg }],
               artifacts: "",
+              fixed: 0,
               recovered: 0,
               notRun: [],
             },
@@ -136,6 +169,7 @@ export const runRoutes: Route[] = [
                 scenarios: state.activeRun.options.scenarios,
                 repeat: state.activeRun.options.repeat,
               },
+              paused: state.activeRun.hold?.paused ?? null,
             }
           : null,
         lastSummary: state.lastSummary,
@@ -163,6 +197,7 @@ export const runRoutes: Route[] = [
           reason?: string
           recoveredSteps?: number
           notRunScenarios?: number
+          fixedScenarios?: number
         }
       >()
 
@@ -183,6 +218,7 @@ export const runRoutes: Route[] = [
                 durationMs: r.durationMs,
                 reason: r.reason,
                 recoveredSteps: r.recoveredSteps,
+                fixedScenarios: r.fixedScenarios,
                 notRunScenarios: r.notRunScenarios,
                 scenarios: [],
               })
@@ -278,6 +314,7 @@ export const runRoutes: Route[] = [
         reason: dbRun?.reason,
         recoveredSteps: dbRun?.recoveredSteps,
         notRunScenarios: dbRun?.notRunScenarios,
+        fixedScenarios: dbRun?.fixedScenarios,
         stepRuns: dbRun?.stepRuns ?? [],
         scenarios: scenarioArtifacts,
         runLog,

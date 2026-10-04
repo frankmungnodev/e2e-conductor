@@ -137,7 +137,8 @@ export function openDatabase(dbPath: string): DatabaseSync {
       completed_at INTEGER,
       reason TEXT,
       recovered_steps INTEGER DEFAULT 0,
-      not_run_scenarios INTEGER DEFAULT 0
+      not_run_scenarios INTEGER DEFAULT 0,
+      fixed_scenarios INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS step_runs (
@@ -154,7 +155,8 @@ export function openDatabase(dbPath: string): DatabaseSync {
       result_data TEXT,
       artifacts_path TEXT,
       created_at INTEGER,
-      failure_label TEXT
+      failure_label TEXT,
+      manual INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS step_groups (
@@ -189,6 +191,8 @@ export function openDatabase(dbPath: string): DatabaseSync {
   addMissingColumn(db, "runs", "recovered_steps", "INTEGER DEFAULT 0")
   addMissingColumn(db, "runs", "not_run_scenarios", "INTEGER DEFAULT 0")
   addMissingColumn(db, "step_runs", "failure_label", "TEXT")
+  addMissingColumn(db, "runs", "fixed_scenarios", "INTEGER DEFAULT 0")
+  addMissingColumn(db, "step_runs", "manual", "INTEGER DEFAULT 0")
 
   // Backfill env_platform if it's empty but platforms and environments exist
   try {

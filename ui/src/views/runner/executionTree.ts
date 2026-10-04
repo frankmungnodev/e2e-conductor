@@ -1,8 +1,11 @@
 import { ENVIRONMENT_DOWN } from "../../runResult.ts"
 import type { FailureLabel, RunEvent, RunSummary, ScenarioItem } from "../../types.ts"
 
-/** `not_run` is set only when the run finishes after an environment-down stop. */
-export type RunState = "pending" | "running" | "passed" | "failed" | "not_run"
+/**
+ * `not_run` is set only when the run finishes after an environment-down stop. `fixed` is a scenario
+ * that paused on a failure and passed after a manual retry.
+ */
+export type RunState = "pending" | "running" | "passed" | "failed" | "not_run" | "fixed"
 
 export type StepState = {
   name: string
@@ -13,6 +16,10 @@ export type StepState = {
   label?: FailureLabel
   /** Passed only after a retry. */
   recovered?: boolean
+  /** Retries the user ran while the run was paused on this step. */
+  manualRetries?: number
+  /** The last manual retry passed. */
+  fixed?: boolean
 }
 
 export type ScenarioState = {
@@ -131,10 +138,20 @@ export function buildExecutionTree(events: RunEvent[], scenarios: ScenarioItem[]
           target.steps[ev.index].label = ev.label
         }
       }
+    } else if (ev.type === "hold_retry") {
+      const step = tree.find((s) => s.id === ev.scenarioId && s.status === "running")?.steps[ev.index]
+      if (step) {
+        step.manualRetries = (step.manualRetries ?? 0) + 1
+        step.fixed = ev.passed
+        step.status = ev.passed ? "passed" : "failed"
+        step.duration_ms = ev.duration_ms
+        step.error = ev.passed ? undefined : ev.error
+        step.label = ev.passed ? undefined : ev.label
+      }
     } else if (ev.type === "scenario_end") {
       const target = tree.find((s) => s.id === ev.scenarioId && s.iteration === ev.iteration)
       if (target) {
-        target.status = ev.passed ? "passed" : "failed"
+        target.status = ev.fixed ? "fixed" : ev.passed ? "passed" : "failed"
         target.duration_ms = ev.duration_ms
         target.error = ev.error
         target.label = ev.label

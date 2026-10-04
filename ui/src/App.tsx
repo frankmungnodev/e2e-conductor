@@ -158,6 +158,7 @@ function AppContent() {
     install: boolean
     headless: boolean
     verbose: boolean
+    pauseOnFailure?: boolean
   }) => {
     try {
       setIsRunning(true)

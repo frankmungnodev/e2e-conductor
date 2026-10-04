@@ -1,5 +1,6 @@
 import type { ServerResponse } from "node:http"
 import type { LoadedConfig } from "../config.ts"
+import type { HoldController } from "../hold.ts"
 import type { RunEvent, RunOptions, Summary } from "../runner.ts"
 
 export type ActiveRun = {
@@ -7,6 +8,8 @@ export type ActiveRun = {
   options: RunOptions
   startedAt: number
   controller: AbortController
+  /** Set when the run was started with pause on failure. */
+  hold?: HoldController
 }
 
 /**

@@ -3,7 +3,7 @@ import { Badge } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
 import { Input } from "../../components/FormControls.tsx"
 import { TabButton } from "../../components/Tabs.tsx"
-import { ENVIRONMENT_DOWN } from "../../runResult.ts"
+import { ENVIRONMENT_DOWN, FIXED_DURING_RUN } from "../../runResult.ts"
 import type { RunSummary } from "../../types.ts"
 import type { ViewMode } from "./RunnerView.tsx"
 import type { RunCounts } from "./runCounts.ts"
@@ -53,6 +53,7 @@ export function RunStatusBar({
           ) : (
             <Badge variant="neutral">Ready</Badge>
           )}
+          {!isRunning && lastSummary?.reason === FIXED_DURING_RUN && <Badge variant="warning">Fixed During Run</Badge>}
           {!isRunning && lastSummary?.reason === ENVIRONMENT_DOWN && (
             <>
               <Badge variant="danger">Environment Down</Badge>
@@ -66,6 +67,7 @@ export function RunStatusBar({
         <div className="flex items-center gap-2.5 text-xs font-mono">
           <span className="text-success font-medium">Passed: {counts.passed}</span>
           <span className="text-error font-medium">Failed: {counts.failed}</span>
+          {counts.fixed > 0 && <span className="text-warning font-medium">Fixed: {counts.fixed}</span>}
           {counts.notRun > 0 && <span className="text-fg-muted">Not Run: {counts.notRun}</span>}
           {counts.recovered > 0 && <span className="text-warning font-medium">Recovered: {counts.recovered}</span>}
           <span className="text-fg-muted">Total: {counts.total}</span>

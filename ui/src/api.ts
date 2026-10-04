@@ -1,12 +1,14 @@
 import type {
   ConfigMeta,
   FlowItem,
+  PausedStep,
   PreflightData,
   RunDetails,
   RunEvent,
   RunHistoryItem,
   RunSummary,
   ScenarioItem,
+  ScenarioStep,
   StepGroup,
   StepPreset,
   StepRunItem,
@@ -92,6 +94,7 @@ export async function startRun(options: {
   install?: boolean
   headless?: boolean
   verbose?: boolean
+  pauseOnFailure?: boolean
 }): Promise<{ ok: boolean; runId: string }> {
   const res = await fetch(`${API_BASE}/api/run`, {
     method: "POST",
@@ -119,6 +122,32 @@ export async function fetchRunStatus(): Promise<{
   if (!res.ok) throw new Error("Failed to get run status")
   return res.json()
 }
+
+/** The step the active run is paused on, or null. */
+export async function fetchPausedStep(): Promise<PausedStep | null> {
+  const status = await fetchRunStatus()
+  return (status.currentRun?.paused as PausedStep | null | undefined) ?? null
+}
+
+async function holdAction(path: string, body?: unknown): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/run/hold/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const details = Array.isArray(err.errors) && err.errors.length > 0 ? `: ${err.errors.join("; ")}` : ""
+    throw new Error(`${err.error ?? "The run did not accept that"}${details}`)
+  }
+}
+
+/** Retries the edited step once on the paused run. */
+export const retryPausedStep = (step: ScenarioStep) => holdAction("retry", { step })
+/** Continues the paused scenario from the next step, after a retry passed. */
+export const continuePausedRun = () => holdAction("continue")
+/** Ends the paused scenario as failed, and the run moves on. */
+export const endPausedScenario = () => holdAction("end-scenario")
 
 export async function fetchRuns(): Promise<{ runs: RunHistoryItem[]; latestSummary?: RunSummary }> {
   const res = await fetch(`${API_BASE}/api/runs`)

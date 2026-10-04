@@ -21,9 +21,10 @@ CREATE TABLE IF NOT EXISTS runs (
   artifacts_dir TEXT,
   started_at INTEGER,
   completed_at INTEGER,
-  reason TEXT,                     -- Why the run failed when no single step explains it: "environment down" or "recovered steps (strict)"
+  reason TEXT,                     -- Why the run failed when no single step explains it: "environment down", "fixed during run" or "recovered steps (strict)"
   recovered_steps INTEGER DEFAULT 0,   -- Steps that passed only on a retry
-  not_run_scenarios INTEGER DEFAULT 0  -- Scenario-iterations never reached because an environment-down failure stopped the run
+  not_run_scenarios INTEGER DEFAULT 0, -- Scenario-iterations never reached because an environment-down failure stopped the run
+  fixed_scenarios INTEGER DEFAULT 0    -- Scenario-iterations that paused on a failure and passed after a manual retry
 );
 
 CREATE TABLE IF NOT EXISTS step_runs (
@@ -40,7 +41,8 @@ CREATE TABLE IF NOT EXISTS step_runs (
   result_data TEXT,                -- Serialized JSON result payload
   artifacts_path TEXT,             -- Relative path to screenshot or step trace
   created_at INTEGER,
-  failure_label TEXT               -- On the final failed attempt: "Environment down", "Assertion failed" or "Step error"
+  failure_label TEXT,              -- On the final failed attempt: "Environment down", "Assertion failed" or "Step error"
+  manual INTEGER DEFAULT 0         -- 1 for a retry the user started while the run was paused
 );
 
 CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at DESC);
@@ -49,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_step_runs_step ON step_runs(step_id);
 CREATE INDEX IF NOT EXISTS idx_step_runs_scenario ON step_runs(scenario_id);
 ```
 
-A step run's id is `<runId>:<scenarioId>:<iteration>:<stepIndex>:<attempt>`, so every iteration of a `--repeat` run keeps its own attempt rows. Databases created before `reason`, `recovered_steps`, `not_run_scenarios` and `failure_label` existed get those columns when they are opened (`openDatabase` in `src/db/connection.ts`).
+A step run's id is `<runId>:<scenarioId>:<iteration>:<stepIndex>:<attempt>`, so every iteration of a `--repeat` run keeps its own attempt rows. Databases created before `reason`, `recovered_steps`, `not_run_scenarios`, `fixed_scenarios`, `failure_label` and `manual` existed get those columns when they are opened (`openDatabase` in `src/db/connection.ts`).
 
 ---
 
@@ -81,7 +83,8 @@ Execution progress follows a deterministic state machine:
    - If the step fails, `status = "FAILED"`, `duration_ms` is recorded, and the sanitized error message is saved.
    - If configured retries remain, subsequent attempts insert new `step_runs` rows with incremented `attempt` numbers.
    - When the final attempt fails, the runner re-checks the environment (section 3) and stores the failure label on that attempt's row.
-   - A step whose final row is `PASSED` with `attempt > 1` is **recovered**. Recovered is derived from the rows, not stored per step.
+   - A step whose final row is `PASSED` with `attempt > 1` and `manual = 0` is **recovered**. Recovered is derived from the rows, not stored per step. A step that passed on a manual retry is never recovered.
+   - Manual retries (section 4) add rows with `manual = 1`, numbered after the automatic attempts.
 
 ---
 
@@ -113,23 +116,65 @@ When a failure is labeled `Environment down`, the run stops. No further steps or
 If the user cancels while the re-check runs, cancellation wins: the run is `CANCELLED` and no label is stored.
 
 ### Recovered steps and `--strict`
-A recovered step passes and its run passes. The summary's `recovered` count, the CLI result line and the GUI show it. With `e2e run --strict`, any recovered step fails the run with `reason = "recovered steps (strict)"`. An environment-down reason takes precedence over the strict reason. The GUI has no strict option yet.
+A recovered step passes and its run passes. The summary's `recovered` count, the CLI result line and the GUI show it. With `e2e run --strict`, any recovered step fails the run with `reason = "recovered steps (strict)"`. The environment-down and fixed-during-run reasons take precedence over the strict reason. The GUI has no strict option yet.
 
 ### Run outcome
 
-| Failures | Environment down | Recovered steps | `--strict` | Status | Reason |
-|---|---|---|---|---|---|
-| none | no | 0 | any | `PASSED` | none |
-| none | no | 1 or more | off | `PASSED` | none |
-| none | no | 1 or more | on | `FAILED` | recovered steps (strict) |
-| 1 or more | no | any | any | `FAILED` | none (labels on each failure) |
-| any | yes | any | any | `FAILED` | environment down |
+| Failures | Environment down | Fixed scenarios | Recovered steps | `--strict` | Status | Reason |
+|---|---|---|---|---|---|---|
+| none | no | 0 | 0 | any | `PASSED` | none |
+| none | no | 0 | 1 or more | off | `PASSED` | none |
+| none | no | 0 | 1 or more | on | `FAILED` | recovered steps (strict) |
+| none | no | 1 or more | any | any | `FAILED` | fixed during run |
+| 1 or more | no | any | any | any | `FAILED` | none (labels on each failure) |
+| any | yes | any | any | any | `FAILED` | environment down |
 
-`summary.json` carries these as additive fields: `reason`, `down` (what the re-check found down), `recovered`, `notRun`, `strict`, and `failures[].label`.
+`summary.json` carries these as additive fields: `reason`, `down` (what the re-check found down), `fixed`, `recovered`, `notRun`, `strict`, and `failures[].label`.
 
 ---
 
-## 4. Querying & API Access
+## 4. Pause on Failure
+
+A run started from the Web GUI with **Pause on Failure** (`POST /api/run` with `pauseOnFailure: true`) can stop on a failed step so the user fixes it in place. The CLI has no pause option. Without it, a run behaves exactly as sections 2 and 3 describe.
+
+### When a run pauses
+A run pauses when a step fails after its final attempt, the failure is not labeled `Environment down`, and the scenario has not ended yet. The pause happens inside the scenario, before the drivers end it, so the browser page or Android app stays on the screen where the step failed, and the scenario's extracted variables stay as they were. Nothing else runs while the run is paused, including later scenarios. An `Environment down` failure and a failed setup fixture never pause.
+
+### Lifecycle
+
+```text
+ step fails (final attempt, not Environment down)
+        │
+        ▼
+     PAUSED ──Retry (edited step, one attempt)──▶ retry fails, healthy ──▶ PAUSED
+        │                    │
+        │                    ├─▶ retry fails, Environment down ──▶ run stops (environment down)
+        │                    │
+        │                    └─▶ retry passes (step saved) ──▶ RETRY PASSED ──Retry──▶ …
+        │                                                           │
+        │                                                           └─Continue──▶ next step
+        ├─End Scenario──▶ scenario FAILED with the original failure, run moves on
+        └─Stop Run─────▶ run CANCELLED
+```
+
+- **Retry** runs the edited step once, with no automatic retries, on the live session. The server refuses a step that fails validation, or whose target the run did not prepare, without running it.
+- **Continue** is accepted only after the last retry passed. The scenario goes on from the next step.
+- **End Scenario** ends the scenario failed with the failure it paused on, and the run moves on.
+- **Stop Run** is the existing `/api/run/stop`: the run is `CANCELLED`, never fixed.
+- A pause waits until the user acts or cancels. It has no timeout.
+
+### Fixed scenarios
+A scenario that paused, and continued past every pause to its last step, is **fixed**: neither passed nor failed. It keeps its failure screenshot and trace like a failed one. If it pauses again later and the user ends it, it is failed. A run with one or more fixed scenarios and no failed ones ends `FAILED` with `reason = "fixed during run"`, so a green run always means nobody stepped in (section 3, Run outcome). The summary's `fixed` count, `runs.fixed_scenarios`, the CLI result line and the GUI show it.
+
+### Saved fixes
+A retry that passes is saved over the stored step it was made for (`scenarios.md`, section 5), and the run uses the fix for the rest of its iterations. The stored step is found by its id and by the name the run last saw. When no stored step matches, because the scenario was edited during the pause, nothing is written, the run log says so, and the GUI shows a "Fix Not Saved" warning. The passing `hold_retry` event carries `savedTo`, the scenario's name, only when the save happened.
+
+### Events
+`hold_start` (the paused step, its error and label, whether a retry passed, and the targets the run prepared), `hold_retry` (each retry's result, the step it ran, and `replaces`, the stored step's name), and `hold_end` (`continue`, `end`, or `stopped` when a retry found the environment down). `scenario_end` carries `fixed: true` for a fixed scenario. `GET /api/run/status` reports the paused step as `currentRun.paused`, so a reloaded page shows the pause.
+
+---
+
+## 5. Querying & API Access
 
 The orchestrator provides unified access to both database-backed telemetry and filesystem-backed artifacts:
 
@@ -138,31 +183,38 @@ The orchestrator provides unified access to both database-backed telemetry and f
 | `/api/runs` | `GET` | Returns execution history sorted by `started_at DESC`, merging SQLite records with filesystem summary metadata. |
 | `/api/runs/:runId` | `GET` | Returns full run metadata, scenario-level artifact listings, captured screenshots, and the array of all associated `stepRuns`. |
 | `/api/step-runs` | `GET` | Queries step execution telemetry filtered by `scenarioId`, `stepId`, or `runId`. |
+| `/api/run/hold/retry` | `POST` | Retries an edited step (`{ step }`) on the paused run. 400 for an invalid step or an unprepared target, 409 when the run is not paused. |
+| `/api/run/hold/continue` | `POST` | Continues the paused scenario from the next step. 409 until a retry has passed. |
+| `/api/run/hold/end-scenario` | `POST` | Ends the paused scenario failed; the run moves on. 409 when the run is not paused. |
 | `/api/steps/:stepId/runs` | `GET` | Queries historical execution records for a specific step across all runs, enabling flakiness detection and performance tracking. |
 
 ---
 
-## 5. UI Representation
+## 6. UI Representation
 
 In the Web GUI:
 
 - **Runner View (`ui/src/views/runner/`)**:
   - **Step tree**: each failed step shows its failure label badge (`Environment Down`, `Assertion Failed`, `Step Error`); a recovered step shows a `Recovered` warning badge, and its scenario header counts recovered steps. A scenario that failed in setup shows its label and error in the scenario header. Scenarios the run never reached show `Not Run`.
-  - **Status bar**: Passed, Failed, Not Run, Recovered and Total counts (Not Run and Recovered only when above zero), plus an `Environment Down` badge naming what was down.
+  - **Status bar**: Passed, Failed, Fixed, Not Run, Recovered and Total counts (Fixed, Not Run and Recovered only when above zero), plus an `Environment Down` badge naming what was down, or a `Fixed During Run` badge.
+  - **Run Options**: a `Pause on Failure` checkbox, off by default.
+  - **Pause banner** (`PausePanel.tsx`): while the run is paused, shows the scenario, step, label and error, with `Edit and Retry Step` (a JSON dialog, `RetryStepModal.tsx`), `Continue` (enabled once a retry passes), `End Scenario` and `Stop Run`. A passing retry shows a toast naming the scenario the fix was saved to.
+  - **Fixed results**: a fixed scenario shows a `Fixed` badge; its fixed step shows `Fixed By Retry` and its number of manual retries.
 - **Reports & Artifacts View (`ArtifactsView.tsx`)**:
   - **Run History Sidebar**: Displays run timestamp, environment, duration, and status badge.
   - **Run Details View**:
     - **Screenshots Tab**: Grid of screenshots captured during failures or explicit visual check steps.
-    - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, failure label, a recovered marker on a passing retry, and diagnostic error message or status code.
+    - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, failure label, a recovered marker on a passing automatic retry, a `Manual Retry` marker on a retry made while paused, and diagnostic error message or status code.
     - **Run Log Tab**: Full terminal stream and execution log (`run.log`).
-- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Environment Down`, `Assertion Failed`, `Step Error`).
+- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Fixed`, `Fixed By Retry`, `Fixed During Run`, `Manual Retry`, `Retry Passed`, `Environment Down`, `Assertion Failed`, `Step Error`).
 
 ---
 
-## 6. Core Invariants
+## 7. Core Invariants
 
 1. **Cascading Run Deletion**: Deleting a run row automatically cascades and deletes all associated `step_runs`.
 2. **Immutable Execution Records**: Step runs preserve historical telemetry even if scenario definitions or step configurations are modified or deleted later.
 3. **Guaranteed Finalization**: The runner always finalizes run status in database storage before closing connections or releasing system resources.
 4. **One Label per Final Failure**: Every final failure carries exactly one failure label; an environment-down label always stops the run.
-5. **Counts Add Up**: A run's passed, failed and not-run scenario-iterations always sum to its total.
+5. **Counts Add Up**: A run's passed, failed, fixed and not-run scenario-iterations always sum to its total.
+6. **A Fixed Run Is Never Green**: A run in which the user fixed a step while paused never ends `PASSED`.

@@ -15,6 +15,7 @@ import { environmentRoutes } from "./server/routes/environments.ts"
 import { exportRoutes } from "./server/routes/export.ts"
 import { fixtureRoutes } from "./server/routes/fixtures.ts"
 import { flowRoutes } from "./server/routes/flows.ts"
+import { holdRoutes } from "./server/routes/hold.ts"
 import { platformRoutes } from "./server/routes/platforms.ts"
 import { preflightRoutes } from "./server/routes/preflight.ts"
 import { presetRoutes } from "./server/routes/presets.ts"
@@ -28,6 +29,7 @@ const UI_DIST_PATH = resolve(import.meta.dirname, "../ui/dist")
 
 const routes: Route[] = [
   ...runRoutes,
+  ...holdRoutes,
   ...environmentRoutes,
   ...platformRoutes,
   ...fixtureRoutes,

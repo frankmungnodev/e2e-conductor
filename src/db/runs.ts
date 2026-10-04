@@ -16,6 +16,8 @@ export type RunRecord = {
   reason?: string
   recoveredSteps?: number
   notRunScenarios?: number
+  /** Scenario-iterations that paused on a failure and passed after a manual retry. */
+  fixedScenarios?: number
 }
 
 export type StepRunRecord = {
@@ -33,14 +35,17 @@ export type StepRunRecord = {
   artifactsPath?: string
   createdAt: number
   failureLabel?: string
+  /** A retry the user started while the run was paused, not an automatic retry. */
+  manual?: boolean
 }
 
 export function saveRun(db: DatabaseSync, run: RunRecord): void {
   db.prepare(`
     INSERT INTO runs (
       id, environment_name, status, total_scenarios, passed_scenarios, failed_scenarios,
-      duration_ms, artifacts_dir, started_at, completed_at, reason, recovered_steps, not_run_scenarios
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      duration_ms, artifacts_dir, started_at, completed_at, reason, recovered_steps, not_run_scenarios,
+      fixed_scenarios
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       environment_name = excluded.environment_name,
       status = excluded.status,
@@ -52,7 +57,8 @@ export function saveRun(db: DatabaseSync, run: RunRecord): void {
       completed_at = excluded.completed_at,
       reason = excluded.reason,
       recovered_steps = excluded.recovered_steps,
-      not_run_scenarios = excluded.not_run_scenarios
+      not_run_scenarios = excluded.not_run_scenarios,
+      fixed_scenarios = excluded.fixed_scenarios
   `).run(
     run.id,
     run.environmentName,
@@ -67,6 +73,7 @@ export function saveRun(db: DatabaseSync, run: RunRecord): void {
     run.reason || null,
     run.recoveredSteps ?? 0,
     run.notRunScenarios ?? 0,
+    run.fixedScenarios ?? 0,
   )
 }
 
@@ -84,6 +91,7 @@ type RunRow = {
   reason?: string | null
   recovered_steps?: number | null
   not_run_scenarios?: number | null
+  fixed_scenarios?: number | null
 }
 
 function mapRunRow(r: RunRow): RunRecord {
@@ -101,6 +109,7 @@ function mapRunRow(r: RunRow): RunRecord {
     reason: r.reason || undefined,
     recoveredSteps: r.recovered_steps ?? 0,
     notRunScenarios: r.not_run_scenarios ?? 0,
+    fixedScenarios: r.fixed_scenarios ?? 0,
   }
 }
 
@@ -124,6 +133,7 @@ type StepRunRow = {
   artifacts_path?: string | null
   created_at: number
   failure_label?: string | null
+  manual?: number | null
 }
 
 function mapStepRunRow(sr: StepRunRow): StepRunRecord {
@@ -142,6 +152,7 @@ function mapStepRunRow(sr: StepRunRow): StepRunRecord {
     artifactsPath: sr.artifacts_path || undefined,
     createdAt: sr.created_at,
     failureLabel: sr.failure_label || undefined,
+    manual: sr.manual === 1 || undefined,
   }
 }
 
@@ -162,8 +173,9 @@ export function saveStepRun(db: DatabaseSync, stepRun: StepRunRecord): void {
   db.prepare(`
     INSERT INTO step_runs (
       id, run_id, step_id, scenario_id, iteration, attempt, status,
-      duration_ms, status_code, error_message, result_data, artifacts_path, created_at, failure_label
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      duration_ms, status_code, error_message, result_data, artifacts_path, created_at, failure_label,
+      manual
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       iteration = excluded.iteration,
       status = excluded.status,
@@ -172,7 +184,8 @@ export function saveStepRun(db: DatabaseSync, stepRun: StepRunRecord): void {
       error_message = excluded.error_message,
       result_data = excluded.result_data,
       artifacts_path = excluded.artifacts_path,
-      failure_label = excluded.failure_label
+      failure_label = excluded.failure_label,
+      manual = excluded.manual
   `).run(
     stepRun.id,
     stepRun.runId,
@@ -188,6 +201,7 @@ export function saveStepRun(db: DatabaseSync, stepRun: StepRunRecord): void {
     stepRun.artifactsPath || null,
     stepRun.createdAt,
     stepRun.failureLabel || null,
+    stepRun.manual ? 1 : 0,
   )
 }
 

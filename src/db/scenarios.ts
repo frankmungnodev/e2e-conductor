@@ -220,6 +220,22 @@ export function saveScenario(db: DatabaseSync, scenario: Scenario): void {
   })
 }
 
+/**
+ * Replaces the stored step with `step`'s id and the name `replaces`, and returns the scenario's name.
+ * Returns undefined, writing nothing, when no stored step matches, for example because the scenario
+ * was edited meanwhile. The name is checked too: a step added later at the same position gets the same
+ * default id.
+ */
+export function replaceScenarioStep(db: DatabaseSync, scenarioId: string, step: Step, replaces: string): string | undefined {
+  if (!step.id) return undefined
+  const scenario = getScenario(db, scenarioId)
+  const index = scenario?.steps.findIndex((stored) => stored.id === step.id && stored.name === replaces) ?? -1
+  if (!scenario || index < 0) return undefined
+  scenario.steps[index] = step
+  saveScenario(db, scenario)
+  return scenario.name
+}
+
 export function deleteScenario(db: DatabaseSync, id: string): void {
   db.prepare("DELETE FROM scenario_steps WHERE scenario_id = ?").run(id)
   db.prepare("DELETE FROM scenarios WHERE id = ?").run(id)

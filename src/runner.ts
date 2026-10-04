@@ -1,23 +1,23 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
-import { checkAssert, extract, type FailureLabel, failureLabel } from "./assertions.ts"
+import type { FailureLabel } from "./assertions.ts"
 import { type LoadedConfig, resolveFromConfig, type ServiceConfig, SHELL_TARGET, serviceOf } from "./config.ts"
-import { type Scope, substitute } from "./context.ts"
 import { openDatabase } from "./db/connection.ts"
 import { resolveDbPath } from "./db/paths.ts"
-import { type StepRunRecord, saveRun, saveStepRun } from "./db/runs.ts"
+import { saveRun } from "./db/runs.ts"
 import { HttpDriver } from "./drivers/http.ts"
 import { MobileDriver } from "./drivers/mobile.ts"
 import { ShellDriver } from "./drivers/shell.ts"
 import type { Driver } from "./drivers/types.ts"
 import { WebDriver } from "./drivers/web.ts"
 import { findDown, listDevicesBounded } from "./health.ts"
-import { color, RunLog, stripAnsi } from "./logger.ts"
+import type { PausedStep, PauseHook } from "./hold.ts"
+import { color, RunLog } from "./logger.ts"
 import { prepareMobile, prepareServices, type StartedService, stopService } from "./preflight.ts"
-import { runShell, sleep } from "./process.ts"
 import { ENVIRONMENT_DOWN, type NotRun, notRunAfter, type RunReason, resultLine, settleStatus } from "./run-result.ts"
-import { loadScenarios, type Scenario, targetsUsed } from "./scenario.ts"
+import { loadScenarios, type Step, targetsUsed } from "./scenario.ts"
+import { runScenario } from "./scenario-run.ts"
 
 export type RunEvent =
   | { type: "preflight_start" }
@@ -37,7 +37,34 @@ export type RunEvent =
       label: FailureLabel
     }
   // `label` is the scenario's failure label; a failed setup fixture has no step_fail, so this is where its label shows.
-  | { type: "scenario_end"; scenarioId: string; iteration: number; passed: boolean; duration_ms: number; error?: string; label?: FailureLabel }
+  // `fixed` marks a scenario that paused on a failure and passed after a manual retry; it is neither passed nor failed.
+  | {
+      type: "scenario_end"
+      scenarioId: string
+      iteration: number
+      passed: boolean
+      fixed?: boolean
+      duration_ms: number
+      error?: string
+      label?: FailureLabel
+    }
+  | ({ type: "hold_start"; stepName: string } & PausedStep)
+  // `step` is the step the retry ran, so the next edit starts from it. The server sets `savedTo`, the
+  // scenario's name, when it saved a passing retry to the stored scenario.
+  | {
+      type: "hold_retry"
+      scenarioId: string
+      index: number
+      step: Step
+      /** The name the stored step had when the run last saved or loaded it. */
+      replaces: string
+      passed: boolean
+      duration_ms: number
+      error?: string
+      label?: FailureLabel
+      savedTo?: string
+    }
+  | { type: "hold_end"; scenarioId: string; index: number; how: "continue" | "end" | "stopped" }
   | { type: "log"; text: string; level: "info" | "detail" }
   | { type: "finish"; summary: Summary }
 
@@ -53,7 +80,8 @@ export type RunOptions = {
   /** Optional abort signal to cancel a running execution */
   signal?: AbortSignal
   /** Fail a run whose only issue is steps that passed on a retry. */
-  strict?: boolean
+  strict?: boolean  /** Pause on a failed step so the user can fix and retry it; see `src/hold.ts`. */
+  pause?: PauseHook
 }
 
 // `label` is optional only because summaries written before labels existed lack it.
@@ -65,10 +93,12 @@ export type Summary = {
   total: number
   passed: number
   failed: number
+  /** Scenario-iterations that paused on a failure and passed after a manual retry; neither passed nor failed. */
+  fixed: number
   duration_ms: number
   failures: Failure[]
   artifacts: string
-  /** Why the run failed when no single failure explains it: "environment down" or "recovered steps (strict)". */
+  /** Why the run failed when no single failure explains it: "environment down", "fixed during run" or "recovered steps (strict)". */
   reason?: RunReason
   /** What the re-check found down when the run stopped. */
   down?: string[]
@@ -79,20 +109,6 @@ export type Summary = {
   strict?: boolean
 }
 
-type ScenarioFailure = { step: string; error: string; label: FailureLabel }
-type ScenarioOutcome = { failure?: ScenarioFailure; recovered: number; down: string[] }
-
-async function runFixture(config: LoadedConfig, name: string, out: RunLog) {
-  const fixture = config.fixtures?.[name]
-  if (!fixture) throw new Error(`unknown fixture "${name}"`)
-  const log = (line: string) => out.detail(line)
-  if (typeof fixture === "function") {
-    await fixture({ configDir: config.configDir, env: config.env, log })
-    return
-  }
-  const result = await runShell(fixture.cmd, { cwd: resolveFromConfig(config, fixture.cwd), log })
-  if (result.exitCode !== 0) throw new Error(`fixture ${name} exited ${result.exitCode}`)
-}
 
 export async function run(config: LoadedConfig, options: RunOptions): Promise<Summary> {
   const startedAt = Date.now()
@@ -122,6 +138,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     total: 0,
     passed: 0,
     failed: 0,
+    fixed: 0,
     duration_ms: 0,
     failures: [],
     artifacts: artifactsRoot,
@@ -239,12 +256,15 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           runId,
           db,
           recheck,
+          pause: options.pause,
         })
         summary.total++
         summary.recovered += outcome.recovered
         if (outcome.failure) {
           summary.failed++
           summary.failures.push({ scenario: scenario.id, iteration, ...outcome.failure })
+        } else if (outcome.fixed) {
+          summary.fixed++
         } else {
           summary.passed++
         }
@@ -282,6 +302,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           reason: summary.reason,
           recoveredSteps: summary.recovered,
           notRunScenarios: summary.notRun.length,
+          fixedScenarios: summary.fixed,
         })
       } catch {
         // ignore
@@ -302,198 +323,4 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
   if (summary.failed > 0) out.line(color.dim(`artifacts: ${artifactsRoot}`))
   options.onEvent?.({ type: "finish", summary })
   return summary
-}
-
-async function runScenario(
-  config: LoadedConfig,
-  scenario: Scenario,
-  run: {
-    drivers: Map<string, Driver>
-    dir: string
-    iteration: number
-    totalIterations: number
-    label: string
-    out: RunLog
-    onEvent?: (event: RunEvent) => void
-    signal?: AbortSignal
-    runId: string
-    db?: DatabaseSync
-    /** Re-check every service and device the run prepared; returns what is down. */
-    recheck: () => Promise<string[]>
-  },
-): Promise<ScenarioOutcome> {
-  const { drivers, dir, out, onEvent, signal, runId, db } = run
-  const scope: Scope = {
-    ctx: { ...scenario.vars },
-    env: config.env,
-    run: { id: Date.now().toString(36), iteration: run.iteration },
-  }
-  const scenarioBegan = Date.now()
-  onEvent?.({
-    type: "scenario_start",
-    scenarioId: scenario.id,
-    scenarioName: scenario.name,
-    iteration: run.iteration,
-    totalIterations: run.totalIterations,
-  })
-
-  out.line()
-  out.line(color.bold(`▶ ${scenario.name}`) + color.dim(`  ${run.label}`))
-
-  const record = (stepRun: StepRunRecord) => {
-    if (!db) return
-    try {
-      saveStepRun(db, stepRun)
-    } catch {
-      // history is best-effort; a write error must not fail the step
-    }
-  }
-
-  // Runs only after the final attempt, so a service that restarts mid-step gets its retries.
-  // A cancel, before or during the re-check, wins and leaves the failure unlabeled.
-  // Set before the re-check, so a cancel during it still ends the scenario failed (with its
-  // failure artifacts kept) rather than passed.
-  let failing: string | undefined
-  const settle = async (error: unknown): Promise<{ label: FailureLabel; down: string[] }> => {
-    failing = stripAnsi((error as Error).message).trim()
-    if (signal?.aborted) throw new Error("Execution cancelled")
-    out.line(color.dim("  checking services and devices after the failure…"))
-    const down = await run.recheck()
-    if (signal?.aborted) throw new Error("Execution cancelled")
-    return { label: failureLabel(error, down), down }
-  }
-
-  const outcome: ScenarioOutcome = { recovered: 0, down: [] }
-  try {
-    for (const name of scenario.setup ?? []) {
-      if (signal?.aborted) throw new Error("Execution cancelled")
-      const began = Date.now()
-      try {
-        await runFixture(config, name, out)
-      } catch (error) {
-        const { label, down } = await settle(error)
-        outcome.failure = { step: `setup: ${name}`, error: (error as Error).message, label }
-        outcome.down = down
-        out.line(`  ${color.red("✗")} setup ${name}  ${color.red(label)}\n      ${color.red(outcome.failure.error)}`)
-        return outcome
-      }
-      out.line(`  ${color.green("✓")} setup ${name} ${color.dim(`${Date.now() - began}ms`)}`)
-    }
-
-    for (let index = 0; index < scenario.steps.length; index++) {
-      if (signal?.aborted) throw new Error("Execution cancelled")
-      const raw = scenario.steps[index]
-      const began = Date.now()
-      onEvent?.({
-        type: "step_start",
-        scenarioId: scenario.id,
-        stepName: raw.name,
-        target: raw.target,
-        index,
-        totalSteps: scenario.steps.length,
-      })
-      const attempts = (raw.retry?.times ?? 0) + 1
-      let lastError: Error | undefined
-      let lastFailedRow: StepRunRecord | undefined
-      let passedOnAttempt = 0
-
-      for (let attempt = 1; attempt <= attempts; attempt++) {
-        if (signal?.aborted) throw new Error("Execution cancelled")
-        const attemptBegan = Date.now()
-        const row = {
-          id: `${runId}:${scenario.id}:${run.iteration}:${index}:${attempt}`,
-          runId,
-          stepId: raw.id || `${scenario.id}:step:${index + 1}`,
-          scenarioId: scenario.id,
-          iteration: run.iteration,
-          attempt,
-          createdAt: attemptBegan,
-        }
-        record({ ...row, status: "RUNNING" })
-        try {
-          const step = substitute(raw, scope)
-          const driver = drivers.get(step.target) as Driver
-          const result = await driver.run({ step, env: config.env, artifactsDir: dir, log: (line) => out.detail(line) })
-          checkAssert(step, result)
-          extract(step, result, scope.ctx)
-          lastError = undefined
-          passedOnAttempt = attempt
-          record({
-            ...row,
-            status: "PASSED",
-            durationMs: Date.now() - attemptBegan,
-            statusCode: result.status ?? result.exitCode,
-            resultData: result.data,
-          })
-          break
-        } catch (error) {
-          lastError = error as Error
-          lastFailedRow = {
-            ...row,
-            status: "FAILED",
-            durationMs: Date.now() - attemptBegan,
-            errorMessage: lastError.message,
-            artifactsPath: dir,
-          }
-          record(lastFailedRow)
-          if (attempt < attempts) {
-            out.detail(`attempt ${attempt} failed: ${lastError.message}`)
-            await sleep(raw.retry?.delay_ms ?? 1000)
-          }
-        }
-      }
-
-      const tag = color.dim(`[${raw.target}]`)
-      // Measured before the re-check, so the step's time is the step's own.
-      const stepDuration = Date.now() - began
-      if (lastError) {
-        const { label, down } = await settle(lastError)
-        if (lastFailedRow) record({ ...lastFailedRow, failureLabel: label })
-        outcome.failure = { step: raw.name, error: stripAnsi(lastError.message).trim(), label }
-        outcome.down = down
-        out.line(`  ${color.red("✗")} ${tag} ${raw.name} ${color.dim(`${stepDuration}ms`)}  ${color.red(label)}`)
-        out.line(`      ${color.red(lastError.message.split("\n").join("\n      "))}`)
-        if (down.length > 0) out.line(`      ${color.red(`down: ${down.join(", ")}`)}`)
-        onEvent?.({
-          type: "step_fail",
-          scenarioId: scenario.id,
-          stepName: raw.name,
-          target: raw.target,
-          index,
-          duration_ms: stepDuration,
-          error: outcome.failure.error,
-          label,
-        })
-        return outcome
-      }
-      const recovered = passedOnAttempt > 1
-      if (recovered) outcome.recovered++
-      const note = recovered ? color.yellow(`  recovered on attempt ${passedOnAttempt}`) : ""
-      out.line(`  ${color.green("✓")} ${tag} ${raw.name} ${color.dim(`${stepDuration}ms`)}${note}`)
-      onEvent?.({
-        type: "step_pass",
-        scenarioId: scenario.id,
-        stepName: raw.name,
-        target: raw.target,
-        index,
-        duration_ms: stepDuration,
-        recovered,
-      })
-    }
-    return outcome
-  } finally {
-    const failed = outcome.failure !== undefined || failing !== undefined
-    onEvent?.({
-      type: "scenario_end",
-      scenarioId: scenario.id,
-      iteration: run.iteration,
-      passed: !failed,
-      duration_ms: Date.now() - scenarioBegan,
-      error: outcome.failure?.error ?? failing,
-      label: outcome.failure?.label,
-    })
-    for (const driver of drivers.values()) {
-      await driver.endScenario?.(failed, dir).catch(() => {})
-    }
-  }
 }
