@@ -26,9 +26,10 @@ describe("pausedFrom", () => {
   })
 
   it("tracks whether the last retry passed, and its new error when it failed", () => {
-    const failed: RunEvent = { type: "hold_retry", scenarioId: "a", index: 1, passed: false, duration_ms: 1, error: "exited 2", label: "Step error" }
-    const passed: RunEvent = { type: "hold_retry", scenarioId: "a", index: 1, passed: true, duration_ms: 1 }
-    assert.deepEqual(pausedFrom([holdStart, failed], null), { ...paused, error: "exited 2", label: "Step error" })
+    const edited = { ...paused.step, command: "exit 2" }
+    const failed: RunEvent = { type: "hold_retry", scenarioId: "a", index: 1, step: edited, passed: false, duration_ms: 1, error: "exited 2", label: "Step error" }
+    const passed: RunEvent = { type: "hold_retry", scenarioId: "a", index: 1, step: edited, passed: true, duration_ms: 1 }
+    assert.deepEqual(pausedFrom([holdStart, failed], null), { ...paused, step: edited, error: "exited 2", label: "Step error" })
     assert.equal(pausedFrom([holdStart, failed, passed], null)?.retryPassed, true)
   })
 
@@ -68,8 +69,8 @@ describe("execution tree and counts with a fixed scenario", () => {
     { type: "step_pass", scenarioId: "a", stepName: "Seed", target: "shell", index: 0, duration_ms: 1, recovered: false },
     { type: "step_fail", scenarioId: "a", stepName: "Broken", target: "shell", index: 1, duration_ms: 1, error: "exited 1", label: "Assertion failed" },
     holdStart,
-    { type: "hold_retry", scenarioId: "a", index: 1, passed: false, duration_ms: 2, error: "exited 2", label: "Assertion failed" },
-    { type: "hold_retry", scenarioId: "a", index: 1, passed: true, duration_ms: 3 },
+    { type: "hold_retry", scenarioId: "a", index: 1, step: paused.step, passed: false, duration_ms: 2, error: "exited 2", label: "Assertion failed" },
+    { type: "hold_retry", scenarioId: "a", index: 1, step: paused.step, passed: true, duration_ms: 3 },
     { type: "hold_end", scenarioId: "a", index: 1, how: "continue" },
     { type: "scenario_end", scenarioId: "a", iteration: 1, passed: false, fixed: true, duration_ms: 9 },
   ]

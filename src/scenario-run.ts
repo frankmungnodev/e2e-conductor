@@ -166,7 +166,7 @@ export async function runScenario(
         scenario.steps[index] = step
         paused = { ...paused, step, retryPassed: true }
         out.line(`  ${color.green("✓")} ${tag} ${step.name} ${color.dim(`${duration}ms`)}${color.yellow("  fixed by a manual retry")}`)
-        onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, passed: true, duration_ms: duration })
+        onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, step, passed: true, duration_ms: duration })
         continue
       }
       const { label, down } = await settle(tried.error)
@@ -174,7 +174,7 @@ export async function runScenario(
       const error = stripAnsi(tried.error.message).trim()
       out.line(`  ${color.red("✗")} ${tag} ${step.name} ${color.dim(`${duration}ms`)}  ${color.red(label)}`)
       out.line(`      ${color.red(error.split("\n").join("\n      "))}`)
-      onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, passed: false, duration_ms: duration, error, label })
+      onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, step, passed: false, duration_ms: duration, error, label })
       if (down.length > 0) {
         out.line(`      ${color.red(`down: ${down.join(", ")}`)}`)
         onEvent?.({ type: "hold_end", scenarioId: scenario.id, index, how: "stopped" })

@@ -11,9 +11,10 @@ export function pausedFrom(events: RunEvent[], initial: PausedStep | null): Paus
       const { type: _type, stepName: _stepName, ...pausedStep } = ev
       paused = pausedStep
     } else if (ev.type === "hold_retry" && paused) {
+      // The next edit starts from the step the retry ran, not the original.
       paused = ev.passed
-        ? { ...paused, retryPassed: true }
-        : { ...paused, retryPassed: false, error: ev.error ?? paused.error, label: ev.label ?? paused.label }
+        ? { ...paused, step: ev.step, retryPassed: true }
+        : { ...paused, step: ev.step, retryPassed: false, error: ev.error ?? paused.error, label: ev.label ?? paused.label }
     } else if (ev.type === "hold_end" || ev.type === "finish" || ev.type === "run_start") {
       paused = null
     }

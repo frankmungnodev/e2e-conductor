@@ -335,7 +335,17 @@ export type RunEvent =
       label?: FailureLabel
     }
   | ({ type: "hold_start"; stepName: string } & PausedStep)
-  | { type: "hold_retry"; scenarioId: string; index: number; passed: boolean; duration_ms: number; error?: string; label?: FailureLabel }
+  | {
+      type: "hold_retry"
+      scenarioId: string
+      index: number
+      /** The step the retry ran. */
+      step: ScenarioStep
+      passed: boolean
+      duration_ms: number
+      error?: string
+      label?: FailureLabel
+    }
   | { type: "hold_end"; scenarioId: string; index: number; how: "continue" | "end" | "stopped" }
   | { type: "log"; text: string; level: "info" | "detail" }
   | { type: "finish"; summary: RunSummary }
