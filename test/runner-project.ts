@@ -8,6 +8,7 @@ import { saveEnvironment } from "../src/db/environments.ts"
 import { saveFixture } from "../src/db/fixtures.ts"
 import { savePlatform } from "../src/db/platforms.ts"
 import { getRun, getRuns } from "../src/db/runs.ts"
+import { getScenarioRuns, getScenarioVersion } from "../src/db/scenario-runs.ts"
 import { saveScenario } from "../src/db/scenarios.ts"
 import { type RunEvent, type RunOptions, run } from "../src/runner.ts"
 import type { Scenario } from "../src/scenario.ts"
@@ -61,6 +62,17 @@ export async function execute(dir: string, options: Partial<RunOptions> = {}, on
     },
   })
   return { summary, events }
+}
+
+/** The latest run's scenario-iterations, each with the scenario content it was pinned to. */
+export function storedScenarioRuns(dir: string) {
+  const db = openDatabase(join(dir, ".e2e", "e2e.db"))
+  try {
+    const [latest] = getRuns(db, 1)
+    return getScenarioRuns(db, latest.id).map((row) => ({ ...row, content: getScenarioVersion(db, row.fingerprint) ?? "" }))
+  } finally {
+    db.close()
+  }
 }
 
 export function storedRun(dir: string) {

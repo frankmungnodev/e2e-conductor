@@ -1,14 +1,17 @@
+import { basename } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
 import { checkAssert, extract, type FailureLabel, failureLabel } from "./assertions.ts"
 import { type LoadedConfig, resolveFromConfig } from "./config.ts"
 import { type Scope, substitute } from "./context.ts"
 import { type StepRunRecord, saveStepRun } from "./db/runs.ts"
+import { type ScenarioRunStatus, saveScenarioRun, saveScenarioVersion } from "./db/scenario-runs.ts"
 import type { Driver } from "./drivers/types.ts"
 import type { PausedStep, PauseHook } from "./hold.ts"
 import { color, type RunLog, stripAnsi } from "./logger.ts"
 import { runShell, sleep } from "./process.ts"
 import type { RunEvent } from "./runner.ts"
 import type { Scenario, Step } from "./scenario.ts"
+import { scenarioVersion } from "./scenario-version.ts"
 
 type ScenarioFailure = { step: string; error: string; label: FailureLabel }
 export type ScenarioOutcome = {
@@ -78,6 +81,29 @@ export async function runScenario(
       // history is best-effort; a write error must not fail the step
     }
   }
+
+  // Pins this iteration to the content it starts with. A fix saved during a pause changes
+  // `scenario.steps` in memory, so the next iteration starts from, and records, the fixed content.
+  const version = scenarioVersion(scenario)
+  const pin = (status: ScenarioRunStatus) => {
+    if (!db) return
+    try {
+      if (status === "RUNNING") saveScenarioVersion(db, version.fingerprint, version.json)
+      saveScenarioRun(db, {
+        runId,
+        scenarioId: scenario.id,
+        iteration: run.iteration,
+        fingerprint: version.fingerprint,
+        status,
+        artifactsDir: basename(dir),
+        startedAt: scenarioBegan,
+        completedAt: status === "RUNNING" ? undefined : Date.now(),
+      })
+    } catch {
+      // history is best-effort; a write error must not fail the scenario
+    }
+  }
+  pin("RUNNING")
 
   // Runs only after the final attempt, so a service that restarts mid-step gets its retries.
   // A cancel, before or during the re-check, wins and leaves the failure unlabeled.
@@ -295,6 +321,8 @@ export async function runScenario(
     // Fixed only when every pause ended in Continue and the scenario ran to its end; a cancel is never fixed.
     const fixed = completed && outcome.fixed === true && outcome.failure === undefined
     const failed = !fixed && (outcome.failure !== undefined || failing !== undefined)
+    // A cancel wins over a failure, as it does for the run.
+    pin(signal?.aborted ? "CANCELLED" : fixed ? "FIXED" : failed ? "FAILED" : "PASSED")
     onEvent?.({
       type: "scenario_end",
       scenarioId: scenario.id,
