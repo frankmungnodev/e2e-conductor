@@ -159,6 +159,24 @@ export function openDatabase(dbPath: string): DatabaseSync {
       manual INTEGER DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS scenario_runs (
+      run_id TEXT NOT NULL,
+      scenario_id TEXT NOT NULL,
+      iteration INTEGER NOT NULL,
+      fingerprint TEXT NOT NULL,
+      status TEXT NOT NULL,
+      artifacts_dir TEXT,
+      started_at INTEGER NOT NULL,
+      completed_at INTEGER,
+      PRIMARY KEY (run_id, scenario_id, iteration)
+    );
+
+    CREATE TABLE IF NOT EXISTS scenario_versions (
+      fingerprint TEXT PRIMARY KEY,
+      scenario_json TEXT NOT NULL,
+      created_at INTEGER
+    );
+
     CREATE TABLE IF NOT EXISTS step_groups (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -184,6 +202,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
     CREATE INDEX IF NOT EXISTS idx_step_runs_step ON step_runs(step_id);
     CREATE INDEX IF NOT EXISTS idx_step_runs_scenario ON step_runs(scenario_id);
     CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_scenario_runs_scenario ON scenario_runs(scenario_id, started_at);
   `)
 
   // Databases created before these columns existed get them here: CREATE TABLE IF NOT EXISTS skips existing tables.
