@@ -98,6 +98,7 @@ export const runRoutes: Route[] = [
               duration_ms: Date.now() - (state.activeRun?.startedAt ?? Date.now()),
               failures: [{ scenario: "run", iteration: 1, step: "init", error: errorMsg }],
               artifacts: "",
+              fixed: 0,
               recovered: 0,
               notRun: [],
             },

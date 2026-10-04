@@ -546,7 +546,10 @@ describe("sqlite db configuration storage", () => {
     assert.ok(columns("runs").includes("recovered_steps"))
     assert.ok(columns("runs").includes("not_run_scenarios"))
     assert.ok(columns("step_runs").includes("failure_label"))
+    assert.ok(columns("runs").includes("fixed_scenarios"))
+    assert.ok(columns("step_runs").includes("manual"))
     assert.equal(getRun(db, "old-run")?.status, "PASSED")
+    assert.equal(getRun(db, "old-run")?.fixedScenarios, 0)
     db.close()
   })
 

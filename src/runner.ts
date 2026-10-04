@@ -79,10 +79,12 @@ export type Summary = {
   total: number
   passed: number
   failed: number
+  /** Scenario-iterations that paused on a failure and passed after a manual retry; neither passed nor failed. */
+  fixed: number
   duration_ms: number
   failures: Failure[]
   artifacts: string
-  /** Why the run failed when no single failure explains it: "environment down" or "recovered steps (strict)". */
+  /** Why the run failed when no single failure explains it: "environment down", "fixed during run" or "recovered steps (strict)". */
   reason?: RunReason
   /** What the re-check found down when the run stopped. */
   down?: string[]
@@ -122,6 +124,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     total: 0,
     passed: 0,
     failed: 0,
+    fixed: 0,
     duration_ms: 0,
     failures: [],
     artifacts: artifactsRoot,
@@ -246,6 +249,8 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
         if (outcome.failure) {
           summary.failed++
           summary.failures.push({ scenario: scenario.id, iteration, ...outcome.failure })
+        } else if (outcome.fixed) {
+          summary.fixed++
         } else {
           summary.passed++
         }
@@ -283,6 +288,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           reason: summary.reason,
           recoveredSteps: summary.recovered,
           notRunScenarios: summary.notRun.length,
+          fixedScenarios: summary.fixed,
         })
       } catch {
         // ignore
