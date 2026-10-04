@@ -11,23 +11,27 @@ export function scenarioVersion(scenario: Scenario): { fingerprint: string; json
     setup: scenario.setup ?? [],
     vars: scenario.vars ?? {},
     steps: scenario.steps.map(({ id: _id, actions, ...step }) => ({
-      ...step,
-      actions: actions?.map(({ id: _actionId, ...action }) => action),
+      ...withoutEmpty(step),
+      ...(actions ? { actions: actions.map(({ id: _actionId, ...action }) => withoutEmpty(action)) } : {}),
     })),
   }
-  const json = JSON.stringify(canonical(content))
+  const json = JSON.stringify(sortKeys(content))
   return { fingerprint: createHash("sha256").update(json).digest("hex"), json }
 }
 
-// Sorted keys, with null and undefined fields dropped: a scenario read from SQLite and the same
-// scenario read from JSON differ only in absent-versus-null fields, which must not read as a change.
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical)
+// A step or action read from SQLite and the same one read from JSON differ only in absent-versus-null
+// fields, which must not read as a change. Only those records' own fields are dropped: a null inside
+// vars, a body or an assertion is the scenario's data, and changes what runs.
+function withoutEmpty<T extends object>(record: T): Partial<T> {
+  return Object.fromEntries(Object.entries(record).filter(([, value]) => value != null)) as Partial<T>
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeys)
   if (value === null || typeof value !== "object") return value
   return Object.fromEntries(
     Object.keys(value)
       .sort()
-      .filter((key) => (value as Record<string, unknown>)[key] != null)
-      .map((key) => [key, canonical((value as Record<string, unknown>)[key])]),
+      .map((key) => [key, sortKeys((value as Record<string, unknown>)[key])]),
   )
 }

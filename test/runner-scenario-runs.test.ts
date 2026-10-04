@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
+import { join } from "node:path"
 import { describe, it } from "node:test"
+import { openDatabase } from "../src/db/connection.ts"
 import type { HoldDecision, PausedStep, PauseHook } from "../src/hold.ts"
-import { backend, execute, healthStep, project, storedScenarioRuns } from "./runner-project.ts"
+import { backend, execute, healthStep, project, storedRun, storedScenarioRuns } from "./runner-project.ts"
 
 const pass = (name = "Pass") => ({ name, target: "shell", command: "true" })
 
@@ -93,5 +95,20 @@ describe("runner pins each scenario-iteration to its content", () => {
     assert.equal(second.status, "PASSED")
     assert.match(second.content, /echo fixed/)
     assert.notEqual(first.fingerprint, second.fingerprint)
+  })
+
+  it("keeps the run's outcome when recording a scenario-iteration fails", async () => {
+    const dir = project([{ id: "a", name: "A", steps: [pass()] }])
+    // A trigger survives openDatabase, so every scenario_runs write throws during the run.
+    const db = openDatabase(join(dir, ".e2e", "e2e.db"))
+    db.exec("CREATE TRIGGER fail_pin BEFORE INSERT ON scenario_runs BEGIN SELECT RAISE(ABORT, 'disk full'); END")
+    db.close()
+    const { summary, events } = await execute(dir)
+
+    assert.equal(summary.status, "PASSED")
+    const end = events.find((event) => event.type === "scenario_end")
+    assert.equal(end?.type === "scenario_end" && end.passed, true)
+    assert.equal(storedRun(dir)?.status, "PASSED")
+    assert.deepEqual(storedScenarioRuns(dir), [])
   })
 })

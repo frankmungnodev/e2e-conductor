@@ -201,7 +201,7 @@ Every run pins each scenario-iteration it starts to the scenario content it ran,
 `scenarioVersion` (`src/scenario-version.ts`) builds canonical JSON from the content that decides what a run does, and hashes it with SHA-256:
 - It keeps `setup` (fixture names), `vars` and `steps`, as written. Placeholders such as `${env.TOKEN}` stay unsubstituted, so no secret is stored.
 - It leaves out the scenario name and description, every step id and every action id. Changing them changes nothing that runs.
-- It sorts object keys, drops `null` and `undefined` fields, and treats a missing `setup` as `[]` and missing `vars` as `{}`, so the same scenario read from SQLite or from JSON gets the same fingerprint. Array order counts.
+- It sorts object keys, drops `null` and `undefined` fields of each step and action, and treats a missing `setup` as `[]` and missing `vars` as `{}`, so the same scenario read from SQLite or from JSON gets the same fingerprint. A `null` inside `vars`, a body or an assertion is kept: it changes what runs. Array order counts.
 
 Changes outside the scenario record are not part of the fingerprint: a fixture's command, platform and environment configuration, and `${env.*}` values.
 

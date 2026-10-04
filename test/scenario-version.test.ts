@@ -72,6 +72,17 @@ describe("scenarioVersion", () => {
     assert.equal(fingerprint(bare), fingerprint({ ...bare, setup: [], vars: {} }))
   })
 
+  it("keeps null values inside the scenario's own data", () => {
+    // A null expected value is a real assertion, and a null var or body field changes what is sent.
+    const withNullAssert = base()
+    withNullAssert.steps[1] = { ...withNullAssert.steps[1], assert: { json_match: { error: null } } }
+    const withEmptyAssert = base()
+    withEmptyAssert.steps[1] = { ...withEmptyAssert.steps[1], assert: { json_match: {} } }
+    assert.notEqual(fingerprint(withNullAssert), fingerprint(withEmptyAssert))
+
+    assert.notEqual(fingerprint({ ...base(), vars: { user: null } }), fingerprint({ ...base(), vars: {} }))
+  })
+
   it("keeps placeholders as written", () => {
     assert.match(scenarioVersion(base()).json, /\$\{env\.TOKEN\}/)
   })
