@@ -139,8 +139,8 @@ During test execution (`src/runner.ts`):
 3. **Variable Interpolation**: Step fields undergo placeholder substitution (`${vars.X}`, `${env.Y}`, `${extract.Z}`).
 4. **Target Dispatch**: The step payload is routed to the designated target driver.
 5. **Assertion & Extraction**: Outcomes are validated against `assert` specifications, and matching values are stored into `scenarioContext.extract` for downstream steps.
-6. **Step Run Persistence**: Each step execution attempt is persisted in `step_runs`.
-7. **Pause on Failure**: In a GUI run started with Pause on Failure, a failed step can be edited and retried on the live run (`runs.md`, section 4). A retry that passes replaces the stored step it was made for, keeping its step id, so the fix applies to future runs. The stored step is found by its id; if the step was deleted meanwhile, nothing is saved. It also replaces the step for the rest of the current run, including later `--repeat` iterations.
+6. **Step Run Persistence**: Each step execution attempt is persisted in `step_runs`. Each scenario-iteration also records, when it starts, the fingerprint of the scenario content it runs (`runs.md`, section 5).
+7. **Pause on Failure**: In a GUI run started with Pause on Failure, a failed step can be edited and retried on the live run (`runs.md`, section 4). A retry that passes replaces the stored step it was made for, keeping its step id, so the fix applies to future runs. The stored step is found by its id; if the step was deleted meanwhile, nothing is saved. It also replaces the step for the rest of the current run, including later `--repeat` iterations; the iteration in progress keeps the fingerprint it started with, and the next iteration records the fixed content.
 
 ---
 

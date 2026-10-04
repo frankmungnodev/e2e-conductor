@@ -45,13 +45,32 @@ CREATE TABLE IF NOT EXISTS step_runs (
   manual INTEGER DEFAULT 0         -- 1 for a retry the user started while the run was paused
 );
 
+CREATE TABLE IF NOT EXISTS scenario_runs (
+  run_id TEXT NOT NULL,
+  scenario_id TEXT NOT NULL,
+  iteration INTEGER NOT NULL,
+  fingerprint TEXT NOT NULL,       -- SHA-256 of the scenario content the iteration started with (section 5)
+  status TEXT NOT NULL,            -- "RUNNING", "PASSED", "FAILED", "FIXED", "CANCELLED"
+  artifacts_dir TEXT,              -- The iteration's folder under the run's artifacts folder
+  started_at INTEGER NOT NULL,
+  completed_at INTEGER,
+  PRIMARY KEY (run_id, scenario_id, iteration)
+);
+
+CREATE TABLE IF NOT EXISTS scenario_versions (
+  fingerprint TEXT PRIMARY KEY,
+  scenario_json TEXT NOT NULL,     -- The canonical content the fingerprint was computed from
+  created_at INTEGER
+);
+
 CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scenario_runs_scenario ON scenario_runs(scenario_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_step_runs_run ON step_runs(run_id);
 CREATE INDEX IF NOT EXISTS idx_step_runs_step ON step_runs(step_id);
 CREATE INDEX IF NOT EXISTS idx_step_runs_scenario ON step_runs(scenario_id);
 ```
 
-A step run's id is `<runId>:<scenarioId>:<iteration>:<stepIndex>:<attempt>`, so every iteration of a `--repeat` run keeps its own attempt rows. Databases created before `reason`, `recovered_steps`, `not_run_scenarios`, `fixed_scenarios`, `failure_label` and `manual` existed get those columns when they are opened (`openDatabase` in `src/db/connection.ts`).
+A step run's id is `<runId>:<scenarioId>:<iteration>:<stepIndex>:<attempt>`, so every iteration of a `--repeat` run keeps its own attempt rows. The `scenario_runs` and `scenario_versions` tables are created on open like every other table. Databases created before `reason`, `recovered_steps`, `not_run_scenarios`, `fixed_scenarios`, `failure_label` and `manual` existed get those columns when they are opened (`openDatabase` in `src/db/connection.ts`).
 
 ---
 
@@ -174,14 +193,47 @@ A retry that passes is saved over the stored step it was made for (`scenarios.md
 
 ---
 
-## 5. Querying & API Access
+## 5. Scenario Versions
+
+Every run pins each scenario-iteration it starts to the scenario content it ran, so run history says what actually ran even after the scenario is edited in place.
+
+### The fingerprint
+`scenarioVersion` (`src/scenario-version.ts`) builds canonical JSON from the content that decides what a run does, and hashes it with SHA-256:
+- It keeps `setup` (fixture names), `vars` and `steps`, as written. Placeholders such as `${env.TOKEN}` stay unsubstituted, so no secret is stored.
+- It leaves out the scenario name and description, every step id and every action id. Changing them changes nothing that runs.
+- It sorts object keys, drops `null` and `undefined` fields, and treats a missing `setup` as `[]` and missing `vars` as `{}`, so the same scenario read from SQLite or from JSON gets the same fingerprint. Array order counts.
+
+Changes outside the scenario record are not part of the fingerprint: a fixture's command, platform and environment configuration, and `${env.*}` values.
+
+The canonical JSON is stored once per fingerprint in `scenario_versions`. A later save of the same fingerprint keeps the stored content.
+
+### Lifecycle
+When a scenario-iteration starts, before its setup fixtures, `runScenario` (`src/scenario-run.ts`) stores the version and inserts a `scenario_runs` row with `status = "RUNNING"`. When it ends, the row gets one outcome:
+
+| Outcome | When |
+|---|---|
+| `CANCELLED` | The run was cancelled. Takes precedence over everything else. |
+| `FIXED` | The scenario paused, and continued past every pause to its last step (section 4). |
+| `FAILED` | A step or setup fixture failed and was not fixed. |
+| `PASSED` | Everything else. |
+
+Scenario-iterations an environment-down stop never reached record nothing. A process killed mid-scenario leaves `RUNNING`. Writes are best effort: a failed write never fails a step, a scenario or the run, and never changes the exit code, `summary.json` or run events.
+
+A fix saved during a pause changes the scenario in memory, not the iteration's row: the iteration keeps the fingerprint it started with, and the next iteration records the fixed content. Runs from before these tables existed have no rows.
+
+### Changed since last pass
+A scenario-iteration is **changed since last pass** when the latest `PASSED` row of the same scenario that started before it, in any run or environment, has a different fingerprint. Only a plain pass counts: `FIXED`, `FAILED`, `CANCELLED` and `RUNNING` rows are never the last pass. With no earlier pass there is nothing to compare, so the scenario-iteration is not marked. The marker is derived when read (`getScenarioRuns` in `src/db/scenario-runs.ts`), not stored, so a later pass never changes an earlier row's marker.
+
+---
+
+## 6. Querying & API Access
 
 The orchestrator provides unified access to both database-backed telemetry and filesystem-backed artifacts:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/runs` | `GET` | Returns execution history sorted by `started_at DESC`, merging SQLite records with filesystem summary metadata. |
-| `/api/runs/:runId` | `GET` | Returns full run metadata, scenario-level artifact listings, captured screenshots, and the array of all associated `stepRuns`. |
+| `/api/runs/:runId` | `GET` | Returns full run metadata, scenario-level artifact listings, captured screenshots, the array of all associated `stepRuns`, and `scenarioRuns`: each scenario-iteration's `fingerprint`, `status`, `artifactsDir` and `changedSinceLastPass` (section 5). |
 | `/api/step-runs` | `GET` | Queries step execution telemetry filtered by `scenarioId`, `stepId`, or `runId`. |
 | `/api/run/hold/retry` | `POST` | Retries an edited step (`{ step }`) on the paused run. 400 for an invalid step or an unprepared target, 409 when the run is not paused. |
 | `/api/run/hold/continue` | `POST` | Continues the paused scenario from the next step. 409 until a retry has passed. |
@@ -190,7 +242,7 @@ The orchestrator provides unified access to both database-backed telemetry and f
 
 ---
 
-## 6. UI Representation
+## 7. UI Representation
 
 In the Web GUI:
 
@@ -203,14 +255,14 @@ In the Web GUI:
 - **Reports & Artifacts View (`ArtifactsView.tsx`)**:
   - **Run History Sidebar**: Displays run timestamp, environment, duration, and status badge.
   - **Run Details View**:
-    - **Screenshots Tab**: Grid of screenshots captured during failures or explicit visual check steps.
+    - **Screenshots Tab**: Grid of screenshots captured during failures or explicit visual check steps. Below it, **Result Files & Reports** lists each scenario-iteration's folder and files; a scenario-iteration that changed since its last pass (section 5) shows a `Changed Since Last Pass` warning badge, whatever its own outcome.
     - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, failure label, a recovered marker on a passing automatic retry, a `Manual Retry` marker on a retry made while paused, and diagnostic error message or status code.
     - **Run Log Tab**: Full terminal stream and execution log (`run.log`).
-- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Fixed`, `Fixed By Retry`, `Fixed During Run`, `Manual Retry`, `Retry Passed`, `Environment Down`, `Assertion Failed`, `Step Error`).
+- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Fixed`, `Fixed By Retry`, `Fixed During Run`, `Manual Retry`, `Retry Passed`, `Environment Down`, `Assertion Failed`, `Step Error`, `Changed Since Last Pass`).
 
 ---
 
-## 7. Core Invariants
+## 8. Core Invariants
 
 1. **Cascading Run Deletion**: Deleting a run row automatically cascades and deletes all associated `step_runs`.
 2. **Immutable Execution Records**: Step runs preserve historical telemetry even if scenario definitions or step configurations are modified or deleted later.
@@ -218,3 +270,4 @@ In the Web GUI:
 4. **One Label per Final Failure**: Every final failure carries exactly one failure label; an environment-down label always stops the run.
 5. **Counts Add Up**: A run's passed, failed, fixed and not-run scenario-iterations always sum to its total.
 6. **A Fixed Run Is Never Green**: A run in which the user fixed a step while paused never ends `PASSED`.
+7. **A Run Pins Only What It Started**: A scenario-iteration is pinned to the content it started with, and only scenario-iterations that started are pinned.
