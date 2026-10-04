@@ -65,7 +65,10 @@ describe("pause on failure over HTTP", () => {
 
       const db = openDatabase(join(dir, ".e2e", "e2e.db"))
       try {
-        assert.equal(getScenario(db, "a")?.steps[0].command, "true")
+        const stored = getScenario(db, "a")
+        assert.equal(stored?.steps[0].command, "true")
+        assert.equal(stored?.steps[0].id, "a:step:1", "the saved step keeps its id")
+        assert.equal(stored?.steps[1].command, "true", "the other step is untouched")
       } finally {
         db.close()
       }
@@ -75,6 +78,45 @@ describe("pause on failure over HTTP", () => {
       const stored = storedRun(dir)
       assert.equal(stored?.reason, "fixed during run")
       assert.equal(stored?.fixedScenarios, 1)
+    })
+  })
+
+  it("leaves the stored step alone when a retry fails", async () => {
+    await withServer(async (url, dir) => {
+      await post(url, "/api/run", { pauseOnFailure: true })
+      await paused(url)
+      await post(url, "/api/run/hold/retry", { step: { name: "Broken", target: "shell", command: "exit 4" } })
+      await until(url, (s) => s.currentRun?.paused?.step.command === "exit 4")
+
+      const db = openDatabase(join(dir, ".e2e", "e2e.db"))
+      try {
+        assert.equal(getScenario(db, "a")?.steps[0].command, "exit 1")
+      } finally {
+        db.close()
+      }
+    })
+  })
+
+  it("does not save a fix over a step removed while paused, and the run can still continue", async () => {
+    await withServer(async (url, dir) => {
+      await post(url, "/api/run", { pauseOnFailure: true })
+      await paused(url)
+      // The scenario is edited during the pause: the paused step is removed.
+      await post(url, "/api/scenarios", { id: "a", content: { name: "Scenario A", steps: [{ name: "Only", target: "shell", command: "true" }] } })
+
+      await post(url, "/api/run/hold/retry", { step: { name: "Broken", target: "shell", command: "true" } })
+      await until(url, (s) => s.currentRun?.paused?.retryPassed === true)
+      const db = openDatabase(join(dir, ".e2e", "e2e.db"))
+      try {
+        assert.deepEqual(
+          getScenario(db, "a")?.steps.map((step) => step.name),
+          ["Only"],
+        )
+      } finally {
+        db.close()
+      }
+      assert.equal((await post(url, "/api/run/hold/continue")).status, 200)
+      await until(url, (s) => !s.isRunning)
     })
   })
 

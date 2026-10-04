@@ -167,10 +167,10 @@ A run pauses when a step fails after its final attempt, the failure is not label
 A scenario that paused, and continued past every pause to its last step, is **fixed**: neither passed nor failed. It keeps its failure screenshot and trace like a failed one. If it pauses again later and the user ends it, it is failed. A run with one or more fixed scenarios and no failed ones ends `FAILED` with `reason = "fixed during run"`, so a green run always means nobody stepped in (section 3, Run outcome). The summary's `fixed` count, `runs.fixed_scenarios`, the CLI result line and the GUI show it.
 
 ### Saved fixes
-A retry that passes is saved into the stored scenario at the same step position (`scenarios.md`, section 5), and the run uses the fix for the rest of its iterations.
+A retry that passes is saved over the stored step it was made for (`scenarios.md`, section 5), and the run uses the fix for the rest of its iterations. The stored step is found by its id and by the name the run last saw. When no stored step matches, because the scenario was edited during the pause, nothing is written, the run log says so, and the GUI shows a "Fix Not Saved" warning. The passing `hold_retry` event carries `savedTo`, the scenario's name, only when the save happened.
 
 ### Events
-`hold_start` (the paused step, its error and label, whether a retry passed, and the targets the run prepared), `hold_retry` (each retry's result), and `hold_end` (`continue`, `end`, or `stopped` when a retry found the environment down). `scenario_end` carries `fixed: true` for a fixed scenario. `GET /api/run/status` reports the paused step as `currentRun.paused`, so a reloaded page shows the pause.
+`hold_start` (the paused step, its error and label, whether a retry passed, and the targets the run prepared), `hold_retry` (each retry's result, the step it ran, and `replaces`, the stored step's name), and `hold_end` (`continue`, `end`, or `stopped` when a retry found the environment down). `scenario_end` carries `fixed: true` for a fixed scenario. `GET /api/run/status` reports the paused step as `currentRun.paused`, so a reloaded page shows the pause.
 
 ---
 

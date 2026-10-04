@@ -49,8 +49,21 @@ export type RunEvent =
       label?: FailureLabel
     }
   | ({ type: "hold_start"; stepName: string } & PausedStep)
-  // `step` is the step the retry ran, so the next edit starts from it.
-  | { type: "hold_retry"; scenarioId: string; index: number; step: Step; passed: boolean; duration_ms: number; error?: string; label?: FailureLabel }
+  // `step` is the step the retry ran, so the next edit starts from it. The server sets `savedTo`, the
+  // scenario's name, when it saved a passing retry to the stored scenario.
+  | {
+      type: "hold_retry"
+      scenarioId: string
+      index: number
+      step: Step
+      /** The name the stored step had when the run last saved or loaded it. */
+      replaces: string
+      passed: boolean
+      duration_ms: number
+      error?: string
+      label?: FailureLabel
+      savedTo?: string
+    }
   | { type: "hold_end"; scenarioId: string; index: number; how: "continue" | "end" | "stopped" }
   | { type: "log"; text: string; level: "info" | "detail" }
   | { type: "finish"; summary: Summary }

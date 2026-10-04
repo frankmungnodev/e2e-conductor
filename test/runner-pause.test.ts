@@ -214,6 +214,61 @@ describe("runner pause on failure", () => {
     assert.equal(storedRun(dir)?.recoveredSteps, 0)
   })
 
+  it("fails a scenario that pauses again after a continue and is then ended", async () => {
+    const dir = project([
+      {
+        id: "a",
+        name: "A",
+        steps: [
+          { name: "First broken", target: "shell", command: "exit 1" },
+          { name: "Second broken", target: "shell", command: "exit 2" },
+        ],
+      },
+    ])
+    const { pause } = scripted(retry("true"), proceed, end)
+    const { summary, events } = await execute(dir, { pause })
+
+    assert.deepEqual([summary.failed, summary.fixed], [1, 0])
+    assert.equal(summary.failures[0].step, "Second broken")
+    const scenarioEnd = events.find((event) => event.type === "scenario_end")
+    assert.equal(scenarioEnd?.type === "scenario_end" && scenarioEnd.fixed, false)
+  })
+
+  it("is not fixed when cancelled at a later pause after a continue", async () => {
+    const dir = project([
+      {
+        id: "a",
+        name: "A",
+        steps: [
+          { name: "First broken", target: "shell", command: "exit 1" },
+          { name: "Second broken", target: "shell", command: "exit 2" },
+        ],
+      },
+    ])
+    const controller = new AbortController()
+    const hold = new HoldController(controller.signal)
+    const ends: RunEvent[] = []
+    const outcome = execute(dir, { pause: hold.hook, signal: controller.signal }, (event) => {
+      if (event.type === "hold_start" && event.index === 0) queueMicrotask(() => hold.retry({ ...event.step, command: "true" }))
+      if (event.type === "hold_retry" && event.passed) queueMicrotask(() => hold.continue())
+      if (event.type === "hold_start" && event.index === 1) controller.abort()
+      if (event.type === "scenario_end") ends.push(event)
+    })
+
+    await assert.rejects(outcome, /Execution cancelled/)
+    assert.equal(ends[0]?.type === "scenario_end" && ends[0].fixed, false)
+    assert.equal(ends[0]?.type === "scenario_end" && ends[0].passed, false)
+  })
+
+  it("keeps the paused step's id on a retried step, whatever id the edit carries", async () => {
+    const dir = project([threeSteps()])
+    const { pause } = scripted((paused) => ({ kind: "retry", step: { ...paused.step, id: "something-else", command: "true" } }), proceed)
+    const { events } = await execute(dir, { pause })
+
+    const retried = events.find((event) => event.type === "hold_retry")
+    assert.equal(retried?.type === "hold_retry" && retried.step.id, "a:step:2")
+  })
+
   it("behaves as before without a pause hook (AE5)", async () => {
     const dir = project([threeSteps()])
     const { summary, events } = await execute(dir)

@@ -53,7 +53,7 @@ export function RunnerView({
   const [selectedScenarios, setSelectedScenarios] = useState<string[]>([])
   const options = useRunOptions()
   const { repeat, startServices, installMobile, headless, verbose, pauseOnFailure } = options
-  const pause = usePause(events, scenarios, isRunning)
+  const pause = usePause(events, isRunning)
   const [scenarioFilter, setScenarioFilter] = useState<string>("")
   const [logFilter, setLogFilter] = useState<string>("")
   const [autoScroll, setAutoScroll] = useState<boolean>(true)

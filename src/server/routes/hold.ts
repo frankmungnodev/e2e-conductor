@@ -1,6 +1,3 @@
-import { withDb } from "../../db/connection.ts"
-import { resolveDbPath } from "../../db/paths.ts"
-import { getScenario, saveScenario } from "../../db/scenarios.ts"
 import { type HoldController, HoldError } from "../../hold.ts"
 import { checkSteps, type Step } from "../../scenario.ts"
 import { describeErrors, validateScenario } from "../../schema.ts"
@@ -26,19 +23,6 @@ function stepProblems(state: ServerState, step: Step): string[] {
   const scenario = { id: "retry", name: "retry", steps: [step] }
   const problems = validateScenario(scenario) ? [] : describeErrors(validateScenario.errors)
   return [...problems, ...checkSteps(state.config, scenario, new Set())]
-}
-
-/** Writes a retried step that passed into its stored scenario, so the fix applies to future runs. */
-export function saveFixedStep(state: ServerState): string | undefined {
-  const retry = state.activeRun?.hold?.lastRetry
-  if (!retry) return undefined
-  return withDb(resolveDbPath(state.config.configDir), (db) => {
-    const scenario = getScenario(db, retry.scenarioId)
-    if (!scenario?.steps[retry.index]) return undefined
-    scenario.steps[retry.index] = { ...retry.step, id: scenario.steps[retry.index].id }
-    saveScenario(db, scenario)
-    return scenario.name
-  })
 }
 
 export const holdRoutes: Route[] = [

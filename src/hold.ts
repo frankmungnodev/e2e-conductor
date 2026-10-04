@@ -29,8 +29,6 @@ export class HoldError extends Error {}
  */
 export class HoldController {
   private pending?: { paused: PausedStep; resolve: (decision: HoldDecision) => void }
-  /** Where the last retry ran and what it ran, so a passing retry can be saved to its scenario. */
-  lastRetry?: { scenarioId: string; index: number; step: Step }
 
   constructor(private readonly signal?: AbortSignal) {}
 
@@ -62,7 +60,6 @@ export class HoldController {
     if (!pending.paused.targets.includes(step.target)) {
       throw new HoldError(`Target "${step.target}" was not prepared for this run; use one of: ${pending.paused.targets.join(", ")}`)
     }
-    this.lastRetry = { scenarioId: pending.paused.scenarioId, index: pending.paused.index, step }
     pending.resolve({ kind: "retry", step })
   }
 

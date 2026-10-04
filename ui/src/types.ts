@@ -341,10 +341,13 @@ export type RunEvent =
       index: number
       /** The step the retry ran. */
       step: ScenarioStep
+      replaces: string
       passed: boolean
       duration_ms: number
       error?: string
       label?: FailureLabel
+      /** The scenario's name when the server saved a passing retry to it; absent when it could not. */
+      savedTo?: string
     }
   | { type: "hold_end"; scenarioId: string; index: number; how: "continue" | "end" | "stopped" }
   | { type: "log"; text: string; level: "info" | "detail" }

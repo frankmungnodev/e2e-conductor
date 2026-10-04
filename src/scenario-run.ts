@@ -149,6 +149,9 @@ export async function runScenario(
       retryPassed: false,
       targets: [...drivers.keys()],
     }
+    const stepId = scenario.steps[index].id
+    // The step's name as stored, so a fix is saved only over the step it was made for.
+    let storedName = scenario.steps[index].name
     out.line(color.yellow("  paused: fix the step and retry it, or end the scenario"))
     onEvent?.({ type: "hold_start", ...paused, stepName: paused.step.name })
     for (let attempt = firstAttempt; ; attempt++) {
@@ -157,7 +160,8 @@ export async function runScenario(
         onEvent?.({ type: "hold_end", scenarioId: scenario.id, index, how: decision.kind })
         return { kind: decision.kind }
       }
-      const step = decision.step
+      // The retried step keeps the paused step's id, so a passing fix is saved over that step and no other.
+      const step: Step = stepId ? { ...decision.step, id: stepId } : decision.step
       const tag = color.dim(`[${step.target}]`)
       const tried = await attemptStep(step, index, attempt, true)
       const duration = tried.row.durationMs ?? 0
@@ -166,7 +170,8 @@ export async function runScenario(
         scenario.steps[index] = step
         paused = { ...paused, step, retryPassed: true }
         out.line(`  ${color.green("✓")} ${tag} ${step.name} ${color.dim(`${duration}ms`)}${color.yellow("  fixed by a manual retry")}`)
-        onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, step, passed: true, duration_ms: duration })
+        onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, step, replaces: storedName, passed: true, duration_ms: duration })
+        storedName = step.name
         continue
       }
       const { label, down } = await settle(tried.error)
@@ -174,7 +179,17 @@ export async function runScenario(
       const error = stripAnsi(tried.error.message).trim()
       out.line(`  ${color.red("✗")} ${tag} ${step.name} ${color.dim(`${duration}ms`)}  ${color.red(label)}`)
       out.line(`      ${color.red(error.split("\n").join("\n      "))}`)
-      onEvent?.({ type: "hold_retry", scenarioId: scenario.id, index, step, passed: false, duration_ms: duration, error, label })
+      onEvent?.({
+        type: "hold_retry",
+        scenarioId: scenario.id,
+        index,
+        step,
+        replaces: storedName,
+        passed: false,
+        duration_ms: duration,
+        error,
+        label,
+      })
       if (down.length > 0) {
         out.line(`      ${color.red(`down: ${down.join(", ")}`)}`)
         onEvent?.({ type: "hold_end", scenarioId: scenario.id, index, how: "stopped" })

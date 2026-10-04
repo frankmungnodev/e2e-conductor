@@ -51,13 +51,6 @@ describe("hold controller", () => {
     assert.ok(hold.paused)
   })
 
-  it("remembers the last retry so a pass can be saved", () => {
-    const hold = new HoldController()
-    void hold.hook(paused())
-    hold.retry({ name: "Fixed", target: "shell", command: "true" })
-    assert.deepEqual(hold.lastRetry, { scenarioId: "a", index: 0, step: { name: "Fixed", target: "shell", command: "true" } })
-  })
-
   it("refuses every action when the run is not paused", () => {
     const hold = new HoldController()
     assert.throws(() => hold.retry(paused().step), HoldError)
