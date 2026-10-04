@@ -147,6 +147,7 @@ export async function runScenario(
       error: failure.error,
       label: failure.label,
       retryPassed: false,
+      targets: [...drivers.keys()],
     }
     out.line(color.yellow("  paused: fix the step and retry it, or end the scenario"))
     onEvent?.({ type: "hold_start", ...paused, stepName: paused.step.name })

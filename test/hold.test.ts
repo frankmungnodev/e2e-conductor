@@ -10,6 +10,7 @@ const paused = (retryPassed = false): PausedStep => ({
   error: "exited 1",
   label: "Assertion failed",
   retryPassed,
+  targets: ["shell"],
 })
 
 describe("hold controller", () => {
@@ -41,6 +42,20 @@ describe("hold controller", () => {
     const decision = hold.hook(paused())
     hold.endScenario()
     assert.deepEqual(await decision, { kind: "end" })
+  })
+
+  it("refuses a retry on a target the run did not prepare", () => {
+    const hold = new HoldController()
+    void hold.hook(paused())
+    assert.throws(() => hold.retry({ name: "Web", target: "web", actions: [] }), /not prepared/)
+    assert.ok(hold.paused)
+  })
+
+  it("remembers the last retry so a pass can be saved", () => {
+    const hold = new HoldController()
+    void hold.hook(paused())
+    hold.retry({ name: "Fixed", target: "shell", command: "true" })
+    assert.deepEqual(hold.lastRetry, { scenarioId: "a", index: 0, step: { name: "Fixed", target: "shell", command: "true" } })
   })
 
   it("refuses every action when the run is not paused", () => {

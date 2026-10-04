@@ -4,9 +4,11 @@ import { loadConfig, resolveFromConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { resolveDbPath } from "../../db/paths.ts"
 import { getRun, getRuns, getStepRuns } from "../../db/runs.ts"
+import { HoldController } from "../../hold.ts"
 import { type RunOptions, run, type Summary } from "../../runner.ts"
 import { readBody, sendJson } from "../http.ts"
 import type { Route } from "../route.ts"
+import { saveFixedStep } from "./hold.ts"
 
 export const runRoutes: Route[] = [
   // SSE events stream
@@ -45,11 +47,13 @@ export const runRoutes: Route[] = [
         headless?: boolean
         verbose?: boolean
         environment?: string
+        pauseOnFailure?: boolean
       }
       if (body.headless) process.env.E2E_HEADLESS = "1"
       if (body.verbose) process.env.E2E_VERBOSE = "1"
 
       const controller = new AbortController()
+      const hold = body.pauseOnFailure ? new HoldController(controller.signal) : undefined
       const runOptions: RunOptions = {
         scenarios: body.scenarios ?? [],
         repeat: Math.max(1, body.repeat ?? 1),
@@ -57,7 +61,19 @@ export const runRoutes: Route[] = [
         install: Boolean(body.install),
         checkOnly: false,
         signal: controller.signal,
-        onEvent: (event) => state.broadcast(event),
+        pause: hold?.hook,
+        onEvent: (event) => {
+          // Save a passing retry before the GUI hears about it, so its toast can name the scenario.
+          if (event.type === "hold_retry" && event.passed) {
+            try {
+              const saved = saveFixedStep(state)
+              if (saved) state.broadcast({ type: "log", text: `Saved the fixed step to scenario "${saved}"`, level: "info" })
+            } catch (error) {
+              state.broadcast({ type: "log", text: `Could not save the fixed step: ${(error as Error).message}`, level: "info" })
+            }
+          }
+          state.broadcast(event)
+        },
       }
 
       const runId = new Date().toISOString().replace(/[:.]/g, "-")
@@ -66,6 +82,7 @@ export const runRoutes: Route[] = [
         options: runOptions,
         startedAt: Date.now(),
         controller,
+        hold,
       }
 
       // Launch run asynchronously
@@ -137,6 +154,7 @@ export const runRoutes: Route[] = [
                 scenarios: state.activeRun.options.scenarios,
                 repeat: state.activeRun.options.repeat,
               },
+              paused: state.activeRun.hold?.paused ?? null,
             }
           : null,
         lastSummary: state.lastSummary,
