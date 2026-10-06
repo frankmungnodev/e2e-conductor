@@ -10,7 +10,7 @@ describe("WebDriver Playwright actions", () => {
     const dir = tempDir("web-driver-test")
     const target = { driver: "web" as const, service: "web", modules: dir, headless: true }
     const service = { url: "http://localhost:3000" }
-    const driver = new WebDriver(target, service, dir)
+    const driver = new WebDriver(target, service)
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -103,7 +103,7 @@ describe("WebDriver Playwright actions", () => {
   it("surfaces failed assertion actions as AssertionFailure, labeled Assertion failed", async () => {
     const dir = tempDir("web-driver-assert")
     const target = { driver: "web" as const, service: "web", modules: dir, headless: true }
-    const driver = new WebDriver(target, { url: "http://localhost:3000" }, dir)
+    const driver = new WebDriver(target, { url: "http://localhost:3000" })
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent('<h1 id="title">Hello</h1>')}`
     const runActions = (actions: StepAction[]) =>
       driver
@@ -113,11 +113,15 @@ describe("WebDriver Playwright actions", () => {
     try {
       const textError = await runActions([
         { action: "navigate", url: dataUrl },
-        { action: "assert_text", selector: "#title", value: "Goodbye" },
+        { action: "assert_text", selector: "#title", value: "Goodbye", timeout_ms: 500 },
       ])
       assert.ok(textError instanceof AssertionFailure)
       assert.match(textError.message, /^Step action #2 \(assert_text\) failed: Expected element "#title" to contain "Goodbye"/)
       assert.equal(failureLabel(textError, []), "Assertion failed")
+
+      const urlError = await runActions([{ action: "assert_url", url: "/never", timeout_ms: 300 }])
+      assert.ok(urlError instanceof AssertionFailure)
+      assert.match(urlError.message, /Expected URL to contain "\/never"/)
 
       const visibleError = await runActions([{ action: "assert_visible", selector: "#missing", timeout_ms: 200 }])
       assert.ok(visibleError instanceof AssertionFailure)
@@ -127,11 +131,36 @@ describe("WebDriver Playwright actions", () => {
     }
   })
 
+  it("waits for a text assertion to hold while the page changes", async () => {
+    const dir = tempDir("web-driver-wait")
+    const target = { driver: "web" as const, service: "web", modules: dir, headless: true }
+    const driver = new WebDriver(target, { url: "http://localhost:3000" })
+    const later = `<h1 id="title">Loading</h1><script>setTimeout(() => {
+      document.getElementById("title").textContent = "Ready" }, 400)</script>`
+    try {
+      await driver.run({
+        step: {
+          name: "Wait",
+          target: "web",
+          actions: [
+            { action: "navigate", url: `data:text/html;charset=utf-8,${encodeURIComponent(later)}` },
+            { action: "assert_text", selector: "#title", value: "Ready", timeout_ms: 3000 },
+          ],
+        },
+        env: {},
+        artifactsDir: dir,
+        log: () => {},
+      })
+    } finally {
+      await driver.close()
+    }
+  })
+
   it("supports single-action fallback syntax", async () => {
     const dir = tempDir("web-driver-fallback")
     const target = { driver: "web" as const, service: "web", modules: dir, headless: true }
     const service = { url: "http://localhost:3000" }
-    const driver = new WebDriver(target, service, dir)
+    const driver = new WebDriver(target, service)
 
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent("<title>Fallback</title>")}`
 

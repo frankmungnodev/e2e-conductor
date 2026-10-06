@@ -1,12 +1,8 @@
-import { existsSync } from "node:fs"
 import { join } from "node:path"
-import { pathToFileURL } from "node:url"
 import { type Browser, type BrowserContext, chromium, errors, type Page } from "playwright"
 import { AssertionFailure, prefixError } from "../assertions.ts"
-import type { Logger, ServiceConfig, WebStep, WebTarget } from "../config.ts"
+import type { Logger, ServiceConfig, WebTarget } from "../config.ts"
 import type { Driver, StepResult, StepRun } from "./types.ts"
-
-const MODULE_EXTENSIONS = [".ts", ".mts", ".js", ".mjs"]
 
 export class WebDriver implements Driver {
   private browser?: Browser
@@ -16,19 +12,10 @@ export class WebDriver implements Driver {
   constructor(
     private readonly target: WebTarget,
     private readonly service: ServiceConfig,
-    private readonly modulesDir: string,
   ) {}
 
-  private async loadStep(name: string): Promise<WebStep> {
-    const file = MODULE_EXTENSIONS.map((ext) => join(this.modulesDir, name + ext)).find((path) => existsSync(path))
-    if (!file) throw new Error(`web module "${name}" not found in ${this.modulesDir}`)
-    const mod = await import(pathToFileURL(file).href)
-    if (typeof mod.default !== "function") throw new Error(`${file} must default-export defineWebStep(...)`)
-    return mod.default
-  }
-
   /** One browser per run; one context (cookies, trace) per scenario. */
-  private async openPage(env: Record<string, string>, log: Logger): Promise<Page> {
+  private async openPage(env: Record<string, string>): Promise<Page> {
     if (this.page) return this.page
     this.browser ??= await chromium.launch({
       headless: env.E2E_HEADLESS === "1" || (this.target.headless ?? false),
@@ -37,17 +24,11 @@ export class WebDriver implements Driver {
     this.context = await this.browser.newContext({ baseURL: this.service.url })
     await this.context.tracing.start({ screenshots: true, snapshots: true })
     this.page = await this.context.newPage()
-
-    if (this.target.login) {
-      log(`login via "${this.target.login}"`)
-      const login = await this.loadStep(this.target.login)
-      await login({ page: this.page, params: {}, baseUrl: this.service.url, env, log })
-    }
     return this.page
   }
 
   async run({ step, env, log }: StepRun): Promise<StepResult> {
-    const page = await this.openPage(env, log)
+    const page = await this.openPage(env)
     page.setDefaultTimeout(step.timeout_ms ?? 15_000)
 
     const actions =
@@ -281,30 +262,36 @@ export class WebDriver implements Driver {
         const selector = requireSelector("assert_text", { valueFallback: false })
         const expected = String(step.value ?? "")
         log(`assert text on "${selector}" contains "${expected}"`)
-        const text = await page.locator(selector).innerText({ timeout: timeout ?? 10_000 })
-        if (!text.includes(expected)) {
-          throw new AssertionFailure(`Expected element "${selector}" to contain "${expected}", but found "${text}"`)
-        }
+        const text = await waitUntil(
+          (wait) => page.locator(selector).innerText({ timeout: wait }),
+          (found) => found.includes(expected),
+          timeout ?? 10_000,
+          (found) => `Expected element "${selector}" to contain "${expected}", but found "${found}"`,
+        )
         return { text, matched: true }
       }
       case "assert_not_text": {
         const selector = requireSelector("assert_not_text", { valueFallback: false })
         const forbidden = String(step.value ?? "")
         log(`assert text on "${selector}" does not contain "${forbidden}"`)
-        const text = await page.locator(selector).innerText({ timeout: timeout ?? 10_000 })
-        if (text.includes(forbidden)) {
-          throw new AssertionFailure(`Expected element "${selector}" to NOT contain "${forbidden}", but it did`)
-        }
+        const text = await waitUntil(
+          (wait) => page.locator(selector).innerText({ timeout: wait }),
+          (found) => !found.includes(forbidden),
+          timeout ?? 10_000,
+          () => `Expected element "${selector}" to NOT contain "${forbidden}", but it did`,
+        )
         return { text, matched: false }
       }
       case "assert_value": {
         const selector = requireSelector("assert_value", { valueFallback: false })
         const expected = String(step.value ?? "")
         log(`assert value on "${selector}" equals "${expected}"`)
-        const actual = await page.locator(selector).inputValue({ timeout: timeout ?? 10_000 })
-        if (actual !== expected) {
-          throw new AssertionFailure(`Expected element "${selector}" value to be "${expected}", but found "${actual}"`)
-        }
+        const actual = await waitUntil(
+          (wait) => page.locator(selector).inputValue({ timeout: wait }),
+          (found) => found === expected,
+          timeout ?? 10_000,
+          (found) => `Expected element "${selector}" value to be "${expected}", but found "${found}"`,
+        )
         return { value: actual, matched: true }
       }
       case "assert_checked": {
@@ -347,20 +334,24 @@ export class WebDriver implements Driver {
         const expected = String(step.url ?? step.value ?? "")
         if (!expected) throw new Error("web 'assert_url' action requires an expected URL or substring")
         log(`assert current URL contains "${expected}"`)
-        const currentUrl = page.url()
-        if (!currentUrl.includes(expected)) {
-          throw new AssertionFailure(`Expected URL to contain "${expected}", but current URL is "${currentUrl}"`)
-        }
+        const currentUrl = await waitUntil(
+          async () => page.url(),
+          (found) => found.includes(expected),
+          timeout ?? 10_000,
+          (found) => `Expected URL to contain "${expected}", but current URL is "${found}"`,
+        )
         return { url: currentUrl, matched: true }
       }
       case "assert_title": {
         const expected = String(step.value ?? "")
         if (!expected) throw new Error("web 'assert_title' action requires an expected title substring")
         log(`assert page title contains "${expected}"`)
-        const title = await page.title()
-        if (!title.includes(expected)) {
-          throw new AssertionFailure(`Expected title to contain "${expected}", but found "${title}"`)
-        }
+        const title = await waitUntil(
+          () => page.title(),
+          (found) => found.includes(expected),
+          timeout ?? 10_000,
+          (found) => `Expected title to contain "${expected}", but found "${found}"`,
+        )
         return { title, matched: true }
       }
       case "set_viewport": {
@@ -424,5 +415,32 @@ async function assertState(page: Page, selector: string, state: "visible" | "hid
   } catch (error) {
     if (error instanceof errors.TimeoutError) throw new AssertionFailure(error.message)
     throw error
+  }
+}
+
+/**
+ * Re-reads a value until `holds` accepts it, like Playwright's `expect` does, so a page still
+ * loading or re-rendering does not fail the check. `read` gets the time left; an element that never
+ * appears fails as its own error, and a value that never matches fails as an AssertionFailure.
+ */
+async function waitUntil<T>(
+  read: (timeLeft: number) => Promise<T>,
+  holds: (value: T) => boolean,
+  timeout: number,
+  describe: (last: T) => string,
+): Promise<T> {
+  const deadline = Date.now() + timeout
+  let last: { value: T } | undefined
+  for (;;) {
+    try {
+      last = { value: await read(Math.max(deadline - Date.now(), 1)) }
+    } catch (error) {
+      // Once a value was read, a read cut short by the deadline means the value never matched.
+      if (last && error instanceof errors.TimeoutError) throw new AssertionFailure(describe(last.value))
+      throw error
+    }
+    if (holds(last.value)) return last.value
+    if (Date.now() >= deadline) throw new AssertionFailure(describe(last.value))
+    await new Promise((resolve) => setTimeout(resolve, 100))
   }
 }

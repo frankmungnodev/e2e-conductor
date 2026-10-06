@@ -13,14 +13,13 @@ export const scenarioRoutes: Route[] = [
     match: ({ req, pathname }) => pathname === "/api/scenarios" && req.method === "GET",
     handle: async ({ state, res }) => {
       const scenariosList = getOrSeedScenarios(state.config)
-      const checkedFlows = new Set<string>()
       const scenarios = scenariosList.map((scenario) => {
         const id = scenario.id
         const schemaErrors: string[] = []
         if (!validateScenario(scenario)) {
           for (const err of describeErrors(validateScenario.errors)) schemaErrors.push(err)
         }
-        const stepErrors = checkSteps(state.config, scenario, checkedFlows)
+        const stepErrors = checkSteps(state.config, scenario)
         const errors = [...schemaErrors, ...stepErrors]
         return {
           id,
@@ -52,7 +51,7 @@ export const scenarioRoutes: Route[] = [
       if (!validateScenario(body.content)) {
         for (const err of describeErrors(validateScenario.errors)) schemaErrors.push(err)
       }
-      const stepErrors = checkSteps(state.config, scenario, new Set())
+      const stepErrors = checkSteps(state.config, scenario)
       const errors = [...schemaErrors, ...stepErrors]
 
       try {

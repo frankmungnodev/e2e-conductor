@@ -94,6 +94,7 @@ Execution progress follows a deterministic state machine:
 1. **Initialization**: When test execution starts (`run()` in `src/runner.ts`), a run record is inserted with `status = "RUNNING"` and `started_at = Date.now()`.
 2. **Execution**: Scenarios and steps execute sequentially or per-suite.
 3. **Completion**: In the execution `finally` block (prior to closing database connections), `saveRun()` updates the row with `completed_at`, computed `duration_ms`, scenario totals, the stop reason, the recovered and not-run counts, and the final status (see section 3).
+4. **Interruption**: Ctrl+C (SIGINT, exit 130) and `kill` (SIGTERM, exit 143) both stop the services the run started, close the drivers and restore the device's keyboards before the process exits.
 
 ### Step Run Lifecycle
 1. **Per-Attempt Tracking**: Each step attempt (initial execution or retry) creates a `step_runs` record with `status = "RUNNING"`.

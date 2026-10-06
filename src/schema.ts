@@ -1,3 +1,5 @@
+import { relative } from "node:path"
+import { fileURLToPath } from "node:url"
 import { Ajv, type ErrorObject } from "ajv"
 import flowSchema from "../schema/v1/flow.schema.json" with { type: "json" }
 import scenarioSchema from "../schema/v1/scenario.schema.json" with { type: "json" }
@@ -16,4 +18,12 @@ export function describeErrors(errors: ErrorObject[] | null | undefined): string
     if (error.keyword === "enum") return `${line}: ${error.params.allowedValues.join(", ")}`
     return line
   })
+}
+
+/**
+ * The `$schema` value for a scenario file in `dir`: a relative path to this package's scenario schema,
+ * wherever the package is installed (a dependency, a global link, a checkout), so editors find it.
+ */
+export function scenarioSchemaRef(dir: string): string {
+  return relative(dir, fileURLToPath(new URL("../schema/v1/scenario.schema.json", import.meta.url)))
 }

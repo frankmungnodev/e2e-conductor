@@ -22,7 +22,7 @@ function act(ctx: RouteContext, action: (hold: HoldController) => void) {
 function stepProblems(state: ServerState, step: Step): string[] {
   const scenario = { id: "retry", name: "retry", steps: [step] }
   const problems = validateScenario(scenario) ? [] : describeErrors(validateScenario.errors)
-  return [...problems, ...checkSteps(state.config, scenario, new Set())]
+  return [...problems, ...checkSteps(state.config, scenario)]
 }
 
 export const holdRoutes: Route[] = [

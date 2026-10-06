@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS platforms (
   - *Waiting*: `wait_for`, `wait_for_url`, `wait_for_load_state`
   - *Assertions*: `assert_visible`, `assert_not_visible`, `assert_text`, `assert_not_text`, `assert_value`, `assert_checked`, `assert_not_checked`, `assert_disabled`, `assert_enabled`, `assert_url`, `assert_title`
   - *Viewport & Utilities*: `set_viewport`, `screenshot`, `eval`
-- **Modules (Optional)**: Optional directory of TypeScript step files (default `.e2e/modules`) exporting a `WebStep` function for custom script execution.
+- **Modules (not run)**: `modules` is still stored, but no step runs a TypeScript module any more. A step with `run` or `params` fails validation (`scenarios.md`, section 2).
 - **Service Dependency**: Must link to a backing HTTP service for its base URL.
 - **Options**: `headless` (toggle browser UI) and `slowMo` (delay per action for visual debugging).
 
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS platforms (
 - **Driver**: `"mobile"` (`MobileTarget` in `src/config.ts`) powered by ADB and UIAutomator.
 - **Declarative Actions**: Executes gestures and assertions directly (`tap`, `type`, `press`, `swipe`, `assert_visible`, `wait`, `launch`) via ADB without requiring YAML flow files.
 - **Package**: `appId` specifies the application identifier.
-- **Flows (Optional)**: Optional directory containing legacy YAML flow files (default `.e2e/flows`).
+- **Flows (not run)**: `flows` is still stored and the GUI can edit flow files, but no step runs a YAML flow any more. A step with `flow` fails validation (`scenarios.md`, section 2).
 - **Device Setup**: `grantPermissions` auto-granted on launch; `reversePorts` forwarded via `adb reverse`.
 
 ### API (`type: "api"`)

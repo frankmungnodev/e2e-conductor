@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs"
 import { AssertionFailure, prefixError } from "../assertions.ts"
 import type { Logger } from "../config.ts"
-import { parseFlow } from "../flow.ts"
 import { runAdb, sleep } from "../process.ts"
 
 /**
@@ -264,14 +262,6 @@ export class AdbFlowRunner {
       default:
         throw new Error(`unsupported flow command "${name}"`)
     }
-  }
-
-  /** Run a flow file. `vars` replace `${NAME}` in it. */
-  async runFlow(file: string, vars: Record<string, string>) {
-    const source = readFileSync(file, "utf8").replace(/\$\{(\w+)\}/g, (whole, name: string) => vars[name] ?? whole)
-    const { header, commands } = parseFlow(source)
-    const appId = String((header as { appId?: string } | undefined)?.appId ?? vars.APP_ID)
-    await this.runCommands((commands ?? []) as unknown[], appId)
   }
 
   /** Run flow commands in order, logging each with its duration. */

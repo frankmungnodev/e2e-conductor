@@ -42,8 +42,6 @@ export type WebTarget = TargetBase & {
   service: string
   /** Folder of web step modules, relative to the config file. */
   modules: string
-  /** Module run once per scenario before the first step on this target. */
-  login?: string
   headless?: boolean
   /** Milliseconds added to every Playwright action, so a person can follow along. */
   slowMo?: number

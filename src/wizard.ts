@@ -4,6 +4,7 @@ import type { DatabaseSync } from "node:sqlite"
 import { saveEnvironment } from "./db/environments.ts"
 import { resolveProjectDir } from "./db/paths.ts"
 import { savePlatform } from "./db/platforms.ts"
+import { scenarioSchemaRef } from "./schema.ts"
 
 export type ComponentType = "api" | "web" | "android"
 
@@ -229,50 +230,29 @@ export function scaffoldWizardFiles(
         assert: { status: 200 },
       })
     } else if (comp.type === "web") {
-      const modulesDir = comp.modules || `.e2e/modules/${comp.name}`
-      const stepFile = `${modulesDir}/sample_step.ts`
-      writeFile(
-        stepFile,
-        `import { defineWebStep } from "e2e-orchestrator"
-
-export default defineWebStep(async ({ page, baseUrl, log }) => {
-  log("Navigating to home page")
-  await page.goto(baseUrl)
-  await page.waitForLoadState("domcontentloaded")
-  return { title: await page.title() }
-})
-`,
-      )
-
       smokeScenarioSteps.push({
         name: `load ${comp.name} home page`,
         target: comp.name,
-        run: "sample_step",
+        actions: [
+          { action: "navigate", url: "/" },
+          { action: "wait_for_load_state", value: "domcontentloaded" },
+        ],
       })
     } else if (comp.type === "android") {
-      const flowsDir = comp.flows || `.e2e/flows/${comp.name}`
-      const flowFile = `${flowsDir}/smoke.yaml`
-      writeFile(
-        flowFile,
-        `# Starter Android Mobile Flow for ${comp.name}
-- launch
-- wait: 2000
-`,
-      )
-
       smokeScenarioSteps.push({
         name: `launch ${comp.name} on device`,
         target: comp.name,
-        flow: "smoke",
+        launch: "fresh",
+        actions: [{ action: "wait", ms: 2000 }],
       })
     }
   }
 
   // Write smoke scenario under .e2e/scenarios/smoke.json
   const smokeScenario = {
-    $schema: "../../node_modules/e2e-orchestrator/schema/v1/scenario.schema.json",
+    $schema: scenarioSchemaRef(join(rootDir, ".e2e", "scenarios")),
     name: "Full Stack Smoke Journey",
-    steps: smokeScenarioSteps.length > 0 ? smokeScenarioSteps : [{ name: "initial placeholder", target: "shell", cmd: "echo ok" }],
+    steps: smokeScenarioSteps.length > 0 ? smokeScenarioSteps : [{ name: "initial placeholder", target: "shell", command: "echo ok" }],
   }
 
   writeFile(".e2e/scenarios/smoke.json", `${JSON.stringify(smokeScenario, null, 2)}\n`)

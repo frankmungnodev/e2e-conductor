@@ -4,6 +4,7 @@ import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { loadConfig } from "../src/config.ts"
 import { openDatabase } from "../src/db/connection.ts"
+import { validateScenario } from "../src/schema.ts"
 import {
   detectWorkspace,
   saveWizardComponentsToDb,
@@ -115,9 +116,7 @@ describe("wizard config generator", () => {
     ]
 
     const res = scaffoldWizardFiles(dir, components)
-    assert.ok(res.created.includes(".e2e/scenarios/smoke.json"))
-    assert.ok(res.created.includes(".e2e/modules/admin/sample_step.ts"))
-    assert.ok(res.created.includes(".e2e/flows/driver/smoke.yaml"))
+    assert.deepEqual(res.created, [".e2e/scenarios/smoke.json"], "steps are actions, with no module or flow files")
 
     // Verify smoke scenario steps follow the run order
     const smokeContent = JSON.parse(readFileSync(join(dir, ".e2e/scenarios/smoke.json"), "utf8"))
@@ -125,11 +124,16 @@ describe("wizard config generator", () => {
     assert.equal(smokeContent.steps[0].target, "core_api")
     assert.equal(smokeContent.steps[1].target, "admin_web")
     assert.equal(smokeContent.steps[2].target, "driver_app")
+    assert.equal(smokeContent.steps[1].actions[0].action, "navigate")
+    assert.equal(smokeContent.steps[2].launch, "fresh")
+    assert.ok(validateScenario(smokeContent), "the starter scenario passes the schema")
+    const schema = readFileSync(join(dir, ".e2e/scenarios", String(smokeContent.$schema)), "utf8")
+    assert.ok(schema.includes("urn:e2e-orchestrator:scenario:v1"), "$schema resolves to the installed package")
 
     // Running again should skip existing files
     const res2 = scaffoldWizardFiles(dir, components)
     assert.equal(res2.created.length, 0)
-    assert.equal(res2.skipped.length, 3)
+    assert.equal(res2.skipped.length, 1)
   })
 
   it("detects projects in workspace directory", () => {

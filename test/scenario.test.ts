@@ -7,14 +7,12 @@ import { loadScenarios, targetsUsed } from "../src/scenario.ts"
 import { tempDir } from "./temp-dir.ts"
 
 /** A config folder with the given scenario files and flow files. */
-function project(scenarios: Record<string, unknown>, flows: Record<string, string> = {}): LoadedConfig {
+function project(scenarios: Record<string, unknown>): LoadedConfig {
   const dir = tempDir("scenario")
   mkdirSync(join(dir, "scenarios"))
-  mkdirSync(join(dir, "flows"))
   for (const [name, scenario] of Object.entries(scenarios)) {
     writeFileSync(join(dir, "scenarios", name), JSON.stringify(scenario))
   }
-  for (const [name, flow] of Object.entries(flows)) writeFileSync(join(dir, "flows", name), flow)
   return {
     configDir: dir,
     env: {},
@@ -47,15 +45,14 @@ describe("loadScenarios", () => {
           setup: ["seed"],
           steps: [
             { name: "health", target: "api", url: "/health", assert: { status: 200 } },
-            { name: "open", target: "app", flow: "login.yaml", launch: "fresh" },
-            { name: "dynamic", target: "app", flow: "${ctx.flow}.yaml" },
+            { name: "open", target: "app", launch: "fresh" },
+            { name: "tap", target: "app", actions: [{ action: "tap", selector: "${ctx.button}" }] },
             { name: "echo", target: "shell", command: "echo hi" },
           ],
         },
         "a-health.json": { name: "Health", steps: [{ name: "ping", target: "api", url: "/" }] },
         "notes.txt": "ignored",
       },
-      { "login.yaml": "- launchApp\n" },
     )
     const scenarios = loadScenarios(config)
     assert.deepEqual(
@@ -111,22 +108,24 @@ describe("loadScenarios", () => {
       }),
     )
     assert.match(problems, /http step needs "actions" or "url"/)
-    assert.match(problems, /mobile step needs "actions", "action", "flow", or "launch"/)
+    assert.match(problems, /mobile step needs "actions", "action", or "launch"/)
   })
 
-  it("checks each named flow once", () => {
-    const step = { name: "s", target: "app", flow: "bad.yaml" }
+  it("rejects web modules, YAML flows and their params, which no step runs any more", () => {
     const problems = problemsOf(
-      project(
-        {
-          "x.json": { name: "X", steps: [step, step] },
-          "y.json": { name: "Y", steps: [{ name: "s", target: "app", flow: "missing.yaml" }] },
+      project({
+        "x.json": {
+          name: "X",
+          steps: [
+            { name: "w", target: "api", url: "/", run: "login", params: { user: "a" } },
+            { name: "m", target: "app", flow: "home.yaml" },
+          ],
         },
-        { "bad.yaml": "- tapOnn: x\n" },
-      ),
+      }),
     )
-    assert.equal(problems.match(/flow bad\.yaml:/g)?.length, 1)
-    assert.match(problems, /y\.json: steps\[0\] "s": flow not found: .*missing\.yaml/)
+    assert.match(problems, /steps\[0\] "w": "run": web modules are no longer run/)
+    assert.match(problems, /steps\[0\] "w": "params": "params" only fed web modules/)
+    assert.match(problems, /steps\[1\] "m": "flow": YAML flows are no longer run/)
   })
 
   it("accepts valid composite step actions for all drivers", () => {

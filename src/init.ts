@@ -9,6 +9,7 @@ import { resolveDbPath, resolveProjectDir } from "./db/paths.ts"
 import { savePlatform } from "./db/platforms.ts"
 import { getScenario, saveScenario } from "./db/scenarios.ts"
 import { color } from "./logger.ts"
+import { scenarioSchemaRef } from "./schema.ts"
 import {
   detectWorkspace,
   saveWizardComponentsToDb,
@@ -34,7 +35,6 @@ function openSeedTarget(dbPath: string): DatabaseSync | undefined {
 }
 
 const SMOKE = {
-  $schema: "../../node_modules/e2e-orchestrator/schema/v1/scenario.schema.json",
   name: "Smoke",
   steps: [{ name: "home responds", target: "api", url: "/", assert: { status: 200 } }],
 }
@@ -88,7 +88,8 @@ export function initProject(targetPath: string = process.cwd()): { created: stri
     skipped.push(smokePath)
   } else {
     mkdirSync(dirname(smokePath), { recursive: true })
-    writeFileSync(smokePath, `${JSON.stringify(SMOKE, null, 2)}\n`)
+    const file = { $schema: scenarioSchemaRef(dirname(smokePath)), ...SMOKE }
+    writeFileSync(smokePath, `${JSON.stringify(file, null, 2)}\n`)
     created.push(smokePath)
   }
 

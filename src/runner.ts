@@ -170,10 +170,12 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
       }
     }
   }
-  const onInterrupt = () => {
-    void cleanup().finally(() => process.exit(130))
-  }
-  process.once("SIGINT", onInterrupt)
+  // Ctrl+C sends SIGINT; `kill` and process managers send SIGTERM. Both must stop the services
+  // and restore the device, or the next run finds an exclusive service still up.
+  const onSigint = () => void cleanup().finally(() => process.exit(130))
+  const onSigterm = () => void cleanup().finally(() => process.exit(143))
+  process.once("SIGINT", onSigint)
+  process.once("SIGTERM", onSigterm)
 
   try {
     options.onEvent?.({ type: "preflight_start" })
@@ -186,7 +188,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
         drivers.set(name, new HttpDriver(serviceOf(config, target.service)))
       } else if (target.driver === "web") {
         const service = serviceOf(config, target.service)
-        drivers.set(name, new WebDriver(target, service, resolveFromConfig(config, target.modules)))
+        drivers.set(name, new WebDriver(target, service))
       } else if (target.driver === "mobile") {
         const setup = await prepareMobile(config, name, target, { install: options.install }, out)
         // Shell steps can then run plain `adb ...` against the device the run picked,
@@ -281,7 +283,8 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
       }
     }
   } finally {
-    process.removeListener("SIGINT", onInterrupt)
+    process.removeListener("SIGINT", onSigint)
+    process.removeListener("SIGTERM", onSigterm)
     settleStatus(summary, options.strict === true)
     summary.duration_ms = Date.now() - startedAt
     if (db && !options.checkOnly) {

@@ -76,6 +76,12 @@ Each scenario step represents a milestone or phase (e.g., *Admin Login*, *Add to
 - `assert`: Assertions to evaluate against the driver outcome (`assert_json`).
 - `extract`: Map of variable names to JSON path expressions extracted from step results into the execution context (`extract_json`).
 
+### Removed Step Fields
+`run` (a web module), `flow` (a YAML flow) and `params` (their arguments) are no longer run by any driver. Validation (`checkSteps` in `src/scenario.ts`) rejects a step that has one, with a message to write the step as `actions`, so `e2e list` fails instead of the run. The web target's `login` module option is gone for the same reason.
+
+### Web Assertions Wait
+`assert_text`, `assert_not_text`, `assert_value`, `assert_url` and `assert_title` re-read the page until the check holds or `timeout_ms` (default 10 s) runs out, like `assert_visible` waits for its element. A value that never matches fails as `Assertion failed`; an element that never appears fails as `Step error`.
+
 ### StepAction Structure
 Each action in `step.actions` executes sequentially within the step's driver session:
 - `id`: Optional client-side action ID.

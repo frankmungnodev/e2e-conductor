@@ -1,12 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
-import { type LoadedConfig, type MobileTarget, resolveFromConfig, SHELL_TARGET } from "./config.ts"
+import { type LoadedConfig, resolveFromConfig, SHELL_TARGET } from "./config.ts"
 import { withDb } from "./db/connection.ts"
 import { resolveDbPath } from "./db/paths.ts"
 import { type Assert, getScenarios, type Scenario, type Step, saveScenario } from "./db/scenarios.ts"
 import { getSetting, setSetting } from "./db/settings.ts"
 import { getStepPresets, type StepPreset, saveStepPreset } from "./db/step-presets.ts"
-import { checkFlow } from "./flow.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 
 export type { Assert, Scenario, Step, StepPreset }
@@ -18,11 +17,22 @@ const PRESETS_IMPORTED = "presets_imported_at"
 /** Fields each driver accepts on top of the common step fields. */
 const DRIVER_FIELDS: Record<string, string[]> = {
   http: ["actions", "method", "url", "headers", "body"],
-  web: ["actions", "action", "selector", "target_selector", "value", "key", "url", "ms", "width", "height", "run", "params"],
-  mobile: ["actions", "action", "selector", "value", "key", "ms", "flow", "launch", "params"],
+  web: ["actions", "action", "selector", "target_selector", "value", "key", "url", "ms", "width", "height"],
+  mobile: ["actions", "action", "selector", "value", "key", "ms", "launch"],
   shell: ["actions", "command", "cwd"],
 }
-const REQUIRED: Record<string, string> = { http: "url", web: "run", mobile: "flow", shell: "command" }
+/** Fields older versions ran and the drivers no longer do: a step that has one would fail at run time. */
+const REMOVED_FIELDS: Record<string, string> = {
+  run: 'web modules are no longer run; write the step as "actions"',
+  flow: 'YAML flows are no longer run; write the step as "actions"',
+  params: '"params" only fed web modules and YAML flows, which are no longer run',
+}
+const NEEDS: Record<string, string> = {
+  http: '"actions" or "url"',
+  web: '"actions" or "action"',
+  mobile: '"actions", "action", or "launch"',
+  shell: '"actions" or "command"',
+}
 const COMMON = new Set(["id", "name", "target", "extract", "assert", "timeout_ms", "retry"])
 
 function driverOf(config: LoadedConfig, target: string): string {
@@ -34,17 +44,7 @@ function driverOf(config: LoadedConfig, target: string): string {
   return found.driver
 }
 
-/** Problems in the flow a mobile step names. `checked` holds flows already reported, so each is reported once. */
-function checkStepFlow(config: LoadedConfig, step: Step, checked: Set<string>): string[] {
-  const target = config.targets[step.target] as MobileTarget
-  const file = join(resolveFromConfig(config, target.flows), step.flow as string)
-  if (checked.has(file)) return []
-  checked.add(file)
-  if (!existsSync(file)) return [`flow not found: ${file}`]
-  return checkFlow(file).map((problem) => `flow ${step.flow}: ${problem}`)
-}
-
-export function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlows: Set<string> = new Set()): string[] {
+export function checkSteps(config: LoadedConfig, scenario: Scenario): string[] {
   const errors: string[] = []
   for (const fixture of scenario.setup ?? []) {
     if (!config.fixtures?.[fixture]) errors.push(`setup: unknown fixture "${fixture}"`)
@@ -60,37 +60,18 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario, checkedFlow
     }
     const allowed = DRIVER_FIELDS[driver]
     for (const key of Object.keys(step)) {
-      if (!COMMON.has(key) && !allowed.includes(key)) {
+      if (REMOVED_FIELDS[key]) errors.push(`${where}: "${key}": ${REMOVED_FIELDS[key]}`)
+      else if (!COMMON.has(key) && !allowed.includes(key)) {
         errors.push(`${where}: "${key}" is not valid for a ${driver} target`)
       }
     }
     const hasRequired =
-      driver === "web"
-        ? (step.actions !== undefined && step.actions.length > 0) || step.action !== undefined || step.run !== undefined
-        : driver === "mobile"
-          ? (step.actions !== undefined && step.actions.length > 0) || step.action !== undefined || step.flow !== undefined || step.launch !== undefined
-          : driver === "http"
-            ? (step.actions !== undefined && step.actions.length > 0) || step.url !== undefined
-            : driver === "shell"
-              ? (step.actions !== undefined && step.actions.length > 0) || step.command !== undefined
-              : step[REQUIRED[driver] as keyof Step] !== undefined
-    if (!hasRequired) {
-      if (driver === "web") {
-        errors.push(`${where}: web step needs "actions", "action", or "run"`)
-      } else if (driver === "mobile") {
-        errors.push(`${where}: mobile step needs "actions", "action", "flow", or "launch"`)
-      } else if (driver === "http") {
-        errors.push(`${where}: http step needs "actions" or "url"`)
-      } else if (driver === "shell") {
-        errors.push(`${where}: shell step needs "actions" or "command"`)
-      } else {
-        errors.push(`${where}: ${driver} step needs "${REQUIRED[driver]}"`)
-      }
-    }
-    // A flow name with a placeholder is only known at run time; the mobile driver checks it then.
-    if (driver === "mobile" && step.flow !== undefined && !step.flow.includes("${")) {
-      for (const problem of checkStepFlow(config, step, checkedFlows)) errors.push(`${where}: ${problem}`)
-    }
+      (step.actions !== undefined && step.actions.length > 0) ||
+      (driver === "web" && step.action !== undefined) ||
+      (driver === "mobile" && (step.action !== undefined || step.launch !== undefined)) ||
+      (driver === "http" && step.url !== undefined) ||
+      (driver === "shell" && step.command !== undefined)
+    if (!hasRequired) errors.push(`${where}: ${driver} step needs ${NEEDS[driver]}`)
   })
   return errors
 }
@@ -156,13 +137,12 @@ export function loadScenarios(config: LoadedConfig, filters: string[] = []): Sce
   }
 
   const problems: string[] = []
-  const checkedFlows = new Set<string>()
   for (const scenario of filtered) {
     const label = `${scenario.id}.json`
     if (!validateScenario(scenario)) {
       for (const error of describeErrors(validateScenario.errors)) problems.push(`${label}: ${error}`)
     }
-    for (const error of checkSteps(config, scenario, checkedFlows)) {
+    for (const error of checkSteps(config, scenario)) {
       problems.push(`${label}: ${error}`)
     }
   }

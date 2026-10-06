@@ -128,8 +128,7 @@ describe("Full Test Suite Authoring via API", () => {
           {
             name: "Admin logs in",
             target: "admin",
-            run: "admin/login",
-            params: { user: "admin@example.com" },
+            actions: [{ action: "navigate", url: "/login" }],
           },
           {
             name: "API creates song",
@@ -147,8 +146,8 @@ describe("Full Test Suite Authoring via API", () => {
           {
             name: "Mobile app syncs",
             target: "app",
-            flow: "test.yaml",
             launch: "fresh",
+            actions: [{ action: "tap", selector: "id=sync" }],
           },
         ],
       }
