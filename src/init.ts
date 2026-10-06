@@ -61,7 +61,6 @@ export function initProject(targetPath: string = process.cwd()): { created: stri
       "dev",
       {
         description: "Local development baseline",
-        url: "http://localhost:3000",
         scenarios: ".e2e/scenarios",
         flows: ".e2e/flows",
         results: ".e2e/results",

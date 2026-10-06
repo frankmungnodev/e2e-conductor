@@ -39,6 +39,7 @@ export const platformRoutes: Route[] = [
             installCmd: body.installCmd?.trim() || undefined,
             grantPermissions: body.grantPermissions,
             reversePorts: body.reversePorts,
+            needs: body.needs,
           })
         })
 
@@ -127,6 +128,7 @@ export const platformRoutes: Route[] = [
             slowMo: body.slowMo,
             appId: body.appId !== undefined ? body.appId.trim() : undefined,
             configJson: body.configJson,
+            needs: body.needs,
           })
           return {
             envPlatforms: getEnvPlatforms(db, body.envName),

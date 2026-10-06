@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS platforms (
   install_cmd TEXT,                -- Command to build/install APK
   grant_permissions TEXT,          -- JSON array of Android permissions
   reverse_ports TEXT,              -- JSON array of ports for adb reverse
+  needs TEXT,                      -- JSON array of platform names this one depends on
   config_json TEXT,                -- Extension metadata
   created_at INTEGER,
   updated_at INTEGER
@@ -75,6 +76,10 @@ CREATE TABLE IF NOT EXISTS platforms (
 
 ---
 
+### Needs (any type)
+- `needs` lists other platforms this one depends on, by name: an admin web app or an Android app that calls an API platform lists that API. When a run uses a target, it also prepares (checks, starts if allowed) the services of every platform the target needs, transitively, and the post-failure re-check covers them (`runs.md`, section 3). A needed platform that does not exist fails config loading.
+- `needs` is stored on the platform only; environments do not override it.
+
 ## 4. Multi-Environment Overrides (`env_platform`)
 
 The `env_platform` junction table (`src/db/env-platforms.ts`) provides per-environment overrides with **sparse field inheritance**:
@@ -99,7 +104,7 @@ CREATE TABLE IF NOT EXISTS env_platform (
 ```
 
 ### Inheritance Invariant
-Any null or undefined field in `env_platform` inherits directly from the base `platforms` row. Overrides only store changed fields. Disabled platforms (`enabled = 0`) are completely omitted from the compiled targets.
+Any null or undefined field in `env_platform` inherits directly from the base `platforms` row. Overrides only store changed fields. Disabled platforms (`enabled = 0`) are completely omitted from the compiled targets. Saving a platform links it to every environment, and saving an environment links it to every platform, with rows that store no field values, so a later edit to a platform reaches every environment that does not override that field. Opening a database clears stored values that equal the platform's, which older versions wrote by copying the platform when linking.
 
 ---
 

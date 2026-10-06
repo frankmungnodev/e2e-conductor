@@ -38,7 +38,7 @@ function platform(fields: Partial<PlatformWithEnvOverrides>): PlatformWithEnvOve
 
 describe("overrideFormValues", () => {
   it("prefers the environment pivot, then the base platform, then the form default (web)", () => {
-    const plat = platform({ type: "web", name: "site", url: "http://base", startCmd: "base-start", modules: "./m", slowMo: 10 })
+    const plat = platform({ type: "web", name: "site", url: "http://base", startCmd: "base-start", modules: "./m", slowMo: 10, needs: ["api", "db"] })
     const pivot = { envName: "dev", platformId: "plat-x", enabled: true, url: "http://pivot", headless: true } as EnvPlatformRecord
     assert.deepEqual(overrideFormValues(plat, pivot), {
       web: {
@@ -50,6 +50,7 @@ describe("overrideFormValues", () => {
         slowMo: 10,
         headless: true,
         exclusive: false,
+        needs: "api, db",
       },
     })
   })
@@ -65,6 +66,7 @@ describe("overrideFormValues", () => {
       cwd: "",
       reversePorts: "8080",
       grantPermissions: "a.CAMERA, b.MIC",
+      needs: "",
     })
     assert.equal(overrideFormValues(platform({ type: "android", reversePorts: [3000, 4000] }), undefined).mobile?.reversePorts, "3000, 4000")
   })
@@ -113,7 +115,7 @@ describe("workspace detection", () => {
 describe("buildOverridePayload", () => {
   it("trims web fields and nests modules and exclusive in configJson", () => {
     const forms = defaults()
-    forms.web = { ...forms.web, url: " http://x ", startCmd: " s ", modules: " ", slowMo: 0 }
+    forms.web = { ...forms.web, url: " http://x ", startCmd: " s ", modules: " ", slowMo: 0, needs: " api, ,db " }
     assert.deepEqual(buildOverridePayload("web", forms, base), {
       ok: true,
       value: {
@@ -124,6 +126,7 @@ describe("buildOverridePayload", () => {
         headless: false,
         slowMo: undefined,
         configJson: { modules: undefined, exclusive: false },
+        needs: ["api", "db"],
       },
     })
   })

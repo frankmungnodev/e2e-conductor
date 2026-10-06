@@ -17,6 +17,8 @@ export type WebFormValues = {
   slowMo: number
   headless: boolean
   exclusive: boolean
+  /** Comma-separated names of platforms this one depends on. */
+  needs: string
 }
 
 export type MobileFormValues = {
@@ -27,6 +29,7 @@ export type MobileFormValues = {
   cwd: string
   reversePorts: string
   grantPermissions: string
+  needs: string
 }
 
 export type ApiFormValues = {
@@ -49,6 +52,7 @@ export const WEB_DEFAULTS: WebFormValues = {
   slowMo: 50,
   headless: false,
   exclusive: false,
+  needs: "",
 }
 
 export const MOBILE_DEFAULTS: MobileFormValues = {
@@ -59,6 +63,7 @@ export const MOBILE_DEFAULTS: MobileFormValues = {
   cwd: "",
   reversePorts: "8080",
   grantPermissions: "",
+  needs: "",
 }
 
 export const API_DEFAULTS: ApiFormValues = {
@@ -97,6 +102,7 @@ export function overrideFormValues(
         slowMo: currentPivot?.slowMo ?? overridePlatform.slowMo ?? 50,
         headless: currentPivot?.headless ?? overridePlatform.headless ?? false,
         exclusive: (cfg?.exclusive as boolean) ?? overridePlatform.exclusive ?? false,
+        needs: (overridePlatform.needs ?? []).join(", "),
       },
     }
   }
@@ -112,6 +118,7 @@ export function overrideFormValues(
         cwd: currentPivot?.cwd ?? overridePlatform.cwd ?? "",
         reversePorts: ports.length > 0 ? ports.join(", ") : "8080",
         grantPermissions: perms.join(", "),
+        needs: (overridePlatform.needs ?? []).join(", "),
       },
     }
   }
@@ -195,6 +202,7 @@ export function buildOverridePayload(
           modules: web.modules.trim() || undefined,
           exclusive: web.exclusive,
         },
+        needs: parseList(web.needs),
       },
     }
   }
@@ -214,6 +222,7 @@ export function buildOverridePayload(
           reversePorts: ports.length > 0 ? ports : undefined,
           grantPermissions: permissions.length > 0 ? permissions : undefined,
         },
+        needs: parseList(mobile.needs),
       },
     }
   }
@@ -253,6 +262,7 @@ export function buildNewPlatform(platform: WizardComponentType, forms: PlatformF
         slowMo: web.slowMo || undefined,
         headless: web.headless,
         exclusive: web.exclusive,
+        needs: parseList(web.needs),
       },
     }
   }
@@ -274,6 +284,7 @@ export function buildNewPlatform(platform: WizardComponentType, forms: PlatformF
         cwd: mobile.cwd.trim() || undefined,
         reversePorts: ports.length > 0 ? ports : undefined,
         grantPermissions: permissions.length > 0 ? permissions : undefined,
+        needs: parseList(mobile.needs),
       },
     }
   }

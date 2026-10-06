@@ -127,7 +127,9 @@ The re-check (`findDown` in `src/health.ts`) runs only after a step's **final** 
 
 The label is a hint, not proof: a service that crashed and recovered before the re-check reads as healthy.
 
-**Known limit:** Android and shell targets name no service. A run made only of Android and shell scenarios prepares no services, so the re-check covers only the device, and a backend dying behind the app reads as `Step error`. Runs that also include an API or web target for that backend are covered.
+A platform's `needs` (`platforms.md`, section 3) adds the services of the platforms it lists to what the run prepares, so an Android app or web app that needs an API platform gets that API's service re-checked too, even in a run whose steps never call the API.
+
+**Known limit:** Shell targets name no service, and an Android or web platform without `needs` names only its own (a web app) or none (an Android app). A backend dying behind such a target reads as `Step error`.
 
 ### Environment-down stop
 When a failure is labeled `Environment down`, the run stops. No further steps or scenarios run. The stop is a normal return, not a throw, so `summary.json`, the result line and the `finish` event are always written. The run is stored `FAILED` (never `CANCELLED`) with `reason = "environment down"`, and every scenario-iteration it never reached is listed in `summary.notRun`. Counts always add up: `passed + failed + notRun = total`. The CLI exits 1.

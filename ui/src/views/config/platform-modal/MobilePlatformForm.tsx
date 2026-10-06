@@ -102,6 +102,18 @@ export function MobilePlatformForm({ values, set, isOverride }: MobilePlatformFo
           mono
         />
       </FormField>
+
+      <FormField
+        label="Needs Platforms"
+        hint="Platforms this app calls (comma separated), e.g. api. Their services are started and checked whenever it runs. Applies to every environment."
+      >
+        <Input
+          value={values.needs}
+          onChange={(e) => set("needs", e.target.value)}
+          placeholder="e.g. api"
+          mono
+        />
+      </FormField>
     </div>
   )
 }

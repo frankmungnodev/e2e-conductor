@@ -26,9 +26,18 @@ export type ServiceConfig = {
   exclusive?: boolean
 }
 
-export type HttpTarget = { driver: "http"; service: string }
+/** Fields every target has. */
+type TargetBase = {
+  /**
+   * Other targets this one depends on, e.g. a web app or Android app that calls an API. Their
+   * services are prepared and re-checked whenever this target runs, even if no step uses them.
+   */
+  needs?: string[]
+}
 
-export type WebTarget = {
+export type HttpTarget = TargetBase & { driver: "http"; service: string }
+
+export type WebTarget = TargetBase & {
   driver: "web"
   service: string
   /** Folder of web step modules, relative to the config file. */
@@ -40,7 +49,7 @@ export type WebTarget = {
   slowMo?: number
 }
 
-export type MobileTarget = {
+export type MobileTarget = TargetBase & {
   driver: "mobile"
   platform: "android"
   appId: string
@@ -177,17 +186,14 @@ export async function loadConfig(configDirOrDbPath?: string, envName?: string): 
         }
       }
     }
-    if (selectedEnv.url) {
-      const srvKeys = Object.keys(services)
-      if (srvKeys.length === 1) {
-        services[srvKeys[0]] = { ...services[srvKeys[0]], url: selectedEnv.url }
-      }
-    }
   }
 
   for (const [name, target] of Object.entries(targets)) {
     if (target.driver !== "mobile" && !services[target.service]) {
       throw new Error(`Target "${name}" uses unknown service "${target.service}"`)
+    }
+    for (const needed of target.needs ?? []) {
+      if (!targets[needed]) throw new Error(`Target "${name}" needs unknown target "${needed}"`)
     }
   }
 
@@ -257,6 +263,21 @@ export function starterConfig(configDir = process.cwd()): LoadedConfig {
     targets,
     fixtures,
   }
+}
+
+/** The services a set of targets uses, including those of the targets they need, transitively. */
+export function servicesNeeded(config: LoadedConfig, targetNames: Iterable<string>): Set<string> {
+  const services = new Set<string>()
+  const seen = new Set<string>()
+  const visit = (name: string) => {
+    const target = config.targets[name]
+    if (!target || seen.has(name)) return
+    seen.add(name)
+    if (target.driver !== "mobile") services.add(target.service)
+    for (const needed of target.needs ?? []) visit(needed)
+  }
+  for (const name of targetNames) visit(name)
+  return services
 }
 
 export function serviceOf(config: LoadedConfig, name: string): ServiceConfig {

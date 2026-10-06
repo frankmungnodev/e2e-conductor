@@ -68,6 +68,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
       install_cmd TEXT,
       grant_permissions TEXT,
       reverse_ports TEXT,
+      needs TEXT,
       config_json TEXT,
       created_at INTEGER,
       updated_at INTEGER
@@ -212,53 +213,16 @@ export function openDatabase(dbPath: string): DatabaseSync {
   addMissingColumn(db, "step_runs", "failure_label", "TEXT")
   addMissingColumn(db, "runs", "fixed_scenarios", "INTEGER DEFAULT 0")
   addMissingColumn(db, "step_runs", "manual", "INTEGER DEFAULT 0")
+  addMissingColumn(db, "platforms", "needs", "TEXT")
 
-  // Backfill env_platform if it's empty but platforms and environments exist
-  try {
-    const epCountRow = db.prepare("SELECT COUNT(*) as cnt FROM env_platform").get() as { cnt: number } | undefined
-    if ((epCountRow?.cnt ?? 0) === 0) {
-      const envRows = db.prepare("SELECT name FROM environments").all() as Array<{ name: string }>
-      const platRows = db.prepare("SELECT * FROM platforms").all() as Array<{
-        id: string
-        url?: string | null
-        health?: string | null
-        start_cmd?: string | null
-        cwd?: string | null
-        headless?: number | null
-        slow_mo?: number | null
-        app_id?: string | null
-        config_json?: string | null
-      }>
-
-      if (envRows.length > 0 && platRows.length > 0) {
-        const now = Date.now()
-        for (const env of envRows) {
-          for (const p of platRows) {
-            db.prepare(`
-              INSERT OR IGNORE INTO env_platform (
-                env_name, platform_id, enabled, url, health, start_cmd, cwd, headless, slow_mo, app_id, config_json, created_at, updated_at
-              ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(
-              env.name,
-              p.id,
-              p.url || null,
-              p.health || null,
-              p.start_cmd || null,
-              p.cwd || null,
-              p.headless ?? 0,
-              p.slow_mo ?? null,
-              p.app_id || null,
-              p.config_json || null,
-              now,
-              now,
-            )
-          }
-        }
-      }
-    }
-  } catch {
-    // Ignore migration backfill errors
+  // Older databases linked platforms by copying their fields, so an edit to a platform never reached
+  // an environment. Clear copied values that still equal the platform's, so they inherit again.
+  for (const column of ["url", "health", "start_cmd", "cwd", "slow_mo", "app_id", "config_json"]) {
+    db.exec(`UPDATE env_platform SET ${column} = NULL
+      WHERE ${column} IS (SELECT p.${column} FROM platforms p WHERE p.id = env_platform.platform_id)`)
   }
+  db.exec(`UPDATE env_platform SET headless = NULL
+    WHERE headless IS (SELECT COALESCE(p.headless, 0) FROM platforms p WHERE p.id = env_platform.platform_id)`)
 
   return db
 }

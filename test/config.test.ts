@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { join } from "node:path"
 import { describe, it } from "node:test"
-import { loadConfig, resolveFromConfig } from "../src/config.ts"
+import { loadConfig, resolveFromConfig, servicesNeeded } from "../src/config.ts"
 import { openDatabase } from "../src/db/connection.ts"
 import { saveEnvPlatform } from "../src/db/env-platforms.ts"
 import { saveEnvironment } from "../src/db/environments.ts"
@@ -108,5 +108,61 @@ describe("loadConfig", () => {
     assert.equal(stagingConfig.activeEnvironment, "staging")
     assert.equal(stagingConfig.services?.web.url, "https://staging.example.com")
     assert.equal(stagingConfig.env.APP_ENV, "staging")
+  })
+
+  it("takes a service's URL from its platform, not the environment URL, and follows platform edits", async () => {
+    const projectDir = join(dir, "proj-platform-edit")
+    const db = openDatabase(join(projectDir, ".e2e", "e2e.db"))
+    saveEnvironment(db, "dev", { url: "http://localhost:3000" })
+    const api = { id: "plat-api", name: "api", type: "api" as const, url: "http://localhost:3000", health: "/" }
+    savePlatform(db, api)
+    savePlatform(db, { ...api, url: "http://localhost:8787", health: "/health" })
+    db.close()
+
+    const config = await loadConfig(projectDir)
+    assert.equal(config.services?.api.url, "http://localhost:8787")
+    assert.equal(config.services?.api.health, "/health")
+  })
+
+  it("clears link values an older version copied from the platform, so platform edits reach them", async () => {
+    const projectDir = join(dir, "proj-copied-link")
+    const dbPath = join(projectDir, ".e2e", "e2e.db")
+    const db = openDatabase(dbPath)
+    saveEnvironment(db, "dev", {})
+    savePlatform(db, { id: "plat-api", name: "api", type: "api", url: "http://localhost:3000", health: "/" })
+    db.prepare("UPDATE env_platform SET url = 'http://localhost:3000', health = '/', headless = 0").run()
+    db.close()
+
+    const reopened = openDatabase(dbPath)
+    const link = reopened.prepare("SELECT url, health, headless FROM env_platform").get() as Record<string, unknown>
+    assert.deepEqual({ ...link }, { url: null, health: null, headless: null })
+    reopened.prepare("UPDATE platforms SET url = 'http://localhost:8787'").run()
+    reopened.close()
+
+    assert.equal((await loadConfig(projectDir)).services?.api.url, "http://localhost:8787")
+  })
+})
+
+describe("target needs", () => {
+  const dir = tempDir("e2e-config-needs-")
+
+  it("prepares the services of needed targets, transitively, and rejects an unknown one", async () => {
+    const projectDir = join(dir, "proj")
+    const db = openDatabase(join(projectDir, ".e2e", "e2e.db"))
+    saveEnvironment(db, "dev", {})
+    savePlatform(db, { id: "p-db", name: "db", type: "api", url: "http://localhost:5432" })
+    savePlatform(db, { id: "p-api", name: "api", type: "api", url: "http://localhost:8787", serviceName: "backend", needs: ["db"] })
+    savePlatform(db, { id: "p-web", name: "admin", type: "web", url: "http://localhost:3000", needs: ["api"] })
+    savePlatform(db, { id: "p-app", name: "app", type: "android", appId: "com.example", needs: ["api"] })
+    db.close()
+
+    const config = await loadConfig(projectDir)
+    assert.deepEqual([...servicesNeeded(config, ["admin"])].sort(), ["admin", "backend", "db"])
+    assert.deepEqual([...servicesNeeded(config, ["app"])].sort(), ["backend", "db"])
+
+    const broken = openDatabase(join(projectDir, ".e2e", "e2e.db"))
+    savePlatform(broken, { id: "p-web", name: "admin", type: "web", url: "http://localhost:3000", needs: ["nope"] })
+    broken.close()
+    await assert.rejects(loadConfig(projectDir), /Target "admin" needs unknown target "nope"/)
   })
 })

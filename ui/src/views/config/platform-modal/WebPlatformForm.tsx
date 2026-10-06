@@ -95,6 +95,18 @@ export function WebPlatformForm({ values, set, isOverride, capitalizedEnv }: Web
         </FormField>
       </div>
 
+      <FormField
+        label="Needs Platforms"
+        hint="Platforms this web app calls (comma separated), e.g. api. Their services are started and checked whenever it runs. Applies to every environment."
+      >
+        <Input
+          value={values.needs}
+          onChange={(e) => set("needs", e.target.value)}
+          placeholder="e.g. api"
+          mono
+        />
+      </FormField>
+
       <div className="space-y-2 pt-1">
         <Checkbox
           size="sm"

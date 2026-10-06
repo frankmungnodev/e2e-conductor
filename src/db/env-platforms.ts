@@ -14,6 +14,8 @@ export type EnvPlatformRecord = {
   slowMo?: number
   appId?: string
   configJson?: Record<string, unknown>
+  /** Saved on the platform itself, for every environment: needs has no per-environment override. */
+  needs?: string[]
 }
 
 export type PlatformWithEnvOverrides = PlatformRecord & {
@@ -22,6 +24,16 @@ export type PlatformWithEnvOverrides = PlatformRecord & {
   isLinked: boolean
   hasOverrides: boolean
   overriddenFields: string[]
+}
+
+/**
+ * Link a platform to an environment with no overrides, so every field inherits from the platform
+ * and later edits to the platform reach the environment. Keeps an existing link as it is.
+ */
+export function linkPlatform(db: DatabaseSync, envName: string, platformId: string, now = Date.now()): void {
+  db.prepare(
+    "INSERT OR IGNORE INTO env_platform (env_name, platform_id, enabled, created_at, updated_at) VALUES (?, ?, 1, ?, ?)",
+  ).run(envName, platformId, now, now)
 }
 
 export function getEnvPlatforms(db: DatabaseSync, envName?: string): EnvPlatformRecord[] {
@@ -96,6 +108,7 @@ export function getPlatformsForEnv(db: DatabaseSync, envName: string): PlatformW
     install_cmd?: string | null
     grant_permissions?: string | null
     reverse_ports?: string | null
+    needs?: string | null
     config_json?: string | null
     ep_enabled?: number | null
     ep_url?: string | null
@@ -220,6 +233,7 @@ export function getPlatformsForEnv(db: DatabaseSync, envName: string): PlatformW
       installCmd: effectiveInstallCmd,
       grantPermissions: effectiveGrantPermissions,
       reversePorts: effectiveReversePorts,
+      needs: safeJsonParse<string[]>(r.needs),
       configJson,
       envName,
       enabled,
@@ -232,6 +246,10 @@ export function getPlatformsForEnv(db: DatabaseSync, envName: string): PlatformW
 
 export function saveEnvPlatform(db: DatabaseSync, record: EnvPlatformRecord): void {
   const now = Date.now()
+  if (record.needs !== undefined) {
+    const needs = record.needs.length > 0 ? JSON.stringify(record.needs) : null
+    db.prepare("UPDATE platforms SET needs = ?, updated_at = ? WHERE id = ?").run(needs, now, record.platformId)
+  }
   const configJson = record.configJson ? JSON.stringify(record.configJson) : null
   const headlessVal = record.headless !== undefined ? (record.headless ? 1 : 0) : null
   const enabledVal = record.enabled ? 1 : 0

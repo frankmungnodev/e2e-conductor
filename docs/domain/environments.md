@@ -64,20 +64,14 @@ Scenarios reference these variables via `${env.VARIABLE_NAME}`. Fixtures inherit
 | **Mobile Flows** | `.e2e/flows` | `env.flows` | Relative to `configDir` |
 | **Run Results** | `.e2e/results` | `env.results` | `resolveFromConfig(config, config.results)` |
 
-### Single-Service URL Auto-Adoption
-If an environment specifies `url` and exactly **one** service exists in the resolved platform set, that service automatically adopts the environment's `url`:
-
-```typescript
-if (selectedEnv.url && Object.keys(services).length === 1) {
-  services[srvKeys[0]].url = selectedEnv.url
-}
-```
+### Environment URL
+`url` describes the environment and is shown in the GUI. It never changes a service's URL: a service's URL comes from its platform, or from that platform's override in the environment (`platforms.md`, section 4). An earlier version copied `url` onto the only service when there was exactly one, which silently replaced the platform's URL.
 
 ---
 
 ## 5. Lifecycle Operations
 
-- **Creation (`saveEnvironment`)**: Automatically creates default `env_platform` records for all existing platforms. If it is the first environment, it is marked active and default.
+- **Creation (`saveEnvironment`)**: Links every existing platform to the new environment with an `env_platform` row that overrides nothing, so all fields inherit from the platform. If it is the first environment, it is marked active and default.
 - **Active Switch (`setActiveEnvironment`)**: Atomically clears `is_active` on all environments, sets `is_active = 1` on the target, updates `settings.active_environment`, and triggers UI reload.
 - **Deletion (`deleteEnvironment`)**: Deletes all linked `env_platform` records. If the deleted environment was active or default, automatically promotes the next available alphabetical environment.
 

@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite"
 import type { EnvironmentConfig, ServiceConfig } from "../config.ts"
 import { safeJsonParse } from "./connection.ts"
-import { getPlatformsForEnv } from "./env-platforms.ts"
+import { getPlatformsForEnv, linkPlatform } from "./env-platforms.ts"
 import { platformsToTargetsAndServices } from "./platforms.ts"
 import { deleteSetting, getSetting, setSetting } from "./settings.ts"
 
@@ -103,46 +103,9 @@ export function saveEnvironment(
     now,
   )
 
-  // Seed env_platform links for all existing platforms
-  try {
-    const platRows = db.prepare("SELECT * FROM platforms").all() as Array<{
-      id: string
-      url?: string | null
-      health?: string | null
-      start_cmd?: string | null
-      cwd?: string | null
-      headless?: number | null
-      slow_mo?: number | null
-      app_id?: string | null
-      config_json?: string | null
-    }>
-
-    for (const p of platRows) {
-      const existingLink = db.prepare("SELECT 1 FROM env_platform WHERE env_name = ? AND platform_id = ?").get(name, p.id)
-      if (!existingLink) {
-        db.prepare(`
-          INSERT INTO env_platform (
-            env_name, platform_id, enabled, url, health, start_cmd, cwd, headless, slow_mo, app_id, config_json, created_at, updated_at
-          ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          name,
-          p.id,
-          p.url || null,
-          p.health || null,
-          p.start_cmd || null,
-          p.cwd || null,
-          p.headless ?? 0,
-          p.slow_mo ?? null,
-          p.app_id || null,
-          p.config_json || null,
-          now,
-          now,
-        )
-      }
-    }
-  } catch {
-    // ignore
-  }
+  // Link every existing platform, inheriting all of its fields
+  const platRows = db.prepare("SELECT id FROM platforms").all() as Array<{ id: string }>
+  for (const p of platRows) linkPlatform(db, name, p.id, now)
 }
 
 export function deleteEnvironment(db: DatabaseSync, name: string): void {

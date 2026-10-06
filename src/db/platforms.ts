@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite"
 import type { HttpTarget, MobileTarget, ServiceConfig, TargetConfig, WebTarget } from "../config.ts"
 import { safeJsonParse } from "./connection.ts"
-import type { PlatformWithEnvOverrides } from "./env-platforms.ts"
+import { linkPlatform, type PlatformWithEnvOverrides } from "./env-platforms.ts"
 
 export type PlatformRecord = {
   id: string
@@ -22,6 +22,8 @@ export type PlatformRecord = {
   installCmd?: string
   grantPermissions?: string[]
   reversePorts?: number[]
+  /** Names of other platforms whose services this one depends on, e.g. a web app that calls an API. */
+  needs?: string[]
   configJson?: Record<string, unknown>
 }
 
@@ -45,6 +47,7 @@ export function getPlatforms(db: DatabaseSync): PlatformRecord[] {
     install_cmd?: string | null
     grant_permissions?: string | null
     reverse_ports?: string | null
+    needs?: string | null
     config_json?: string | null
   }>
 
@@ -72,6 +75,7 @@ export function getPlatforms(db: DatabaseSync): PlatformRecord[] {
       installCmd: r.install_cmd || undefined,
       grantPermissions,
       reversePorts,
+      needs: safeJsonParse<string[]>(r.needs),
       configJson,
     }
   })
@@ -87,8 +91,8 @@ export function savePlatform(db: DatabaseSync, platform: PlatformRecord): void {
     INSERT INTO platforms (
       id, name, type, order_num, url, service_name, health, start_cmd, cwd,
       modules, slow_mo, headless, exclusive, app_id, flows, install_cmd,
-      grant_permissions, reverse_ports, config_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      grant_permissions, reverse_ports, needs, config_json, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(name) DO UPDATE SET
       type = excluded.type,
       order_num = excluded.order_num,
@@ -106,6 +110,7 @@ export function savePlatform(db: DatabaseSync, platform: PlatformRecord): void {
       install_cmd = excluded.install_cmd,
       grant_permissions = excluded.grant_permissions,
       reverse_ports = excluded.reverse_ports,
+      needs = excluded.needs,
       config_json = excluded.config_json,
       updated_at = excluded.updated_at
   `).run(
@@ -127,40 +132,15 @@ export function savePlatform(db: DatabaseSync, platform: PlatformRecord): void {
     platform.installCmd || null,
     grantPermsJson,
     reversePortsJson,
+    platform.needs?.length ? JSON.stringify(platform.needs) : null,
     configJson,
     now,
     now,
   )
 
-  // Seed env_platform links for all existing environments
-  try {
-    const envRows = db.prepare("SELECT name FROM environments").all() as Array<{ name: string }>
-    for (const env of envRows) {
-      const existingLink = db.prepare("SELECT 1 FROM env_platform WHERE env_name = ? AND platform_id = ?").get(env.name, platform.id)
-      if (!existingLink) {
-        db.prepare(`
-          INSERT INTO env_platform (
-            env_name, platform_id, enabled, url, health, start_cmd, cwd, headless, slow_mo, app_id, config_json, created_at, updated_at
-          ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          env.name,
-          platform.id,
-          platform.url || null,
-          platform.health || null,
-          platform.startCmd || null,
-          platform.cwd || null,
-          platform.headless ? 1 : 0,
-          platform.slowMo ?? null,
-          platform.appId || null,
-          configJson,
-          now,
-          now,
-        )
-      }
-    }
-  } catch {
-    // ignore
-  }
+  // Link the platform to every existing environment, inheriting all of its fields
+  const envRows = db.prepare("SELECT name FROM environments").all() as Array<{ name: string }>
+  for (const env of envRows) linkPlatform(db, env.name, platform.id, now)
 }
 
 export function deletePlatform(db: DatabaseSync, name: string): void {
@@ -197,6 +177,7 @@ export function platformsToTargetsAndServices(platforms: (PlatformRecord | Platf
         modules: p.modules || ".e2e/modules",
         slowMo: p.slowMo,
         headless: p.headless,
+        needs: p.needs,
       } as WebTarget
     } else if (p.type === "android") {
       targets[p.name] = {
@@ -207,6 +188,7 @@ export function platformsToTargetsAndServices(platforms: (PlatformRecord | Platf
         install: p.installCmd ? { cmd: p.installCmd, cwd: p.cwd } : undefined,
         grantPermissions: p.grantPermissions,
         reversePorts: p.reversePorts,
+        needs: p.needs,
       } as MobileTarget
     } else if (p.type === "api") {
       const srvName = p.serviceName || p.name
@@ -219,6 +201,7 @@ export function platformsToTargetsAndServices(platforms: (PlatformRecord | Platf
       targets[p.name] = {
         driver: "http",
         service: srvName,
+        needs: p.needs,
       } as HttpTarget
     }
   }

@@ -165,6 +165,7 @@ export type PlatformRecord = {
   installCmd?: string
   grantPermissions?: string[]
   reversePorts?: number[]
+  needs?: string[]
   configJson?: Record<string, unknown>
 }
 
@@ -180,6 +181,8 @@ export type EnvPlatformRecord = {
   slowMo?: number
   appId?: string
   configJson?: Record<string, unknown>
+  /** Saved on the platform itself, for every environment: needs has no per-environment override. */
+  needs?: string[]
 }
 
 export type PlatformWithEnvOverrides = PlatformRecord & {
@@ -390,6 +393,7 @@ export type WizardComponent = {
   flows?: string
   reversePorts?: number[]
   grantPermissions?: string[]
+  needs?: string[]
 }
 
 export type DetectedService = {

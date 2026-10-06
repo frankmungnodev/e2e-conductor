@@ -28,6 +28,7 @@ export type WizardComponent = {
   flows?: string
   reversePorts?: number[]
   grantPermissions?: string[]
+  needs?: string[]
 }
 
 export type DetectedService = {
@@ -187,6 +188,7 @@ export function saveWizardComponentsToDb(
       installCmd: comp.installCmd,
       grantPermissions: comp.grantPermissions,
       reversePorts: comp.reversePorts,
+      needs: comp.needs,
     })
   }
 }

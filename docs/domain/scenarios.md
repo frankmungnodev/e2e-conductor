@@ -88,7 +88,7 @@ Each action in `step.actions` executes sequentially within the step's driver ses
     - *Waiting*: `wait_for` (`wait`), `wait_for_url`, `wait_for_load_state`
     - *Assertions*: `assert_visible`, `assert_not_visible` (`assert_hidden`), `assert_text`, `assert_not_text`, `assert_value`, `assert_checked`, `assert_not_checked`, `assert_disabled`, `assert_enabled`, `assert_url`, `assert_title`
     - *Viewport & Utilities*: `set_viewport`, `screenshot`, `eval` (`script`)
-  - **Mobile**: `tap`, `type`, `press`, `swipe`, `assert_visible`, `assert_not_visible`, `wait_for`, `back`, `hidekeyboard`, `launch`, `stop`.
+  - **Mobile**: `tap`, `type`, `press`, `swipe`, `scroll_to`, `assert_visible`, `assert_not_visible`, `wait_for`, `back`, `hidekeyboard`, `launch`, `stop`. A mobile `selector` is `id=<resource id>` (a Compose `testTag` exposed as a resource id), or a full-match regex on the element's text or content description (`text=` prefix optional). `scroll_to` swipes until the selector is visible, in the direction in `key` (`DOWN` by default). `timeout_ms` sets how long `wait_for`, `assert_visible`, `assert_not_visible` and `scroll_to` wait. `wait_for` with `ms` pauses that long.
   - **HTTP**: `http_get`, `http_post`, `http_put`, `http_patch`, `http_delete`.
   - **Shell**: `shell`.
 - `selector`: CSS selector, XPath, or mobile element label/resource ID.
@@ -126,7 +126,8 @@ A **Preset** is a reusable **Step** template (storing target platform and pre-co
 1. **Single Source of Truth**: The SQLite database (`.e2e/e2e.db`) is the only store the API, Web GUI, and runner read and write. `POST` and `DELETE` on `/api/scenarios` and `/api/presets` change SQLite only and never touch JSON files. A failed database write returns HTTP 500.
 2. **One-Time Import**: The first time `getOrSeedScenarios()` (used by `loadScenarios()` and `GET /api/scenarios`) opens a database, it imports every valid `<scenarios folder>/*.json` file whose id the database does not have yet. It then records `scenarios_imported_at` in `settings` and never imports again, so a scenario deleted in the GUI does not come back from a leftover file. Presets follow the same rule with `<config folder>/presets/*.json` and `presets_imported_at`.
 3. **Export**: `e2e export`, `POST /api/export`, and the **Export to JSON** button on the Config view's Database tab all call `exportToJson()` in `src/export.ts`. It runs the one-time import first, then writes every scenario to `<scenarios folder>/<id>.json` (without the `id` field, which comes from the file name) and every preset to `<config folder>/presets/<id>.json`. It overwrites files with the same id and leaves files for deleted ids in place.
-4. **No Database Yet**: If the database file does not exist, reads fall back to the JSON files directly. The first save creates the database, and the next read runs the one-time import.
+4. **Import**: `e2e import` (`importFromJson()` in `src/import.ts`) saves every `<scenarios folder>/*.json` file into SQLite on request, keyed by file name, for scenarios written or edited as files after the one-time import ran. A new id is added; an existing one is replaced when the file's name, description, step ids or fingerprinted content (`runs.md`, section 5) differ, because importing is an explicit request and the file wins. A file step with no `id` matches any stored id, so re-importing an unchanged hand-written file changes nothing; a changed file without step ids gives its steps new UUIDs, which starts their run history over. Invalid files are listed with their problems and never saved, and the command exits 1. Scenarios with no file are left alone.
+5. **No Database Yet**: If the database file does not exist, reads fall back to the JSON files directly. The first save creates the database, and the next read runs the one-time import.
 
 ---
 
@@ -136,7 +137,7 @@ During test execution (`src/runner.ts`):
 
 1. **Setup Fixtures**: If `scenario.setup` contains fixture names, each fixture command is executed sequentially before any step starts.
 2. **Sequential Step Evaluation**: Steps are queried from `scenario_steps` ordered by `order_num ASC`.
-3. **Variable Interpolation**: Step fields undergo placeholder substitution (`${vars.X}`, `${env.Y}`, `${extract.Z}`).
+3. **Variable Interpolation**: Step fields undergo placeholder substitution: `${ctx.X}` reads the scenario's `vars` and every value extracted by an earlier step, `${env.Y}` the environment variables, `${run.Z}` the run (for example `${run.id}`). A string that is exactly one placeholder keeps the value's type.
 4. **Target Dispatch**: The step payload is routed to the designated target driver.
 5. **Assertion & Extraction**: Outcomes are validated against `assert` specifications, and matching values are stored into `scenarioContext.extract` for downstream steps.
 6. **Step Run Persistence**: Each step execution attempt is persisted in `step_runs`. Each scenario-iteration also records, when it starts, the fingerprint of the scenario content it runs (`runs.md`, section 5).

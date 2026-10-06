@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
 import type { FailureLabel } from "./assertions.ts"
-import { type LoadedConfig, resolveFromConfig, type ServiceConfig, SHELL_TARGET, serviceOf } from "./config.ts"
+import { type LoadedConfig, resolveFromConfig, type ServiceConfig, SHELL_TARGET, serviceOf, servicesNeeded } from "./config.ts"
 import { openDatabase } from "./db/connection.ts"
 import { resolveDbPath } from "./db/paths.ts"
 import { saveRun } from "./db/runs.ts"
@@ -180,7 +180,6 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     out.line(color.bold("Preflight"))
     for (const name of used) {
       const target = config.targets[name]
-      if (target && target.driver !== "mobile") serviceNames.add(target.service)
       if (name === SHELL_TARGET) {
         drivers.set(name, new ShellDriver(config.configDir))
       } else if (target.driver === "http") {
@@ -199,6 +198,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
       }
     }
 
+    for (const name of servicesNeeded(config, used)) serviceNames.add(name)
     // After the devices: their preflight also undoes device changes left by a crashed run,
     // which must not be skipped because a service check failed.
     services = await prepareServices(config, serviceNames, { start: options.start, logsDir: join(resultsDir, "services") }, out)
