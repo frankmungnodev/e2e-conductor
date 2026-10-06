@@ -139,7 +139,8 @@ export function openDatabase(dbPath: string): DatabaseSync {
       reason TEXT,
       recovered_steps INTEGER DEFAULT 0,
       not_run_scenarios INTEGER DEFAULT 0,
-      fixed_scenarios INTEGER DEFAULT 0
+      fixed_scenarios INTEGER DEFAULT 0,
+      pid INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS step_runs (
@@ -214,6 +215,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
   addMissingColumn(db, "runs", "fixed_scenarios", "INTEGER DEFAULT 0")
   addMissingColumn(db, "step_runs", "manual", "INTEGER DEFAULT 0")
   addMissingColumn(db, "platforms", "needs", "TEXT")
+  addMissingColumn(db, "runs", "pid", "INTEGER")
 
   // Older databases linked platforms by copying their fields, so an edit to a platform never reached
   // an environment. Clear copied values that still equal the platform's, so they inherit again.

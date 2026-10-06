@@ -53,9 +53,9 @@ export function RunControls({
           </div>
           <div className="flex items-center gap-1 text-xs text-fg-muted">
             <span>
-              {repeat > 1 ? `${repeat}x • ` : ""}
-              {pauseOnFailure ? "Pause • " : ""}
-              {headless ? "Silent" : "Visible"}
+              {repeat > 1 ? `${repeat} times · ` : ""}
+              {pauseOnFailure ? "Pause on failure · " : ""}
+              {headless ? "Browser hidden" : "Browser shown"}
             </span>
             {showOptions ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </div>

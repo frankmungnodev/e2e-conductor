@@ -10,14 +10,27 @@ export interface ScenarioPreviewProps {
   activePreviewScenario: ScenarioItem | null
   handleRunSingle: (scenarioId: string) => void
   config?: ConfigMeta
+  /** Shown once this session has run something: switches back to that run's steps and log. */
+  onShowRun?: () => void
+  isRunning?: boolean
 }
 
 /** Idle-state preview of the focused scenario and its configured steps. */
-export function ScenarioPreview({ activePreviewScenario, handleRunSingle, config }: ScenarioPreviewProps) {
+export function ScenarioPreview({ activePreviewScenario, handleRunSingle, config, onShowRun, isRunning }: ScenarioPreviewProps) {
   return (
     <div className="flex-1 flex overflow-y-auto p-6 bg-editor">
       {activePreviewScenario ? (
         <div className="max-w-3xl w-full mx-auto space-y-4">
+          {onShowRun && (
+            <div className="px-3 py-2 border border-info-border bg-info-bg rounded-xs flex items-center justify-between gap-3">
+              <span className="text-xs text-fg">
+                {isRunning ? "A run is in progress." : "Your last run's steps and log are still here."}
+              </span>
+              <Button size="xs" variant="primary" onClick={onShowRun}>
+                {isRunning ? "Back to Live Run" : "Back to Run Results"}
+              </Button>
+            </div>
+          )}
           {/* Scenario Preview Card */}
           <div className="bg-sidebar border border-border rounded-xs p-4 space-y-3">
             <div className="flex items-start justify-between gap-4">
@@ -42,6 +55,7 @@ export function ScenarioPreview({ activePreviewScenario, handleRunSingle, config
                 size="sm"
                 onClick={() => handleRunSingle(activePreviewScenario.id)}
                 icon={<Play className="w-3.5 h-3.5 fill-current" />}
+                className="whitespace-nowrap shrink-0"
               >
                 Run This Scenario
               </Button>
@@ -99,6 +113,11 @@ export function ScenarioPreview({ activePreviewScenario, handleRunSingle, config
                         </span>
                         {st.assert.status && <span>Status: {st.assert.status}</span>}
                         {st.assert.exit_code !== undefined && <span>Exit: {st.assert.exit_code}</span>}
+                        {st.assert.json_match && (
+                          <span>
+                            Response fields: {Object.keys(st.assert.json_match).join(", ")}
+                          </span>
+                        )}
                         {st.assert.output_contains && (
                           <span>Contains: "{st.assert.output_contains}"</span>
                         )}

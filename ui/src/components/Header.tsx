@@ -74,11 +74,11 @@ export function Header({
           </Badge>
         ) : lastSummaryStatus === "PASSED" ? (
           <Badge variant="success" size="sm" icon={<CheckCircle2 className="w-3 h-3 text-success" />}>
-            Passed
+            Last Run Passed
           </Badge>
         ) : lastSummaryStatus === "FAILED" ? (
           <Badge variant="danger" size="sm" icon={<XCircle className="w-3 h-3 text-error" />}>
-            Failed
+            Last Run Failed
           </Badge>
         ) : (
           <Badge variant="neutral" dot size="sm">

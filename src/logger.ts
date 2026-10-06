@@ -18,20 +18,27 @@ export type LogListener = (line: string, isDetail: boolean) => void
 
 /** Writes to the console and to a plain-text log file. */
 export class RunLog {
-  private file: string
+  private files: string[]
   private listener?: LogListener
 
-  constructor(file: string, onLine?: LogListener) {
-    this.file = file
-    mkdirSync(dirname(file), { recursive: true })
-    writeFileSync(file, "")
+  /** Every line goes to each of `files`. */
+  constructor(files: string[], onLine?: LogListener) {
+    this.files = files
+    for (const file of files) {
+      mkdirSync(dirname(file), { recursive: true })
+      writeFileSync(file, "")
+    }
     this.listener = onLine
+  }
+
+  private append(text: string) {
+    for (const file of this.files) appendFileSync(file, text)
   }
 
   line(text = "") {
     console.log(text)
     const clean = stripAnsi(text)
-    appendFileSync(this.file, `${clean}\n`)
+    this.append(`${clean}\n`)
     this.listener?.(clean, false)
   }
 
@@ -39,7 +46,7 @@ export class RunLog {
   detail(text: string) {
     if (process.env.E2E_VERBOSE === "1") console.log(color.dim(`      ${text}`))
     const clean = stripAnsi(text)
-    appendFileSync(this.file, `      ${clean}\n`)
+    this.append(`      ${clean}\n`)
     this.listener?.(clean, true)
   }
 }

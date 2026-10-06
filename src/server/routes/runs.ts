@@ -1,12 +1,13 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { extname, join } from "node:path"
+import { basename, extname, join } from "node:path"
 import { loadConfig, resolveFromConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { resolveDbPath } from "../../db/paths.ts"
-import { getRun, getRuns, getStepRuns } from "../../db/runs.ts"
-import { getScenarioRuns } from "../../db/scenario-runs.ts"
-import { replaceScenarioStep } from "../../db/scenarios.ts"
+import { effectiveStatus, getRun, getRuns, getStepRuns } from "../../db/runs.ts"
+import { getScenarioRuns, getScenarioVersion } from "../../db/scenario-runs.ts"
+import { getScenario, replaceScenarioStep } from "../../db/scenarios.ts"
 import { HoldController } from "../../hold.ts"
+import { buildRunReport } from "../../run-report.ts"
 import { type RunOptions, run, type Summary } from "../../runner.ts"
 import type { Step } from "../../scenario.ts"
 import { readBody, sendJson } from "../http.ts"
@@ -211,7 +212,7 @@ export const runRoutes: Route[] = [
               runsMap.set(r.id, {
                 runId: r.id,
                 timestamp: r.startedAt,
-                status: r.status,
+                status: effectiveStatus(r, state.activeRun?.runId),
                 environmentName: r.environmentName,
                 totalScenarios: r.totalScenarios,
                 passedScenarios: r.passedScenarios,
@@ -272,11 +273,17 @@ export const runRoutes: Route[] = [
       const dbPath = resolveDbPath(state.config.configDir)
       let dbRun: ReturnType<typeof getRun> | undefined
       let scenarioRuns: ReturnType<typeof getScenarioRuns> = []
+      const versions: Record<string, string | undefined> = {}
+      const names: Record<string, string> = {}
       if (existsSync(dbPath)) {
         try {
           withDb(dbPath, (db) => {
             dbRun = getRun(db, runId)
             scenarioRuns = getScenarioRuns(db, runId)
+            for (const { fingerprint, scenarioId } of scenarioRuns) {
+              versions[fingerprint] ??= getScenarioVersion(db, fingerprint)
+              names[scenarioId] ??= getScenario(db, scenarioId)?.name ?? scenarioId
+            }
           })
         } catch {
           // ignore
@@ -302,15 +309,16 @@ export const runRoutes: Route[] = [
         return sendJson(res, 404, { error: `Run ${runId} not found` })
       }
 
-      const runLogPath = join(resultsDir, "run.log")
-      let runLog = ""
-      if (existsSync(runLogPath)) {
-        runLog = readFileSync(runLogPath, "utf8")
-      }
+      // Each run keeps its own log since this version; older runs only have it if they were the latest.
+      const ownLog = join(runDir, "run.log")
+      const latestLog = join(resultsDir, "run.log")
+      const isLatest = latestRunId(resultsDir) === runId
+      const runLogPath = existsSync(ownLog) ? ownLog : isLatest && existsSync(latestLog) ? latestLog : undefined
+      const runLog = runLogPath ? readFileSync(runLogPath, "utf8") : ""
 
       return sendJson(res, 200, {
         runId,
-        status: dbRun?.status,
+        status: dbRun && effectiveStatus(dbRun, state.activeRun?.runId),
         environmentName: dbRun?.environmentName,
         durationMs: dbRun?.durationMs,
         totalScenarios: dbRun?.totalScenarios,
@@ -322,6 +330,7 @@ export const runRoutes: Route[] = [
         fixedScenarios: dbRun?.fixedScenarios,
         stepRuns: dbRun?.stepRuns ?? [],
         scenarioRuns,
+        report: buildRunReport({ scenarioRuns, stepRuns: dbRun?.stepRuns ?? [], versions, names, files: scenarioArtifacts }),
         scenarios: scenarioArtifacts,
         runLog,
       })
@@ -366,3 +375,13 @@ export const runRoutes: Route[] = [
     },
   },
 ]
+
+/** The run `summary.json` describes, which is the run `results/run.log` belongs to. */
+function latestRunId(resultsDir: string): string | undefined {
+  try {
+    const summary = JSON.parse(readFileSync(join(resultsDir, "summary.json"), "utf8")) as { artifacts?: string }
+    return summary.artifacts ? basename(summary.artifacts) : undefined
+  } catch {
+    return undefined
+  }
+}

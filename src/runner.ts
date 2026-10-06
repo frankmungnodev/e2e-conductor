@@ -113,7 +113,8 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
   const runId = new Date(startedAt).toISOString().replace(/[:.]/g, "-")
   const resultsDir = resolveFromConfig(config, config.results)
   const artifactsRoot = join(resultsDir, "artifacts", runId)
-  const out = new RunLog(join(resultsDir, "run.log"), (line, isDetail) => {
+  // The latest run's log, plus one kept with the run so Reports can show any past run's log.
+  const out = new RunLog([join(resultsDir, "run.log"), join(artifactsRoot, "run.log")], (line, isDetail) => {
     options.onEvent?.({ type: "log", text: line, level: isDetail ? "detail" : "info" })
   })
 
@@ -170,10 +171,38 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
       }
     }
   }
+  const saveFinalRun = (status: "PASSED" | "FAILED" | "CANCELLED") => {
+    if (!db || options.checkOnly) return
+    try {
+      saveRun(db, {
+        id: runId,
+        environmentName: config.activeEnvironment || config.env?.APP_ENV || "dev",
+        status,
+        totalScenarios: summary.total,
+        passedScenarios: summary.passed,
+        failedScenarios: summary.failed,
+        durationMs: Date.now() - startedAt,
+        artifactsDir: artifactsRoot,
+        startedAt,
+        completedAt: Date.now(),
+        reason: summary.reason,
+        recoveredSteps: summary.recovered,
+        notRunScenarios: summary.notRun.length,
+        fixedScenarios: summary.fixed,
+      })
+    } catch {
+      // ignore
+    }
+  }
   // Ctrl+C sends SIGINT; `kill` and process managers send SIGTERM. Both must stop the services
-  // and restore the device, or the next run finds an exclusive service still up.
-  const onSigint = () => void cleanup().finally(() => process.exit(130))
-  const onSigterm = () => void cleanup().finally(() => process.exit(143))
+  // and restore the device, or the next run finds an exclusive service still up. The run is stored
+  // as cancelled, so it does not show as running forever.
+  const interrupt = (code: number) => {
+    saveFinalRun("CANCELLED")
+    void cleanup().finally(() => process.exit(code))
+  }
+  const onSigint = () => interrupt(130)
+  const onSigterm = () => interrupt(143)
   process.once("SIGINT", onSigint)
   process.once("SIGTERM", onSigterm)
 
@@ -222,6 +251,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           failedScenarios: 0,
           artifactsDir: artifactsRoot,
           startedAt,
+          pid: process.pid,
         })
       } catch {
         // ignore
@@ -287,28 +317,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     process.removeListener("SIGTERM", onSigterm)
     settleStatus(summary, options.strict === true)
     summary.duration_ms = Date.now() - startedAt
-    if (db && !options.checkOnly) {
-      try {
-        saveRun(db, {
-          id: runId,
-          environmentName: config.activeEnvironment || config.env?.APP_ENV || "dev",
-          status: options.signal?.aborted ? "CANCELLED" : summary.status,
-          totalScenarios: summary.total,
-          passedScenarios: summary.passed,
-          failedScenarios: summary.failed,
-          durationMs: summary.duration_ms,
-          artifactsDir: artifactsRoot,
-          startedAt,
-          completedAt: Date.now(),
-          reason: summary.reason,
-          recoveredSteps: summary.recovered,
-          notRunScenarios: summary.notRun.length,
-          fixedScenarios: summary.fixed,
-        })
-      } catch {
-        // ignore
-      }
-    }
+    saveFinalRun(options.signal?.aborted ? "CANCELLED" : summary.status)
     await cleanup()
   }
 

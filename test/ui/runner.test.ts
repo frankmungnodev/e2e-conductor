@@ -19,7 +19,12 @@ describe("Runner view", () => {
       (s) => !s.isRunning && (s.lastSummary?.passed ?? 0) >= 1,
       20000,
     )
-    await page.getByText(/Passed: 1/).first().waitFor()
+    await page.getByText(/1 passed/).first().waitFor()
+    await page.getByText(SHELL_OUTPUT).first().waitFor()
+
+    // After a run, clicking a scenario shows it, and the run's results stay one click away.
+    await page.locator("aside").getByText(SHELL_SCENARIO_NAME).first().click()
+    await page.getByRole("button", { name: "Back to Run Results" }).click()
     await page.getByText(SHELL_OUTPUT).first().waitFor()
   })
 })
@@ -62,7 +67,7 @@ describe("Runner view options and failures", () => {
       (s) => !s.isRunning && s.lastSummary?.passed === 2,
       20000,
     )
-    await page.getByText(/Passed: 2/).first().waitFor()
+    await page.getByText(/2 passed/).first().waitFor()
   })
 
   it("reports a scenario whose step fails", async () => {
@@ -78,16 +83,16 @@ describe("Runner view options and failures", () => {
       (s) => !s.isRunning && (s.lastSummary?.failed ?? 0) >= 1,
       20000,
     )
-    await page.getByText(/Failed: 1/).first().waitFor()
+    await page.getByText(/1 failed/).first().waitFor()
     await page.getByText("Exit non-zero").first().waitFor()
     // A shell command exiting non-zero is a check the scenario expects, so it is an assertion failure.
     await page.getByText("Assertion Failed", { exact: true }).first().waitFor()
 
-    // Run history keeps the label on the failed step run.
-    await page.goto(`${url}/?tab=artifacts&subtab=steps`)
-    const stepRuns = page.getByRole("table")
-    await stepRuns.getByText("02-failing").first().waitFor()
-    await stepRuns.getByText("Assertion Failed", { exact: true }).waitFor()
+    // Reports leads with the outcome and opens the failed scenario on its failing step and label.
+    await page.goto(`${url}/?tab=artifacts`)
+    await page.getByRole("heading", { name: "1 scenario passed" }).or(page.getByRole("heading", { name: /failed/ })).waitFor()
+    await page.getByText("Failed at step 1: Exit non-zero").waitFor()
+    await page.getByText("Assertion Failed", { exact: true }).waitFor()
   })
 
   it("marks a step that passed on retry as recovered and still passes the run", async () => {
@@ -143,14 +148,14 @@ describe("Runner view options and failures", () => {
     const second = await runToEnd(2)
 
     await page.goto(`${url}/?tab=artifacts`)
-    await page.getByText(`Test Run: ${second.runs[0].runId}`).waitFor()
+    await page.getByText(`Run ${second.runs[0].runId}`).waitFor()
     await page.getByText("Changed Since Last Pass", { exact: true }).waitFor()
 
     // The run that passed with the original content has nothing to compare against.
-    await page.getByText(first.runs[0].runId).first().click()
-    await page.getByText(`Test Run: ${first.runs[0].runId}`).waitFor()
+    await page.getByRole("navigation", { name: "Run history" }).getByRole("button").nth(1).click()
+    await page.getByText(`Run ${first.runs[0].runId}`).waitFor()
     // The header switches before the new run's details load, so wait for the badge to go.
     await page.getByText("Changed Since Last Pass").waitFor({ state: "detached" })
-    await page.getByText("04-edited", { exact: true }).waitFor()
+    await page.getByText("Edited Smoke", { exact: true }).waitFor()
   })
 })

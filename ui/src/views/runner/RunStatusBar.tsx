@@ -3,12 +3,15 @@ import { Badge } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
 import { Input } from "../../components/FormControls.tsx"
 import { TabButton } from "../../components/Tabs.tsx"
+import { formatDuration } from "../../format.ts"
 import { ENVIRONMENT_DOWN, FIXED_DURING_RUN } from "../../runResult.ts"
 import type { RunSummary } from "../../types.ts"
 import type { ViewMode } from "./RunnerView.tsx"
 import type { RunCounts } from "./runCounts.ts"
 
 export interface RunStatusBarProps {
+  /** The run's steps and log are on screen, rather than a scenario preview. */
+  showingRun: boolean
   isRunning: boolean
   lastSummary?: RunSummary
   counts: RunCounts
@@ -23,6 +26,7 @@ export interface RunStatusBarProps {
 
 /** Run status badge, pass/fail counts, progress, view-mode tabs, and log controls. */
 export function RunStatusBar({
+  showingRun,
   isRunning,
   lastSummary,
   counts,
@@ -64,17 +68,24 @@ export function RunStatusBar({
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 text-xs font-mono">
-          <span className="text-success font-medium">Passed: {counts.passed}</span>
-          <span className="text-error font-medium">Failed: {counts.failed}</span>
-          {counts.fixed > 0 && <span className="text-warning font-medium">Fixed: {counts.fixed}</span>}
-          {counts.notRun > 0 && <span className="text-fg-muted">Not Run: {counts.notRun}</span>}
-          {counts.recovered > 0 && <span className="text-warning font-medium">Recovered: {counts.recovered}</span>}
-          <span className="text-fg-muted">Total: {counts.total}</span>
-          {lastSummary?.duration_ms !== undefined && (
-            <span className="text-fg-muted">({lastSummary.duration_ms}ms)</span>
-          )}
-        </div>
+        {counts.total > 0 && (
+          <div className="flex items-center gap-2.5 text-xs">
+            {!isRunning && <span className="text-fg-muted">Last run:</span>}
+            <span className="text-success font-medium">{counts.passed} passed</span>
+            <span className="text-error font-medium">{counts.failed} failed</span>
+            {counts.fixed > 0 && <span className="text-warning font-medium">{counts.fixed} fixed</span>}
+            {counts.notRun > 0 && <span className="text-fg-muted">{counts.notRun} not run</span>}
+            {counts.recovered > 0 && (
+              <span className="text-warning font-medium" title="Steps that failed first and passed on an automatic retry">
+                Recovered: {counts.recovered}
+              </span>
+            )}
+            <span className="text-fg-muted">of {counts.total}</span>
+            {!isRunning && lastSummary?.duration_ms !== undefined && (
+              <span className="text-fg-muted">in {formatDuration(lastSummary.duration_ms)}</span>
+            )}
+          </div>
+        )}
 
         {/* Progress Bar */}
         {counts.total > 0 && (
@@ -95,6 +106,7 @@ export function RunStatusBar({
       </div>
 
       {/* Right Toolbar: View Mode Selector & Console Buttons */}
+      {showingRun && (
       <div className="flex items-center gap-2">
         <div className="flex items-center bg-editor p-0.5 rounded-sm border border-border">
           <TabButton
@@ -102,7 +114,7 @@ export function RunStatusBar({
             active={viewMode === "split"}
             onClick={() => setViewMode("split")}
           >
-            Split View
+            Steps + Log
           </TabButton>
           <TabButton
             variant="pills"
@@ -135,9 +147,9 @@ export function RunStatusBar({
               size="xs"
               variant={autoScroll ? "primary" : "secondary"}
               onClick={() => setAutoScroll(!autoScroll)}
-              title="Toggle auto-scrolling log console"
+              title="Keep the newest log line in view"
             >
-              Auto-Scroll
+              Follow Log
             </Button>
 
             <Button
@@ -150,6 +162,7 @@ export function RunStatusBar({
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

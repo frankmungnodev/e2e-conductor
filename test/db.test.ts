@@ -9,7 +9,7 @@ import { deleteEnvironment, getActiveEnvironment, getDefaultEnvironment, getEnvi
 import { deleteFixture, getFixtures, saveFixture } from "../src/db/fixtures.ts"
 import { checkDbStatus, resolveDbPath, resolveProjectDir, writeDbPointer } from "../src/db/paths.ts"
 import { deletePlatform, getPlatforms, type PlatformRecord, platformsToTargetsAndServices, savePlatform } from "../src/db/platforms.ts"
-import { getRun, getRuns, getStepRuns, saveRun, saveStepRun } from "../src/db/runs.ts"
+import { effectiveStatus, getRun, getRuns, getStepRuns, saveRun, saveStepRun } from "../src/db/runs.ts"
 import { deleteScenario, getScenario, getScenarios, saveScenario } from "../src/db/scenarios.ts"
 import { deleteStepGroup, getStepGroup, getStepGroups, saveStepGroup } from "../src/db/step-groups.ts"
 import { deleteStepPreset, getStepPreset, getStepPresets, saveStepPreset } from "../src/db/step-presets.ts"
@@ -691,3 +691,14 @@ describe("sqlite db configuration storage", () => {
 })
 
 
+
+describe("effectiveStatus", () => {
+  const run = { id: "r", environmentName: "dev", status: "RUNNING" as const, totalScenarios: 1, passedScenarios: 0, failedScenarios: 0, startedAt: 1 }
+  it("keeps a run whose process is alive running, and reads a dead or unknown one as cancelled", () => {
+    assert.equal(effectiveStatus({ ...run, pid: process.pid }), "RUNNING")
+    assert.equal(effectiveStatus({ ...run, pid: 2 ** 22 + 12345 }), "CANCELLED")
+    assert.equal(effectiveStatus({ ...run }), "CANCELLED")
+    assert.equal(effectiveStatus({ ...run }, "r"), "RUNNING")
+    assert.equal(effectiveStatus({ ...run, status: "PASSED" }), "PASSED")
+  })
+})

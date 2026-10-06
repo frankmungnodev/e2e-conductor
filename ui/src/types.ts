@@ -286,8 +286,38 @@ export type ScenarioRunItem = {
   changedSinceLastPass: boolean
 }
 
+export type ReportFile = { name: string; url: string; isImage: boolean }
+
+/** One step as it ran, mirroring `StepReport` in src/run-report.ts. */
+export type StepReport = {
+  index: number
+  name: string
+  target: string
+  status: "PASSED" | "FAILED" | "RUNNING" | "NOT_RUN"
+  attempts: number
+  durationMs?: number
+  error?: string
+  failureLabel?: FailureLabel
+  recovered: boolean
+  fixedByHand: boolean
+  statusCode?: number
+}
+
+/** One scenario-iteration of a run, mirroring `ScenarioReport` in src/run-report.ts. */
+export type ScenarioReport = {
+  scenarioId: string
+  name: string
+  iteration: number
+  status: ScenarioRunItem["status"]
+  durationMs?: number
+  changedSinceLastPass: boolean
+  steps: StepReport[]
+  files: ReportFile[]
+}
+
 export type RunDetails = {
   runId: string
+  report?: ScenarioReport[]
   status?: string
   environmentName?: string
   durationMs?: number

@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS runs (
   reason TEXT,                     -- Why the run failed when no single step explains it: "environment down", "fixed during run" or "recovered steps (strict)"
   recovered_steps INTEGER DEFAULT 0,   -- Steps that passed only on a retry
   not_run_scenarios INTEGER DEFAULT 0, -- Scenario-iterations never reached because an environment-down failure stopped the run
-  fixed_scenarios INTEGER DEFAULT 0    -- Scenario-iterations that paused on a failure and passed after a manual retry
+  fixed_scenarios INTEGER DEFAULT 0,   -- Scenario-iterations that paused on a failure and passed after a manual retry
+  pid INTEGER                          -- The process running it (section 2, Interruption)
 );
 
 CREATE TABLE IF NOT EXISTS step_runs (
@@ -94,7 +95,9 @@ Execution progress follows a deterministic state machine:
 1. **Initialization**: When test execution starts (`run()` in `src/runner.ts`), a run record is inserted with `status = "RUNNING"` and `started_at = Date.now()`.
 2. **Execution**: Scenarios and steps execute sequentially or per-suite.
 3. **Completion**: In the execution `finally` block (prior to closing database connections), `saveRun()` updates the row with `completed_at`, computed `duration_ms`, scenario totals, the stop reason, the recovered and not-run counts, and the final status (see section 3).
-4. **Interruption**: Ctrl+C (SIGINT, exit 130) and `kill` (SIGTERM, exit 143) both stop the services the run started, close the drivers and restore the device's keyboards before the process exits.
+4. **Interruption**: Ctrl+C (SIGINT, exit 130) and `kill` (SIGTERM, exit 143) both store the run as `CANCELLED`, stop the services the run started, close the drivers and restore the device's keyboards before the process exits. A run whose process died without that (killed with SIGKILL, crashed, machine restarted) stays `RUNNING` in the table; `effectiveStatus` in `src/db/runs.ts` reads it as `CANCELLED` when its `pid` no longer exists, or when it has no `pid` (runs from before the column) and is not the server's active run. `GET /api/runs` and `GET /api/runs/:runId` return that status.
+5. **Logs**: every line goes to `<results>/run.log` (the newest run) and to `<results>/artifacts/<runId>/run.log` (kept with the run). `GET /api/runs/:runId` returns the run's own log, falls back to `run.log` only for the run `summary.json` describes, and returns an empty log otherwise.
+6. **Report**: `GET /api/runs/:runId` also returns `report`, built by `buildRunReport` in `src/run-report.ts`: one entry per scenario-iteration with its current scenario name, duration, files, and one row per step, named from the pinned content (section 5), its attempts collapsed into a status (`PASSED`, `FAILED`, `RUNNING`, `NOT_RUN`), the last failure's error and label, and whether it passed on an automatic retry (recovered) or a manual one. The Reports tab shows this, failed scenarios first.
 
 ### Step Run Lifecycle
 1. **Per-Attempt Tracking**: Each step attempt (initial execution or retry) creates a `step_runs` record with `status = "RUNNING"`.

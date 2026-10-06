@@ -395,8 +395,8 @@ describe("finish toast and failure label text", () => {
   it("keeps the plain passed and failed messages", () => {
     assert.deepEqual(finishToast({ ...base, status: "PASSED", passed: 3, failed: 0 }), {
       tone: "success",
-      title: "Run Complete",
-      message: "All 3 scenarios passed (40ms)",
+      title: "Run Passed",
+      message: "All 3 scenarios passed in 40ms",
     })
     assert.deepEqual(finishToast(base), { tone: "error", title: "Run Failed", message: "1 of 3 scenarios failed" })
   })

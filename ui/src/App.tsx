@@ -13,7 +13,6 @@ import {
   stopRun,
   subscribeToEvents,
 } from "./api.ts"
-import { ArtifactsView } from "./components/ArtifactsView.tsx"
 import { Button } from "./components/Button.tsx"
 import { EnvironmentModal } from "./components/EnvironmentModal.tsx"
 import { Header, type TabType } from "./components/Header.tsx"
@@ -23,6 +22,7 @@ import { ToastProvider, useToast } from "./components/Toast.tsx"
 import { finishToast } from "./runResult.ts"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 import { ConfigView } from "./views/config/ConfigView.tsx"
+import { ReportsView } from "./views/reports/ReportsView.tsx"
 import { RunnerView } from "./views/runner/RunnerView.tsx"
 import { ScenarioBuilder } from "./views/scenario-builder/ScenarioBuilder.tsx"
 
@@ -263,7 +263,7 @@ function AppContent() {
           />
         )}
 
-        {activeTab === "artifacts" && <ArtifactsView />}
+        {activeTab === "artifacts" && <ReportsView />}
 
         {activeTab === "scenarios" && (
           <ScenarioBuilder

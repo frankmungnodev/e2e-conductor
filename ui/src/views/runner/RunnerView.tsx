@@ -60,6 +60,15 @@ export function RunnerView({
 
   // Focused scenario for preview when idle
   const [previewScenarioId, setPreviewScenarioId] = useState<string | null>(null)
+  // The right side shows the run while one runs; clicking a scenario switches it to that scenario.
+  const [showRun, setShowRun] = useState(false)
+  useEffect(() => {
+    if (isRunning) setShowRun(true)
+  }, [isRunning])
+  const previewScenario = (id: string | null) => {
+    setPreviewScenarioId(id)
+    setShowRun(false)
+  }
 
   // View mode synchronized with URL
   const [viewMode, setViewMode] = useUrlTab<ViewMode>("view", "split", VIEW_MODES)
@@ -164,7 +173,7 @@ export function RunnerView({
           toggleAllScenarios={toggleAllScenarios}
           toggleScenario={toggleScenario}
           previewScenarioId={previewScenarioId}
-          setPreviewScenarioId={setPreviewScenarioId}
+          setPreviewScenarioId={previewScenario}
           lastSummary={lastSummary}
           isRunning={isRunning}
           scenarioFilter={scenarioFilter}
@@ -186,6 +195,7 @@ export function RunnerView({
       {/* Right Area: Interactive Results Stage & Terminal */}
       <main className="flex-1 flex flex-col overflow-hidden bg-editor">
         <RunStatusBar
+          showingRun={showRun && (isRunning || executionTree.length > 0)}
           isRunning={isRunning}
           lastSummary={lastSummary}
           counts={counts}
@@ -203,8 +213,14 @@ export function RunnerView({
         {/* Center Canvas Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Case 1: Initial Idle State (No tests active or ran yet) */}
-          {executionTree.length === 0 && !isRunning && !lastSummary ? (
-            <ScenarioPreview activePreviewScenario={activePreviewScenario} handleRunSingle={handleRunSingle} config={config} />
+          {!(showRun && (isRunning || executionTree.length > 0)) ? (
+            <ScenarioPreview
+              activePreviewScenario={activePreviewScenario}
+              handleRunSingle={handleRunSingle}
+              config={config}
+              onShowRun={executionTree.length > 0 ? () => setShowRun(true) : undefined}
+              isRunning={isRunning}
+            />
           ) : (
             /* Case 2: Test Execution Results & Live Stream */
             <div className="flex-1 flex overflow-hidden">

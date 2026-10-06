@@ -1,6 +1,6 @@
 import { CheckCircle2, CircleSlash, Layers, Loader2, Wrench, XCircle } from "lucide-react"
 import { Badge, type BadgeVariant } from "../../components/Badge.tsx"
-import { capitalize } from "../../format.ts"
+import { capitalize, formatDuration } from "../../format.ts"
 import { failureLabelText } from "../../runResult.ts"
 import { getTargetBadgeVariant } from "../../targetDriver.ts"
 import type { ConfigMeta, FailureLabel, RunSummary } from "../../types.ts"
@@ -105,7 +105,7 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
                 <div className="flex items-center gap-2 shrink-0">
                   {sc.duration_ms !== undefined && (
                     <span className="text-xs text-fg-muted font-mono">
-                      {sc.duration_ms}ms
+                      {formatDuration(sc.duration_ms)}
                     </span>
                   )}
                   {recoveredIn(sc) > 0 && (
@@ -171,7 +171,7 @@ export function StepTreePane({ viewMode, executionTree, lastSummary, config }: S
 
                     {st.duration_ms !== undefined && (
                       <span className="text-xs text-fg-muted font-mono shrink-0 ml-2">
-                        {st.duration_ms}ms
+                        {formatDuration(st.duration_ms)}
                       </span>
                     )}
                   </div>

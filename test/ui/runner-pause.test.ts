@@ -68,7 +68,7 @@ describe("Runner view pause on failure", () => {
     )
     assert.equal(done.lastSummary?.reason, "fixed during run")
     await page.getByText("Fixed During Run").first().waitFor()
-    await page.getByText(/Fixed: 1/).first().waitFor()
+    await page.getByText(/1 fixed/).first().waitFor()
     await page.getByText("Fixed By Retry").first().waitFor()
 
     const scenarios = await api<Array<{ name: string; steps: Array<{ command?: string }> }>>("/api/scenarios")
@@ -86,7 +86,7 @@ describe("Runner view pause on failure", () => {
       (s) => !s.isRunning && s.lastSummary?.failed === 1,
       20000,
     )
-    await page.getByText(/Failed: 1/).first().waitFor()
+    await page.getByText(/1 failed/).first().waitFor()
     assert.equal(await panel.count(), 0)
   })
 })

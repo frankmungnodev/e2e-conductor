@@ -1,3 +1,4 @@
+import { formatDuration } from "./format.ts"
 import type { FailureLabel, RunSummary } from "./types.ts"
 
 /** Mirrors the reasons in src/run-result.ts. */
@@ -21,7 +22,8 @@ export type FinishToast = { tone: "success" | "error"; title: string; message: s
 /** The toast shown when a run finishes. */
 export function finishToast(summary: RunSummary): FinishToast {
   if (summary.status === "PASSED") {
-    return { tone: "success", title: "Run Complete", message: `All ${summary.total} scenarios passed (${summary.duration_ms}ms)` }
+    const passed = summary.total === 1 ? "1 scenario passed" : `All ${summary.total} scenarios passed`
+    return { tone: "success", title: "Run Passed", message: `${passed} in ${formatDuration(summary.duration_ms)}` }
   }
   if (summary.reason === ENVIRONMENT_DOWN) {
     return { tone: "error", title: "Run Stopped", message: `Stopped: environment down (${(summary.down ?? []).join(", ")})` }

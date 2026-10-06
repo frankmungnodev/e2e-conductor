@@ -1,3 +1,4 @@
+import { friendlyPlaceholders } from "../../format.ts"
 import type { ScenarioStep } from "../../types.ts"
 
 /** One-line summary of what a step does (its actions, command, request, module, or flow). */
@@ -9,11 +10,11 @@ export function StepActionSummary({ step }: { step: ScenarioStep }) {
       </span>
     )
   }
-  if (step.command) return <span className="font-mono text-xs text-fg-muted">{step.command}</span>
+  if (step.command) return <span className="font-mono text-xs text-fg-muted">{friendlyPlaceholders(step.command)}</span>
   if (step.url) {
     return (
       <span className="font-mono text-xs text-fg-muted">
-        <span className="text-info font-bold">{step.method ?? "GET"}</span> {step.url}
+        <span className="text-info font-bold">{step.method ?? "GET"}</span> {friendlyPlaceholders(step.url)}
       </span>
     )
   }

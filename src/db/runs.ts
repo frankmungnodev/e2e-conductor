@@ -18,6 +18,8 @@ export type RunRecord = {
   notRunScenarios?: number
   /** Scenario-iterations that paused on a failure and passed after a manual retry. */
   fixedScenarios?: number
+  /** The process running it, so a run whose process died is not shown as running forever. */
+  pid?: number
 }
 
 export type StepRunRecord = {
@@ -44,8 +46,8 @@ export function saveRun(db: DatabaseSync, run: RunRecord): void {
     INSERT INTO runs (
       id, environment_name, status, total_scenarios, passed_scenarios, failed_scenarios,
       duration_ms, artifacts_dir, started_at, completed_at, reason, recovered_steps, not_run_scenarios,
-      fixed_scenarios
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      fixed_scenarios, pid
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       environment_name = excluded.environment_name,
       status = excluded.status,
@@ -74,6 +76,7 @@ export function saveRun(db: DatabaseSync, run: RunRecord): void {
     run.recoveredSteps ?? 0,
     run.notRunScenarios ?? 0,
     run.fixedScenarios ?? 0,
+    run.pid ?? null,
   )
 }
 
@@ -92,6 +95,7 @@ type RunRow = {
   recovered_steps?: number | null
   not_run_scenarios?: number | null
   fixed_scenarios?: number | null
+  pid?: number | null
 }
 
 function mapRunRow(r: RunRow): RunRecord {
@@ -110,6 +114,7 @@ function mapRunRow(r: RunRow): RunRecord {
     recoveredSteps: r.recovered_steps ?? 0,
     notRunScenarios: r.not_run_scenarios ?? 0,
     fixedScenarios: r.fixed_scenarios ?? 0,
+    pid: r.pid ?? undefined,
   }
 }
 
@@ -231,4 +236,21 @@ export function getStepRuns(
 
   const rows = db.prepare(`SELECT * FROM step_runs ${whereClause} ORDER BY created_at DESC ${limitClause}`).all(...params) as StepRunRow[]
   return rows.map(mapStepRunRow)
+}
+
+/**
+ * A run stored as RUNNING whose process is gone (killed, crashed, the machine restarted) never
+ * finished; it reads as CANCELLED. A run with no pid predates the pid column, so only `activeRunId`
+ * (the run this server is running) can still be going.
+ */
+export function effectiveStatus(run: RunRecord, activeRunId?: string): RunRecord["status"] {
+  if (run.status !== "RUNNING" || run.id === activeRunId) return run.status
+  if (run.pid === undefined) return "CANCELLED"
+  try {
+    process.kill(run.pid, 0)
+    return "RUNNING"
+  } catch (error) {
+    // EPERM: the process exists but belongs to someone else, so it is alive.
+    return (error as NodeJS.ErrnoException).code === "EPERM" ? "RUNNING" : "CANCELLED"
+  }
 }
