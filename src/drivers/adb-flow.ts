@@ -18,6 +18,8 @@ type Selector = {
   below?: unknown
   above?: unknown
   containsDescendants?: unknown[]
+  /** How long assertVisible and assertNotVisible wait, in ms. Mobile actions set it from `timeout_ms`. */
+  timeout?: number
 }
 type Bounds = { x1: number; y1: number; x2: number; y2: number }
 type Node = {
@@ -218,10 +220,10 @@ export class AdbFlowRunner {
       }
       // Running out of time is the check failing here; an adb error still means the step broke.
       case "assertVisible":
-        await this.waitFor(selector, true, DEFAULT_WAIT_MS, AssertionFailure)
+        await this.waitFor(selector, true, selector.timeout ?? DEFAULT_WAIT_MS, AssertionFailure)
         return
       case "assertNotVisible":
-        await this.waitFor(selector, false, DEFAULT_WAIT_MS, AssertionFailure)
+        await this.waitFor(selector, false, selector.timeout ?? DEFAULT_WAIT_MS, AssertionFailure)
         return
       case "extendedWaitUntil": {
         const { visible, notVisible, timeout } = arg as { visible?: unknown; notVisible?: unknown; timeout?: number }

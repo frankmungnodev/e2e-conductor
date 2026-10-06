@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { prefixError } from "../assertions.ts"
 import type { MobileTarget } from "../config.ts"
 import { restoreKeyboards } from "../preflight.ts"
-import { runAdb } from "../process.ts"
+import { runAdb, sleep } from "../process.ts"
 import { AdbFlowRunner } from "./adb-flow.ts"
 import type { Driver, StepResult, StepRun } from "./types.ts"
 
@@ -61,17 +61,18 @@ export class MobileDriver implements Driver {
 
   private async executeAction(
     runner: AdbFlowRunner,
-    step: { action?: string; selector?: string; value?: unknown; key?: string; ms?: number },
+    step: { action?: string; selector?: string; value?: unknown; key?: string; ms?: number; timeout_ms?: number },
     appId: string,
     log: (msg: string) => void,
   ): Promise<Record<string, unknown>> {
     const action = (step.action ?? "").toLowerCase()
     log(`mobile action: ${action}`)
     const selectorOrValue = step.selector ?? (typeof step.value === "string" ? step.value : undefined)
-    const requireTarget = (name: string): string => {
+    const requireTarget = (name: string): MobileSelector => {
       if (!selectorOrValue) throw new Error(`mobile '${name}' action requires a selector or value`)
-      return selectorOrValue
+      return parseSelector(selectorOrValue)
     }
+    const timeout = step.timeout_ms
 
     switch (action) {
       case "tap":
@@ -87,7 +88,7 @@ export class MobileDriver implements Driver {
       case "fill": {
         const text = String(step.value ?? "")
         if (step.selector) {
-          await runner.runCommands([{ tapOn: step.selector }, { inputText: text }], appId)
+          await runner.runCommands([{ tapOn: parseSelector(step.selector) }, { inputText: text }], appId)
         } else {
           await runner.runCommands([{ inputText: text }], appId)
         }
@@ -117,27 +118,34 @@ export class MobileDriver implements Driver {
       case "assert_visible":
       case "assertvisible": {
         const target = requireTarget("assert_visible")
-        await runner.runCommands([{ assertVisible: target }], appId)
+        await runner.runCommands([{ assertVisible: { ...target, timeout } }], appId)
         return { visible: target }
       }
       case "assert_not_visible":
       case "assertnotvisible": {
         const target = requireTarget("assert_not_visible")
-        await runner.runCommands([{ assertNotVisible: target }], appId)
+        await runner.runCommands([{ assertNotVisible: { ...target, timeout } }], appId)
         return { notVisible: target }
       }
       case "wait":
       case "wait_for": {
         if (step.selector) {
-          await runner.runCommands([{ assertVisible: step.selector }], appId)
+          await runner.runCommands([{ extendedWaitUntil: { visible: parseSelector(step.selector), timeout } }], appId)
         }
         if (step.ms) {
-          await runner.runCommands([{ waitForAnimationToEnd: step.ms }], appId)
+          log(`wait ${step.ms}ms`)
+          await sleep(step.ms)
         }
         return { waited: true }
       }
+      case "scroll_to": {
+        const target = requireTarget("scroll_to")
+        const direction = (step.key ?? "DOWN").toUpperCase()
+        await runner.runCommands([{ scrollUntilVisible: { element: target, direction, timeout } }], appId)
+        return { scrolledTo: selectorOrValue }
+      }
       case "swipe": {
-        const from = selectorOrValue
+        const from = selectorOrValue && parseSelector(selectorOrValue)
         const direction = (step.key ?? "RIGHT").toUpperCase()
         await runner.runCommands([{ swipe: { from, direction } }], appId)
         return { swiped: direction }
@@ -163,4 +171,17 @@ export class MobileDriver implements Driver {
     const shot = spawnSync(this.adb, ["-s", this.device, "exec-out", "screencap", "-p"], { maxBuffer: 64 * 1024 * 1024 })
     if (shot.status === 0) writeFileSync(join(artifactsDir, "mobile-failure.png"), shot.stdout)
   }
+}
+
+type MobileSelector = { text: string } | { id: string }
+
+/**
+ * A mobile action's selector: `id=<resource id>` matches an element's resource id (a Compose
+ * `testTag` exposed as one), `text=<pattern>` or any other string matches its text or content
+ * description as a full regex.
+ */
+export function parseSelector(selector: string): MobileSelector {
+  if (selector.startsWith("id=")) return { id: selector.slice(3) }
+  if (selector.startsWith("text=")) return { text: selector.slice(5) }
+  return { text: selector }
 }

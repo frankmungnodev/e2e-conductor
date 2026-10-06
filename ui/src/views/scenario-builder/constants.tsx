@@ -53,6 +53,7 @@ export const MOBILE_ACTION_OPTIONS = [
   { value: "assert_visible", label: "Assert Element Visible" },
   { value: "assert_not_visible", label: "Assert Not Visible" },
   { value: "swipe", label: "Swipe Screen" },
+  { value: "scroll_to", label: "Scroll Until Visible" },
   { value: "wait", label: "Wait for Element or Timeout" },
   { value: "back", label: "Press Back Button" },
   { value: "hidekeyboard", label: "Hide Keyboard" },
