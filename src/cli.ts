@@ -2,6 +2,7 @@ import { relative, resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
 import { exportToJson } from "./export.ts"
+import { importFromJson } from "./import.ts"
 import { initProject, runInteractiveInit } from "./init.ts"
 import { color } from "./logger.ts"
 import { run } from "./runner.ts"
@@ -15,6 +16,7 @@ Commands:
   check   Preflight only: services, devices, installed apps
   list    List scenarios and validate them
   export  Write scenarios and step presets from SQLite to JSON files
+  import  Save scenario JSON files into SQLite, replacing changed ones
   init    Initialize SQLite configuration and starter scenario under .e2e
   ui      Start the web GUI dashboard
 
@@ -62,7 +64,7 @@ async function main() {
   })
 
   const command = positionals[0] ?? "run"
-  if (values.help || !["run", "check", "list", "export", "init", "ui"].includes(command)) {
+  if (values.help || !["run", "check", "list", "export", "import", "init", "ui"].includes(command)) {
     console.log(HELP)
     process.exit(values.help ? 0 : 2)
   }
@@ -116,6 +118,19 @@ async function main() {
     const { scenarios, presets } = exportToJson(config)
     for (const file of [...scenarios, ...presets]) console.log(`${color.green("wrote")} ${relative(process.cwd(), file)}`)
     console.log(color.dim(`${scenarios.length} scenarios, ${presets.length} presets`))
+    return
+  }
+
+  if (command === "import") {
+    const { added, updated, unchanged, invalid } = importFromJson(config)
+    for (const id of added) console.log(`${color.green("added")}   ${id}`)
+    for (const id of updated) console.log(`${color.yellow("updated")} ${id}`)
+    for (const { file, problems } of invalid) {
+      console.log(`${color.red("invalid")} ${relative(process.cwd(), file)}`)
+      for (const problem of problems) console.log(color.dim(`  ${problem}`))
+    }
+    console.log(color.dim(`${added.length} added, ${updated.length} updated, ${unchanged.length} unchanged, ${invalid.length} invalid`))
+    if (invalid.length > 0) process.exit(1)
     return
   }
 
