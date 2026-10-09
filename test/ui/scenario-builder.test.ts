@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import type { Page } from "playwright"
-import { eventually, PRESET_NAME, SHELL_SCENARIO_ID, SHELL_SCENARIO_NAME, startUiSession, type UiSession } from "./helpers.ts"
+import { eventually, FIXTURE_NAME, PRESET_NAME, SHELL_SCENARIO_ID, SHELL_SCENARIO_NAME, startUiSession, type UiSession } from "./helpers.ts"
 
 /** The open dialog with this heading; another dialog may still be animating closed. */
 function dialogTitled(page: Page, title: string) {
@@ -65,6 +65,8 @@ describe("Scenario builder", () => {
     await settings.getByRole("textbox", { name: "e.g. API_KEY" }).pressSequentially("BASE_URL")
     await settings.getByRole("textbox", { name: "e.g. secret_val" }).fill("http://localhost")
     // The native input is visually hidden under its label, so click the label text.
+    // Read-only needs a setup fixture to apply to.
+    await settings.getByRole("button", { name: FIXTURE_NAME }).click()
     await settings.getByText("Read-only", { exact: true }).click()
     await settings.getByRole("button", { name: "Done" }).click()
     await settings.waitFor({ state: "detached" })

@@ -291,7 +291,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           pause: options.pause,
           reuseSetup: reusableSetup(held, scenario),
         })
-        held = heldAfter(held, scenario, label, outcome.setupFailed === true)
+        held = heldAfter(held, scenario, label, outcome)
         summary.total++
         summary.recovered += outcome.recovered
         if (outcome.failure) {

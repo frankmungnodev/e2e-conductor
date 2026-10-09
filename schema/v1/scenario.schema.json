@@ -23,7 +23,7 @@
     },
     "read_only": {
       "type": "boolean",
-      "description": "The steps never change what the setup fixtures reset. The next scenario with the same setup then skips it"
+      "description": "The steps never change what this scenario's setup fixtures reset. The next scenario with the same setup then skips it. No effect without a setup"
     },
     "steps": {
       "type": "array",

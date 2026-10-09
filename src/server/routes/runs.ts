@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
-import { loadConfig, resolveFromConfig } from "../../config.ts"
+import { reloadConfig, resolveFromConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { effectiveStatus, getRun, getRuns, getStepRuns } from "../../db/runs.ts"
 import { getScenarioRuns, getScenarioVersion } from "../../db/scenario-runs.ts"
@@ -107,7 +107,7 @@ export const runRoutes: Route[] = [
           let runConfig = state.config
           if (body.environment) {
             try {
-              runConfig = await loadConfig(state.config.configDir, body.environment, state.config.dbPath)
+              runConfig = await reloadConfig(state.config, body.environment)
             } catch {
               // Fall back to state.config if loading fails
             }

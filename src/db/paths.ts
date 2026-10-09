@@ -29,6 +29,25 @@ export function resolveProjectDir(targetPath: string = process.cwd()): string {
   return rootDir
 }
 
+/**
+ * The project path and chosen database for the CLI's --dir, --config and --db. The project path is
+ * what `loadConfig` takes. A --db file is used as is: it belongs to the project of the `.e2e` folder it
+ * sits in, and any other --db file runs against --dir/--config or the current folder. A --db directory
+ * names a project, as it did before --db reached every read.
+ */
+export function resolveCliPaths(
+  options: { dir?: string; config?: string; db?: string },
+  cwd: string = process.cwd(),
+): { projectPath: string; dbPath?: string } {
+  const db = options.db?.trim() ? resolve(cwd, options.db.trim()) : undefined
+  const dbIsFile = db !== undefined && (db.endsWith(".db") || db.endsWith(".sqlite"))
+  const named = options.dir?.trim() || options.config?.trim()
+  const dbNamesProject = db !== undefined && (!dbIsFile || basename(dirname(db)) === DEFAULT_DB_DIR)
+  const projectPath = named ? resolve(cwd, named) : dbNamesProject && db ? db : cwd
+  const dbPath = dbIsFile ? db : db ? resolveDbPath(resolveProjectDir(db)) : undefined
+  return { projectPath, dbPath }
+}
+
 export function resolveDbPath(configDir: string, customPath?: string): string {
   if (customPath?.trim()) {
     const trimmed = customPath.trim()

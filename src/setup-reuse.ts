@@ -1,4 +1,5 @@
 import type { Scenario } from "./db/scenarios.ts"
+import type { ScenarioOutcome } from "./scenario-run.ts"
 
 /**
  * The state a passed setup left, while every scenario that ran after it was `read_only`.
@@ -14,20 +15,19 @@ export function reusableSetup(held: HeldSetup | undefined, scenario: Scenario): 
 }
 
 /**
- * What still holds once a scenario ends. A scenario that is not `read_only` may have changed
- * anything, so nothing holds. A read-only one with no setup keeps what held before it; with a setup,
- * it holds its own setup if that setup passed (or was reused).
+ * What still holds once a scenario ends: its own setup, when it is `read_only`, its setup passed (or
+ * was reused), and it never paused. `read_only` is a promise about the scenario's own setup, so a
+ * scenario with no setup ends the hold, and so does a pause, during which the user can change the app
+ * or its data by hand.
  */
 export function heldAfter(
   held: HeldSetup | undefined,
   scenario: Scenario,
   label: string,
-  setupFailed: boolean,
+  outcome: Pick<ScenarioOutcome, "setupFailed" | "paused">,
 ): HeldSetup | undefined {
-  if (!scenario.read_only) return undefined
   const setup = scenario.setup ?? []
-  if (setup.length === 0) return held
-  if (setupFailed) return undefined
+  if (!scenario.read_only || setup.length === 0 || outcome.setupFailed || outcome.paused) return undefined
   const fixtures = JSON.stringify(setup)
   return held?.fixtures === fixtures ? held : { fixtures, ranIn: label }
 }

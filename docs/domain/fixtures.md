@@ -74,13 +74,13 @@ A scenario marked `read_only: true` promises that its steps never change anythin
 The runner (`src/setup-reuse.ts`, called from the scenario loop in `src/runner.ts`) skips a scenario's setup fixtures when all of these are true:
 
 1. The scenario's `setup` list is not empty and is exactly the same list, in the same order, as a setup that already ran and passed in this run.
-2. Every scenario that ran after that setup, in any iteration, is `read_only`. A read-only scenario with an empty `setup` keeps the held state; a scenario that is not read-only, or a failed setup fixture, ends it.
+2. Every scenario that ran after that setup, in any iteration, is `read_only`, has that same `setup`, and never paused. A scenario that is not read-only, a scenario with an empty or different `setup`, a failed setup fixture, or a pause on a failed step (the user can change the app or its data by hand while paused) ends it.
 
 The scenario being started does not have to be read-only itself: its own steps run after the skipped setup, and only the next scenario cares whether they changed anything. A skipped setup prints `↷ setup <fixtures> skipped: same setup as <scenario>, and only read-only scenarios ran since` and records no fixture result. With `--repeat`, a read-only scenario runs its setup in the first iteration only.
 
 The tradeoff: a scenario marked read-only that does change state makes the next scenario start from dirty data, and that scenario fails for a reason outside itself. Mark a scenario read-only only when its steps only read. Turn the flag off to find out whether a failure comes from skipped setup.
 
-The GUI sets the flag with the **Read-only** checkbox in Scenario Settings. It is part of the scenario's fingerprint when true (`runs.md`, section 5).
+The GUI sets the flag with the **Read-only** checkbox in Scenario Settings, which is disabled until the scenario has a setup fixture. It is part of the scenario's fingerprint when true (`runs.md`, section 5).
 
 ---
 

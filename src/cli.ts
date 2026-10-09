@@ -1,7 +1,7 @@
-import { basename, dirname, relative, resolve } from "node:path"
+import { relative } from "node:path"
 import { parseArgs } from "node:util"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
-import { resolveProjectDir } from "./db/paths.ts"
+import { resolveCliPaths, resolveProjectDir } from "./db/paths.ts"
 import { exportToJson } from "./export.ts"
 import { importFromJson } from "./import.ts"
 import { initProject, runInteractiveInit } from "./init.ts"
@@ -73,15 +73,11 @@ async function main() {
   if (values.headless) process.env.E2E_HEADLESS = "1"
   if (values.verbose) process.env.E2E_VERBOSE = "1"
 
-  const targetPath = values.db || values.dir || values.config || process.cwd()
-  // The project folder: --dir when given. A --db inside a `.e2e` folder belongs to that folder's
-  // project; any other --db (a copy, a backup) runs against the current folder, like --dir's default.
-  const dbInProject = values.db && basename(dirname(resolve(values.db))) === ".e2e"
-  const projectPath = values.dir || values.config || (dbInProject ? values.db : undefined) || process.cwd()
+  const { projectPath, dbPath } = resolveCliPaths(values)
 
   if (command === "init") {
     const isInteractive = values.interactive
-    const { created, skipped } = isInteractive ? await runInteractiveInit(targetPath) : initProject(targetPath)
+    const { created, skipped } = isInteractive ? await runInteractiveInit(projectPath, dbPath) : initProject(projectPath, dbPath)
     for (const file of created) console.log(`${color.green("created")} ${file}`)
     for (const file of skipped) console.log(`${color.yellow("skipped")} ${file} ${color.dim("(exists)")}`)
     if (created.length > 0) console.log(`\nNext: verify your setup in .e2e/e2e.db, then run: e2e check`)
@@ -93,9 +89,9 @@ async function main() {
     if (Number.isNaN(port) || port < 1 || port > 65535) throw new Error("--port must be a valid port number (1-65535)")
     let config: LoadedConfig
     try {
-      config = await loadConfig(projectPath, undefined, values.db)
+      config = await loadConfig(projectPath, undefined, dbPath)
     } catch {
-      config = starterConfig(resolveProjectDir(projectPath), values.db)
+      config = starterConfig(resolveProjectDir(projectPath), dbPath)
     }
 
     const shouldOpen = !values["no-open"] && values.open !== false
@@ -109,7 +105,7 @@ async function main() {
     return
   }
 
-  const config = await loadConfig(projectPath, values.env, values.db)
+  const config = await loadConfig(projectPath, values.env, dbPath)
 
   if (command === "list") {
     for (const scenario of loadScenarios(config, values.scenario)) {

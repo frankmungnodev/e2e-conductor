@@ -294,6 +294,24 @@ describe("startServer", () => {
     }
   })
 
+  it("saves the first environment into a custom database path and reloads config from it", async () => {
+    const config = mockProject()
+    const { server, url } = await startServer(config, { port: 0, host: "127.0.0.1", open: false })
+    try {
+      const saved = await fetch(`${url}/api/config/environment`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "dev", dbPath: "custom-db" }),
+      })
+      assert.equal(saved.status, 200)
+      const cfg = (await (await fetch(`${url}/api/config`)).json()) as { dbPath: string; hasEnvironments: boolean }
+      assert.equal(cfg.dbPath, join("custom-db", "e2e.db"))
+      assert.equal(cfg.hasEnvironments, true)
+    } finally {
+      server.close()
+    }
+  })
+
   it("keeps config and run state separate for two servers in one process", async () => {
     const configA = mockProject()
     const configB = mockProject()

@@ -1,4 +1,4 @@
-import { loadConfig } from "../../config.ts"
+import { reloadConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { saveFixture } from "../../db/fixtures.ts"
 import { initProject } from "../../init.ts"
@@ -12,9 +12,9 @@ export const setupRoutes: Route[] = [
     match: ({ req, pathname }) => pathname === "/api/init" && req.method === "POST",
     handle: async ({ state, res }) => {
       try {
-        const { created, skipped } = initProject(state.config.configDir)
+        const { created, skipped } = initProject(state.config.configDir, state.config.dbPath)
         try {
-          state.config = await loadConfig(state.config.configDir, undefined, state.config.dbPath)
+          state.config = await reloadConfig(state.config)
         } catch {
           // Ignore reload error if not yet initialized
         }
@@ -70,7 +70,7 @@ export const setupRoutes: Route[] = [
         }
 
         try {
-          state.config = await loadConfig(state.config.configDir, body.defaultEnvironment || body.environment?.name, state.config.dbPath)
+          state.config = await reloadConfig(state.config, body.defaultEnvironment || body.environment?.name)
         } catch {
           // Ignore reload error
         }

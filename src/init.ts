@@ -43,7 +43,11 @@ const SMOKE = {
  * Write a starter SQLite database and smoke scenario under .e2e.
  * Never overwrites: a database that already has an environment, or a file that exists, is skipped.
  */
-export function initProject(targetPath: string = process.cwd()): { created: string[]; skipped: string[] } {
+/** `chosenDbPath` (the `--db` option) is the database to seed; otherwise the project's default. */
+export function initProject(
+  targetPath: string = process.cwd(),
+  chosenDbPath?: string,
+): { created: string[]; skipped: string[] } {
   const rootDir = resolveProjectDir(targetPath)
 
   const created: string[] = []
@@ -51,7 +55,7 @@ export function initProject(targetPath: string = process.cwd()): { created: stri
 
   // Seed by content, not file presence: saving a scenario in the GUI before initializing creates an
   // empty database, and skipping it would leave the project with no environment or platform.
-  const dbPath = resolveDbPath(rootDir)
+  const dbPath = chosenDbPath ?? resolveDbPath(rootDir)
   const db = openSeedTarget(dbPath)
   if (!db) {
     skipped.push(dbPath)
@@ -103,6 +107,7 @@ export function initProject(targetPath: string = process.cwd()): { created: stri
  */
 export async function runInteractiveInit(
   targetPath: string = process.cwd(),
+  chosenDbPath?: string,
 ): Promise<{ created: string[]; skipped: string[] }> {
   const rl = readline.createInterface({ input, output })
   const rootDir = resolveProjectDir(targetPath)
@@ -230,7 +235,7 @@ export async function runInteractiveInit(
       components.sort((a, b) => a.order - b.order)
     }
 
-    const dbPath = resolveDbPath(rootDir)
+    const dbPath = chosenDbPath ?? resolveDbPath(rootDir)
     const db = openDatabase(dbPath)
     saveWizardComponentsToDb(db, components)
     db.close()

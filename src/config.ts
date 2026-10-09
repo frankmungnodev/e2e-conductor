@@ -221,6 +221,11 @@ export async function loadConfig(configDirOrDbPath?: string, envName?: string, c
   }
 }
 
+/** Reads the config again from the same project and database, so a reload never drops `--db`. */
+export function reloadConfig(current: LoadedConfig, envName?: string, dbPath: string = current.dbPath): Promise<LoadedConfig> {
+  return loadConfig(current.configDir, envName, dbPath)
+}
+
 export function resolveFromConfig(config: LoadedConfig, path = "."): string {
   return resolve(config.configDir, path)
 }

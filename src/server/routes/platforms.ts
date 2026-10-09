@@ -1,4 +1,4 @@
-import { loadConfig } from "../../config.ts"
+import { reloadConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { deleteEnvPlatform, type EnvPlatformRecord, getEnvPlatforms, getPlatformsForEnv, saveEnvPlatform } from "../../db/env-platforms.ts"
 import { deletePlatform, type PlatformRecord, platformsToTargetsAndServices, savePlatform } from "../../db/platforms.ts"
@@ -46,7 +46,7 @@ export const platformRoutes: Route[] = [
           scaffoldWizardFiles(state.config.configDir, [body as any])
         }
 
-        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment, state.config.dbPath)
+        state.config = await reloadConfig(state.config, state.config.activeEnvironment)
 
         return sendJson(res, 200, {
           ok: true,
@@ -70,7 +70,7 @@ export const platformRoutes: Route[] = [
       const targetDbPath = state.config.dbPath
       try {
         withDb(targetDbPath, (db) => deletePlatform(db, nameParam))
-        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment, state.config.dbPath)
+        state.config = await reloadConfig(state.config, state.config.activeEnvironment)
 
         return sendJson(res, 200, {
           ok: true,

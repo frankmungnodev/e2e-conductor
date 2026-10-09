@@ -23,6 +23,8 @@ export type ScenarioOutcome = {
   fixed?: boolean
   /** A setup fixture failed, so the state it was meant to reset is unknown. */
   setupFailed?: boolean
+  /** Paused on a failed step; the user may have changed the app or its data by hand. */
+  paused?: boolean
 }
 type Held = { kind: "continue" | "end" } | { kind: "down"; failure: ScenarioFailure; down: string[] }
 
@@ -182,6 +184,7 @@ export async function runScenario(
     }
     const stepId = scenario.steps[index].id
     out.line(color.yellow("  paused: fix the step and retry it, or end the scenario"))
+    outcome.paused = true
     onEvent?.({ type: "hold_start", ...paused, stepName: paused.step.name })
     for (let attempt = firstAttempt; ; attempt++) {
       const decision = await pause(paused)

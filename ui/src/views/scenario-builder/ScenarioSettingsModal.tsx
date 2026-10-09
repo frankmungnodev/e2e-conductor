@@ -152,13 +152,18 @@ export function ScenarioSettingsModal({
             <Checkbox
               className="pt-1.5"
               checked={draftScenario.raw.read_only === true}
+              disabled={(draftScenario.setup ?? []).length === 0}
               onCheckedChange={(checked) => {
                 const { read_only: _readOnly, ...rest } = draftScenario.raw
                 const raw = checked ? { ...rest, read_only: true } : rest
                 updateDraft({ ...draftScenario, raw })
               }}
               label="Read-only"
-              description="This scenario never changes what its setup fixtures reset. The next scenario with the same setup then skips it."
+              description={
+                (draftScenario.setup ?? []).length === 0
+                  ? "Pick a setup fixture first. Read-only lets the next scenario with the same setup skip it."
+                  : "This scenario never changes what its setup fixtures reset. The next scenario with the same setup then skips it."
+              }
             />
           </div>
 

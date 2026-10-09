@@ -1,10 +1,11 @@
 import assert from "node:assert/strict"
 import { join } from "node:path"
 import { describe, it } from "node:test"
-import { loadConfig, resolveFromConfig, servicesNeeded } from "../src/config.ts"
+import { loadConfig, resolveFromConfig, servicesNeeded, starterConfig } from "../src/config.ts"
 import { openDatabase } from "../src/db/connection.ts"
 import { saveEnvPlatform } from "../src/db/env-platforms.ts"
 import { saveEnvironment } from "../src/db/environments.ts"
+import { resolveCliPaths } from "../src/db/paths.ts"
 import { savePlatform } from "../src/db/platforms.ts"
 import { saveScenario } from "../src/db/scenarios.ts"
 import { loadScenarios } from "../src/scenario.ts"
@@ -187,5 +188,47 @@ describe("target needs", () => {
     savePlatform(broken, { id: "p-web", name: "admin", type: "web", url: "http://localhost:3000", needs: ["nope"] })
     broken.close()
     await assert.rejects(loadConfig(projectDir), /Target "admin" needs unknown target "nope"/)
+  })
+})
+
+describe("resolveCliPaths", () => {
+  const cwd = "/work/proj"
+
+  it("uses the current folder and the default database with no options", () => {
+    assert.deepEqual(resolveCliPaths({}, cwd), { projectPath: cwd, dbPath: undefined })
+  })
+
+  it("keeps a --db file inside .e2e with its project", () => {
+    assert.deepEqual(resolveCliPaths({ db: "../other/.e2e/copy.db" }, cwd), {
+      projectPath: "/work/other/.e2e/copy.db",
+      dbPath: "/work/other/.e2e/copy.db",
+    })
+  })
+
+  it("runs any other --db file against the current folder, or --dir when given", () => {
+    assert.deepEqual(resolveCliPaths({ db: "/tmp/copy.db" }, cwd), { projectPath: cwd, dbPath: "/tmp/copy.db" })
+    assert.deepEqual(resolveCliPaths({ db: "/tmp/copy.db", dir: "../app" }, cwd), { projectPath: "/work/app", dbPath: "/tmp/copy.db" })
+  })
+
+  it("treats a --db directory as naming a project", () => {
+    assert.deepEqual(resolveCliPaths({ db: ".e2e" }, cwd), { projectPath: "/work/proj/.e2e", dbPath: "/work/proj/.e2e/e2e.db" })
+  })
+})
+
+describe("starterConfig with a chosen database", () => {
+  it("reports the chosen database, whether or not it exists", () => {
+    const projectDir = join(dir, "proj-starter")
+    const chosen = join(dir, "starter-elsewhere", "chosen.db")
+    const missing = starterConfig(projectDir, chosen)
+    assert.equal(missing.dbPath, chosen)
+    assert.equal(missing.dbExists, false)
+
+    const db = openDatabase(chosen)
+    saveEnvironment(db, "dev", {})
+    db.close()
+    const present = starterConfig(projectDir, chosen)
+    assert.equal(present.dbPath, chosen)
+    assert.equal(present.dbExists, true)
+    assert.equal(present.activeEnvironment ?? present.defaultEnvironment ?? "dev", "dev")
   })
 })

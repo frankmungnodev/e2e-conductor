@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs"
 import { relative } from "node:path"
-import { loadConfig } from "../../config.ts"
+import { reloadConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { type EnvPlatformRecord, getEnvPlatforms, getPlatformsForEnv, type PlatformWithEnvOverrides } from "../../db/env-platforms.ts"
 import { deleteEnvironment, saveEnvironment, setActiveEnvironment } from "../../db/environments.ts"
@@ -93,7 +93,7 @@ export const environmentRoutes: Route[] = [
         }
       }
       try {
-        state.config = await loadConfig(state.config.configDir, envName, state.config.dbPath)
+        state.config = await reloadConfig(state.config, envName)
       } catch {
         state.config.activeEnvironment = envName
         state.config.defaultEnvironment = envName
@@ -141,7 +141,8 @@ export const environmentRoutes: Route[] = [
             env: body.env,
           })
         })
-        state.config = await loadConfig(state.config.configDir, envName, state.config.dbPath)
+        // The database just written, which the pointer now names when a custom path was chosen.
+        state.config = await reloadConfig(state.config, envName, targetDbPath)
       } catch (err) {
         return sendJson(res, 500, { ok: false, error: `SQLite error: ${(err as Error).message}` })
       }
@@ -168,7 +169,7 @@ export const environmentRoutes: Route[] = [
       const targetDbPath = state.config.dbPath
       try {
         withDb(targetDbPath, (db) => deleteEnvironment(db, nameParam))
-        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment, state.config.dbPath)
+        state.config = await reloadConfig(state.config, state.config.activeEnvironment)
       } catch (err) {
         return sendJson(res, 500, { ok: false, error: (err as Error).message })
       }

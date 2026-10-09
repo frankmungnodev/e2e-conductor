@@ -18,6 +18,17 @@ function project(): string {
 }
 
 describe("initProject", () => {
+  it("seeds a chosen database instead of the default one, so a later run with --db finds it", async () => {
+    const dir = project()
+    const chosen = join(tempDir("init-chosen"), "copy.db")
+    const { created } = initProject(dir, chosen)
+    assert.ok(created.includes(chosen))
+    assert.ok(!created.includes(join(dir, ".e2e/e2e.db")))
+    const config = await loadConfig(dir, undefined, chosen)
+    assert.equal(config.dbPath, chosen)
+    assert.ok(config.activeEnvironment)
+  })
+
   it("writes a sqlite db and smoke scenario under .e2e that load and validate", async () => {
     const dir = project()
     const { created, skipped } = initProject(dir)
