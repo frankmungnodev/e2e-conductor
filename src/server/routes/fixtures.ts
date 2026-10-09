@@ -1,7 +1,6 @@
 import { resolveFromConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { deleteFixture, getFixtures, saveFixture } from "../../db/fixtures.ts"
-import { resolveDbPath } from "../../db/paths.ts"
 import { runShell } from "../../process.ts"
 import { readBody, sendJson } from "../http.ts"
 import type { Route } from "../route.ts"
@@ -17,7 +16,7 @@ export const fixtureRoutes: Route[] = [
       }
       const fixName = body.name.trim()
       const fixCmd = body.cmd.trim()
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         const fixturesMap = withDb(targetDbPath, (db) => {
           saveFixture(db, fixName, {
@@ -47,7 +46,7 @@ export const fixtureRoutes: Route[] = [
       if (!nameParam || nameParam === "fixture") {
         return sendJson(res, 400, { ok: false, error: "Fixture name is required" })
       }
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         const fixturesMap = withDb(targetDbPath, (db) => {
           deleteFixture(db, nameParam)

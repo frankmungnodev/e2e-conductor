@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { type LoadedConfig, resolveFromConfig } from "./config.ts"
-import { resolveDbPath } from "./db/paths.ts"
 import { getOrSeedPresets, getOrSeedScenarios } from "./scenario.ts"
 
 export type ExportResult = { scenarios: string[]; presets: string[] }
@@ -12,7 +11,7 @@ export type ExportResult = { scenarios: string[]; presets: string[] }
  * the same id are overwritten. Files for ids no longer in the database are left alone.
  */
 export function exportToJson(config: LoadedConfig): ExportResult {
-  const dbPath = resolveDbPath(config.configDir)
+  const dbPath = config.dbPath
   if (!existsSync(dbPath)) throw new Error(`No database at ${dbPath}`)
 
   // Reading through the loaders runs the one-time JSON import, so the export matches what the GUI shows.

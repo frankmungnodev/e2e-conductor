@@ -31,6 +31,7 @@ function mockProject(): LoadedConfig {
 
   return {
     configDir: dir,
+    dbPath: resolveDbPath(dir),
     env: {},
     scenarios: "scenarios",
     results: "results",

@@ -6,6 +6,8 @@ import { openDatabase } from "../src/db/connection.ts"
 import { saveEnvPlatform } from "../src/db/env-platforms.ts"
 import { saveEnvironment } from "../src/db/environments.ts"
 import { savePlatform } from "../src/db/platforms.ts"
+import { saveScenario } from "../src/db/scenarios.ts"
+import { loadScenarios } from "../src/scenario.ts"
 import { tempDir } from "./temp-dir.ts"
 
 const dir = tempDir("config")
@@ -41,6 +43,27 @@ describe("loadConfig", () => {
     assert.equal(resolveFromConfig(config, config.scenarios), join(projectDir, ".e2e", "scenarios"))
     assert.ok(config.targets.api)
     assert.equal(config.targets.api.driver, "http")
+  })
+
+  it("reads scenarios from a chosen database outside the project, and keeps the project folder", async () => {
+    const projectDir = join(dir, "proj-chosen-db")
+    const defaultDb = openDatabase(join(projectDir, ".e2e", "e2e.db"))
+    saveEnvironment(defaultDb, "dev", { scenarios: "scenarios" })
+    saveScenario(defaultDb, { id: "from-default", name: "Default", steps: [{ name: "s", target: "shell", command: "true" }] })
+    defaultDb.close()
+    const chosenPath = join(dir, "elsewhere", "copy.db")
+    const chosenDb = openDatabase(chosenPath)
+    saveEnvironment(chosenDb, "dev", { scenarios: "scenarios" })
+    saveScenario(chosenDb, { id: "from-chosen", name: "Chosen", steps: [{ name: "s", target: "shell", command: "true" }] })
+    chosenDb.close()
+
+    const config = await loadConfig(projectDir, undefined, chosenPath)
+    assert.equal(config.configDir, projectDir)
+    assert.equal(config.dbPath, chosenPath)
+    assert.deepEqual(
+      loadScenarios(config).map((s) => s.id),
+      ["from-chosen"],
+    )
   })
 
   it("fails when the database is missing", async () => {

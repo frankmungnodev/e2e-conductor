@@ -1,7 +1,6 @@
 import { loadConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { saveFixture } from "../../db/fixtures.ts"
-import { resolveDbPath } from "../../db/paths.ts"
 import { initProject } from "../../init.ts"
 import { detectWorkspace, saveWizardComponentsToDb, scaffoldWizardFiles, type WizardComponent, type WizardEnvironment } from "../../wizard.ts"
 import { readBody, sendJson } from "../http.ts"
@@ -15,7 +14,7 @@ export const setupRoutes: Route[] = [
       try {
         const { created, skipped } = initProject(state.config.configDir)
         try {
-          state.config = await loadConfig(state.config.configDir)
+          state.config = await loadConfig(state.config.configDir, undefined, state.config.dbPath)
         } catch {
           // Ignore reload error if not yet initialized
         }
@@ -46,7 +45,7 @@ export const setupRoutes: Route[] = [
         fixtures?: Record<string, { cmd: string; cwd?: string }>
       }
       const components = body.components ?? []
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         withDb(targetDbPath, (db) => {
           saveWizardComponentsToDb(db, components, {
@@ -71,7 +70,7 @@ export const setupRoutes: Route[] = [
         }
 
         try {
-          state.config = await loadConfig(state.config.configDir, body.defaultEnvironment || body.environment?.name)
+          state.config = await loadConfig(state.config.configDir, body.defaultEnvironment || body.environment?.name, state.config.dbPath)
         } catch {
           // Ignore reload error
         }

@@ -128,15 +128,21 @@ export type LoadedConfig = E2EConfig & {
   configDir: string
   env: Record<string, string>
   activeEnvironment?: string
-  dbPath?: string
+  /** The database this config was read from. Every later read and write uses it, so `--db` holds. */
+  dbPath: string
   dbExists?: boolean
 }
 
-export async function loadConfig(configDirOrDbPath?: string, envName?: string): Promise<LoadedConfig> {
+/**
+ * `chosenDbPath` (the `--db` option) picks the database; otherwise a `.db` or `.sqlite` path passed as
+ * `configDirOrDbPath` does, and otherwise the project's default (`resolveDbPath`).
+ */
+export async function loadConfig(configDirOrDbPath?: string, envName?: string, chosenDbPath?: string): Promise<LoadedConfig> {
   const configDir = resolveProjectDir(configDirOrDbPath)
   const trimmed = configDirOrDbPath?.trim()
-  const dbPath =
-    trimmed && (trimmed.endsWith(".db") || trimmed.endsWith(".sqlite"))
+  const dbPath = chosenDbPath?.trim()
+    ? resolve(chosenDbPath.trim())
+    : trimmed && (trimmed.endsWith(".db") || trimmed.endsWith(".sqlite"))
       ? resolve(trimmed)
       : resolveDbPath(configDir)
 
@@ -219,8 +225,8 @@ export function resolveFromConfig(config: LoadedConfig, path = "."): string {
   return resolve(config.configDir, path)
 }
 
-export function starterConfig(configDir = process.cwd()): LoadedConfig {
-  const dbStatus = checkDbStatus(configDir)
+export function starterConfig(configDir = process.cwd(), chosenDbPath?: string): LoadedConfig {
+  const dbStatus = checkDbStatus(configDir, chosenDbPath && resolve(chosenDbPath))
   let environments: Record<string, EnvironmentConfig> = {}
   let activeEnvironment: string | undefined
   let defaultEnvironment: string | undefined

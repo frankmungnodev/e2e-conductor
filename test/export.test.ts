@@ -27,6 +27,7 @@ function project(): LoadedConfig {
   )
   const config: LoadedConfig = {
     configDir: dir,
+    dbPath: resolveDbPath(dir),
     env: {},
     scenarios: "scenarios",
     results: "results",

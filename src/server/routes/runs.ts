@@ -2,7 +2,6 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
 import { loadConfig, resolveFromConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
-import { resolveDbPath } from "../../db/paths.ts"
 import { effectiveStatus, getRun, getRuns, getStepRuns } from "../../db/runs.ts"
 import { getScenarioRuns, getScenarioVersion } from "../../db/scenario-runs.ts"
 import { getScenario, replaceScenarioStep } from "../../db/scenarios.ts"
@@ -18,7 +17,7 @@ import type { ServerState } from "../state.ts"
 function saveFixedStep(state: ServerState, scenarioId: string, step: Step): string | undefined {
   let savedTo: string | undefined
   try {
-    savedTo = withDb(resolveDbPath(state.config.configDir), (db) => replaceScenarioStep(db, scenarioId, step))
+    savedTo = withDb(state.config.dbPath, (db) => replaceScenarioStep(db, scenarioId, step))
   } catch (error) {
     state.broadcast({ type: "log", text: `Could not save the fixed step: ${(error as Error).message}`, level: "info" })
     return undefined
@@ -108,7 +107,7 @@ export const runRoutes: Route[] = [
           let runConfig = state.config
           if (body.environment) {
             try {
-              runConfig = await loadConfig(state.config.configDir, body.environment)
+              runConfig = await loadConfig(state.config.configDir, body.environment, state.config.dbPath)
             } catch {
               // Fall back to state.config if loading fails
             }
@@ -203,7 +202,7 @@ export const runRoutes: Route[] = [
         }
       >()
 
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       if (existsSync(dbPath)) {
         try {
           withDb(dbPath, (db) => {
@@ -270,7 +269,7 @@ export const runRoutes: Route[] = [
     match: ({ req, pathname }) => pathname.startsWith("/api/runs/") && req.method === "GET",
     handle: async ({ state, res, pathname }) => {
       const runId = pathname.replace("/api/runs/", "").trim()
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       let dbRun: ReturnType<typeof getRun> | undefined
       let scenarioRuns: ReturnType<typeof getScenarioRuns> = []
       const versions: Record<string, string | undefined> = {}
@@ -345,7 +344,7 @@ export const runRoutes: Route[] = [
       const stepId = urlObj.searchParams.get("stepId") || undefined
       const runId = urlObj.searchParams.get("runId") || undefined
       const limit = urlObj.searchParams.has("limit") ? Number(urlObj.searchParams.get("limit")) : 200
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       if (existsSync(dbPath)) {
         try {
           const stepRuns = withDb(dbPath, (db) => getStepRuns(db, { scenarioId, stepId, runId, limit }))
@@ -362,7 +361,7 @@ export const runRoutes: Route[] = [
     match: ({ req, pathname }) => pathname.startsWith("/api/steps/") && pathname.endsWith("/runs") && req.method === "GET",
     handle: async ({ state, res, pathname }) => {
       const stepId = decodeURIComponent(pathname.replace("/api/steps/", "").replace("/runs", ""))
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       if (existsSync(dbPath)) {
         try {
           const stepRuns = withDb(dbPath, (db) => getStepRuns(db, { stepId, limit: 100 }))

@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
+import { resolveDbPath } from "../src/db/paths.ts"
 import { loadScenarios, targetsUsed } from "../src/scenario.ts"
 import { tempDir } from "./temp-dir.ts"
 
@@ -15,6 +16,7 @@ function project(scenarios: Record<string, unknown>): LoadedConfig {
   }
   return {
     configDir: dir,
+    dbPath: resolveDbPath(dir),
     env: {},
     scenarios: "scenarios",
     results: "results",

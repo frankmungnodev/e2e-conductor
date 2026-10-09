@@ -2,7 +2,6 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 import { type LoadedConfig, resolveFromConfig } from "./config.ts"
 import { withDb } from "./db/connection.ts"
-import { resolveDbPath } from "./db/paths.ts"
 import { getScenario, type Scenario, saveScenario } from "./db/scenarios.ts"
 import { getOrSeedScenarios } from "./scenario.ts"
 import { scenarioVersion } from "./scenario-version.ts"
@@ -22,7 +21,7 @@ export type ImportResult = {
  * Steps keep their ids when the file has them (an export writes them), which keeps their run history.
  */
 export function importFromJson(config: LoadedConfig): ImportResult {
-  const dbPath = resolveDbPath(config.configDir)
+  const dbPath = config.dbPath
   if (!existsSync(dbPath)) throw new Error(`No database at ${dbPath}. Run "e2e init" first.`)
   // Run the one-time import first, so it never re-adds a file this import skipped as invalid.
   getOrSeedScenarios(config)

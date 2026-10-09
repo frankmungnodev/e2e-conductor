@@ -4,7 +4,6 @@ import type { DatabaseSync } from "node:sqlite"
 import type { FailureLabel } from "./assertions.ts"
 import { type LoadedConfig, resolveFromConfig, type ServiceConfig, SHELL_TARGET, serviceOf, servicesNeeded } from "./config.ts"
 import { openDatabase } from "./db/connection.ts"
-import { resolveDbPath } from "./db/paths.ts"
 import { saveRun } from "./db/runs.ts"
 import { HttpDriver } from "./drivers/http.ts"
 import { MobileDriver } from "./drivers/mobile.ts"
@@ -120,7 +119,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
   })
 
   let db: DatabaseSync | undefined
-  const dbPath = resolveDbPath(config.configDir)
+  const dbPath = config.dbPath
   if (existsSync(dbPath)) {
     try {
       db = openDatabase(dbPath)

@@ -69,8 +69,8 @@ export function writeDbPointer(configDir: string, dbPath: string): void {
   }
 }
 
-export function checkDbStatus(configDir: string): DbStatus {
-  const dbPath = resolveDbPath(configDir)
+export function checkDbStatus(configDir: string, chosenDbPath?: string): DbStatus {
+  const dbPath = chosenDbPath ?? resolveDbPath(configDir)
   const relativeDbPath = relative(configDir, dbPath)
   const exists = existsSync(dbPath)
 

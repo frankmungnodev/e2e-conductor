@@ -1,6 +1,7 @@
-import { relative, resolve } from "node:path"
+import { basename, dirname, relative, resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
+import { resolveProjectDir } from "./db/paths.ts"
 import { exportToJson } from "./export.ts"
 import { importFromJson } from "./import.ts"
 import { initProject, runInteractiveInit } from "./init.ts"
@@ -73,6 +74,10 @@ async function main() {
   if (values.verbose) process.env.E2E_VERBOSE = "1"
 
   const targetPath = values.db || values.dir || values.config || process.cwd()
+  // The project folder: --dir when given. A --db inside a `.e2e` folder belongs to that folder's
+  // project; any other --db (a copy, a backup) runs against the current folder, like --dir's default.
+  const dbInProject = values.db && basename(dirname(resolve(values.db))) === ".e2e"
+  const projectPath = values.dir || values.config || (dbInProject ? values.db : undefined) || process.cwd()
 
   if (command === "init") {
     const isInteractive = values.interactive
@@ -88,9 +93,9 @@ async function main() {
     if (Number.isNaN(port) || port < 1 || port > 65535) throw new Error("--port must be a valid port number (1-65535)")
     let config: LoadedConfig
     try {
-      config = await loadConfig(targetPath)
+      config = await loadConfig(projectPath, undefined, values.db)
     } catch {
-      config = starterConfig(resolve(targetPath))
+      config = starterConfig(resolveProjectDir(projectPath), values.db)
     }
 
     const shouldOpen = !values["no-open"] && values.open !== false
@@ -104,7 +109,7 @@ async function main() {
     return
   }
 
-  const config = await loadConfig(targetPath, values.env)
+  const config = await loadConfig(projectPath, values.env, values.db)
 
   if (command === "list") {
     for (const scenario of loadScenarios(config, values.scenario)) {

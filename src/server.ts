@@ -66,7 +66,7 @@ export function startServer(
     const port = options.port ?? 4173
     const host = options.host ?? "127.0.0.1"
     const state = createServerState(config)
-    const initialDbStatus = checkDbStatus(state.config.configDir)
+    const initialDbStatus = checkDbStatus(state.config.configDir, state.config.dbPath)
     if (initialDbStatus.dbExists) {
       try {
         withDb(initialDbStatus.dbPath, (db) => {

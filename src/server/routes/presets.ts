@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs"
 import { withDb } from "../../db/connection.ts"
-import { resolveDbPath } from "../../db/paths.ts"
 import { deleteStepPreset, getStepPreset, type StepPreset, saveStepPreset } from "../../db/step-presets.ts"
 import { getOrSeedPresets } from "../../scenario.ts"
 import { readBody, sendJson } from "../http.ts"
@@ -45,7 +44,7 @@ export const presetRoutes: Route[] = [
       }
 
       try {
-        withDb(resolveDbPath(state.config.configDir), (db) => saveStepPreset(db, preset))
+        withDb(state.config.dbPath, (db) => saveStepPreset(db, preset))
       } catch (error) {
         return sendJson(res, 500, { error: (error as Error).message })
       }
@@ -58,7 +57,7 @@ export const presetRoutes: Route[] = [
     match: ({ req, pathname }) => pathname.startsWith("/api/presets/") && req.method === "DELETE",
     handle: async ({ state, res, pathname }) => {
       const id = pathname.replace("/api/presets/", "").trim()
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       let found = false
       if (existsSync(dbPath)) {
         try {

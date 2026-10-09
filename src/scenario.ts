@@ -2,7 +2,6 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 import { type LoadedConfig, resolveFromConfig, SHELL_TARGET } from "./config.ts"
 import { withDb } from "./db/connection.ts"
-import { resolveDbPath } from "./db/paths.ts"
 import { type Assert, getScenarios, type Scenario, type Step, saveScenario } from "./db/scenarios.ts"
 import { getSetting, setSetting } from "./db/settings.ts"
 import { getStepPresets, type StepPreset, saveStepPreset } from "./db/step-presets.ts"
@@ -83,7 +82,7 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario): string[] {
  * Falls back to reading directly from the filesystem if the database does not exist.
  */
 export function getOrSeedScenarios(config: LoadedConfig): Scenario[] {
-  const dbPath = resolveDbPath(config.configDir)
+  const dbPath = config.dbPath
   if (existsSync(dbPath)) {
     try {
       const dbScenarios = withDb(dbPath, (db) => {
@@ -164,7 +163,7 @@ export function targetsUsed(scenarios: Scenario[]): Set<string> {
  * Falls back to reading directly from the filesystem if the database does not exist.
  */
 export function getOrSeedPresets(config: LoadedConfig): StepPreset[] {
-  const dbPath = resolveDbPath(config.configDir)
+  const dbPath = config.dbPath
   const presetsDir = join(config.configDir, "presets")
 
   if (existsSync(dbPath)) {

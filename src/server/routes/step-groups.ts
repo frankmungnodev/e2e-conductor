@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs"
 import { withDb } from "../../db/connection.ts"
-import { resolveDbPath } from "../../db/paths.ts"
 import { deleteStepGroup, getStepGroups, type StepGroup, saveStepGroup } from "../../db/step-groups.ts"
 import { readBody, sendJson } from "../http.ts"
 import type { Route } from "../route.ts"
@@ -10,7 +9,7 @@ export const stepGroupRoutes: Route[] = [
   {
     match: ({ req, pathname }) => pathname === "/api/step-groups" && req.method === "GET",
     handle: async ({ state, res }) => {
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       if (!existsSync(dbPath)) {
         return sendJson(res, 200, { stepGroups: [] })
       }
@@ -30,7 +29,7 @@ export const stepGroupRoutes: Route[] = [
       if (!body?.name || !body.steps) {
         return sendJson(res, 400, { error: "Missing required fields: name and steps" })
       }
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       try {
         const group: StepGroup = {
           id: body.id || `preset-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -53,7 +52,7 @@ export const stepGroupRoutes: Route[] = [
     match: ({ req, pathname }) => pathname.startsWith("/api/step-groups/") && req.method === "DELETE",
     handle: async ({ state, res, pathname }) => {
       const id = pathname.replace("/api/step-groups/", "").trim()
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       try {
         withDb(dbPath, (db) => deleteStepGroup(db, id))
         return sendJson(res, 200, { ok: true, id })

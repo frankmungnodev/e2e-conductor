@@ -18,6 +18,7 @@ function project(): LoadedConfig {
   mkdirSync(join(dir, "scenarios"))
   const config: LoadedConfig = {
     configDir: dir,
+    dbPath: resolveDbPath(dir),
     env: {},
     scenarios: "scenarios",
     results: "results",

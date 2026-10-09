@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs"
 import { withDb } from "../../db/connection.ts"
-import { resolveDbPath } from "../../db/paths.ts"
 import { deleteScenario, getScenario, saveScenario } from "../../db/scenarios.ts"
 import { checkSteps, getOrSeedScenarios, type Scenario, targetsUsed } from "../../scenario.ts"
 import { describeErrors, validateScenario } from "../../schema.ts"
@@ -55,7 +54,7 @@ export const scenarioRoutes: Route[] = [
       const errors = [...schemaErrors, ...stepErrors]
 
       try {
-        withDb(resolveDbPath(state.config.configDir), (db) => saveScenario(db, scenario))
+        withDb(state.config.dbPath, (db) => saveScenario(db, scenario))
       } catch (error) {
         return sendJson(res, 500, { error: (error as Error).message })
       }
@@ -68,7 +67,7 @@ export const scenarioRoutes: Route[] = [
     match: ({ req, pathname }) => pathname.startsWith("/api/scenarios/") && req.method === "DELETE",
     handle: async ({ state, res, pathname }) => {
       const id = pathname.replace("/api/scenarios/", "").trim()
-      const dbPath = resolveDbPath(state.config.configDir)
+      const dbPath = state.config.dbPath
       let found = false
       if (existsSync(dbPath)) {
         try {

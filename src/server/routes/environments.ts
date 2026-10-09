@@ -35,7 +35,7 @@ export const environmentRoutes: Route[] = [
           fixturesMap[name] = { cmd: "(custom typescript function)" }
         }
       }
-      const dbStatus = checkDbStatus(state.config.configDir)
+      const dbStatus = checkDbStatus(state.config.configDir, state.config.dbPath)
       let dbPlatforms: PlatformRecord[] = []
       let dbEnvPlatforms: EnvPlatformRecord[] = []
       let platformsWithEnv: PlatformWithEnvOverrides[] = []
@@ -84,7 +84,7 @@ export const environmentRoutes: Route[] = [
         return sendJson(res, 400, { ok: false, error: "Environment name is required" })
       }
       const envName = body.environment.trim()
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       if (existsSync(targetDbPath)) {
         try {
           withDb(targetDbPath, (db) => setActiveEnvironment(db, envName))
@@ -93,7 +93,7 @@ export const environmentRoutes: Route[] = [
         }
       }
       try {
-        state.config = await loadConfig(state.config.configDir, envName)
+        state.config = await loadConfig(state.config.configDir, envName, state.config.dbPath)
       } catch {
         state.config.activeEnvironment = envName
         state.config.defaultEnvironment = envName
@@ -124,8 +124,8 @@ export const environmentRoutes: Route[] = [
         return sendJson(res, 400, { ok: false, error: "Environment name is required" })
       }
       const envName = body.name.trim()
-      const targetDbPath = resolveDbPath(state.config.configDir, body.dbPath)
-      const defaultDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = body.dbPath ? resolveDbPath(state.config.configDir, body.dbPath) : state.config.dbPath
+      const defaultDbPath = state.config.dbPath
       if (body.dbPath && targetDbPath !== defaultDbPath) {
         writeDbPointer(state.config.configDir, targetDbPath)
       }
@@ -141,7 +141,7 @@ export const environmentRoutes: Route[] = [
             env: body.env,
           })
         })
-        state.config = await loadConfig(state.config.configDir, envName)
+        state.config = await loadConfig(state.config.configDir, envName, state.config.dbPath)
       } catch (err) {
         return sendJson(res, 500, { ok: false, error: `SQLite error: ${(err as Error).message}` })
       }
@@ -165,10 +165,10 @@ export const environmentRoutes: Route[] = [
       if (!nameParam || nameParam === "environment") {
         return sendJson(res, 400, { ok: false, error: "Environment name is required" })
       }
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         withDb(targetDbPath, (db) => deleteEnvironment(db, nameParam))
-        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment)
+        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment, state.config.dbPath)
       } catch (err) {
         return sendJson(res, 500, { ok: false, error: (err as Error).message })
       }

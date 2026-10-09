@@ -1,7 +1,6 @@
 import { loadConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { deleteEnvPlatform, type EnvPlatformRecord, getEnvPlatforms, getPlatformsForEnv, saveEnvPlatform } from "../../db/env-platforms.ts"
-import { resolveDbPath } from "../../db/paths.ts"
 import { deletePlatform, type PlatformRecord, platformsToTargetsAndServices, savePlatform } from "../../db/platforms.ts"
 import { scaffoldWizardFiles } from "../../wizard.ts"
 import { readBody, sendJson } from "../http.ts"
@@ -17,7 +16,7 @@ export const platformRoutes: Route[] = [
         return sendJson(res, 400, { ok: false, error: "Platform name and type are required" })
       }
       const platName = body.name.trim()
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         withDb(targetDbPath, (db) => {
           savePlatform(db, {
@@ -47,7 +46,7 @@ export const platformRoutes: Route[] = [
           scaffoldWizardFiles(state.config.configDir, [body as any])
         }
 
-        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment)
+        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment, state.config.dbPath)
 
         return sendJson(res, 200, {
           ok: true,
@@ -68,10 +67,10 @@ export const platformRoutes: Route[] = [
       if (!nameParam || nameParam === "platform") {
         return sendJson(res, 400, { ok: false, error: "Platform name is required" })
       }
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         withDb(targetDbPath, (db) => deletePlatform(db, nameParam))
-        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment)
+        state.config = await loadConfig(state.config.configDir, state.config.activeEnvironment, state.config.dbPath)
 
         return sendJson(res, 200, {
           ok: true,
@@ -89,7 +88,7 @@ export const platformRoutes: Route[] = [
     match: ({ req, pathname }) => pathname === "/api/config/env-platforms" && req.method === "GET",
     handle: async ({ state, res, url }) => {
       const envParam = url.searchParams.get("env") || undefined
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         const resData = withDb(targetDbPath, (db) => {
           const envPlatforms = getEnvPlatforms(db, envParam)
@@ -113,7 +112,7 @@ export const platformRoutes: Route[] = [
       if (!body?.envName?.trim() || !body?.platformId?.trim()) {
         return sendJson(res, 400, { ok: false, error: "Environment name and platform ID are required" })
       }
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         const { envPlatforms, platformsWithEnv } = withDb(targetDbPath, (db) => {
           saveEnvPlatform(db, {
@@ -165,7 +164,7 @@ export const platformRoutes: Route[] = [
       if (!envParam || !platParam) {
         return sendJson(res, 400, { ok: false, error: "Both env and platformId parameters are required" })
       }
-      const targetDbPath = resolveDbPath(state.config.configDir)
+      const targetDbPath = state.config.dbPath
       try {
         const { envPlatforms, platformsWithEnv } = withDb(targetDbPath, (db) => {
           deleteEnvPlatform(db, envParam, platParam)
