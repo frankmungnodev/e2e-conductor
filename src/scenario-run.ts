@@ -12,6 +12,7 @@ import { runShell, sleep } from "./process.ts"
 import type { RunEvent } from "./runner.ts"
 import type { Scenario, Step } from "./scenario.ts"
 import { scenarioVersion } from "./scenario-version.ts"
+import type { HeldSetup } from "./setup-reuse.ts"
 
 type ScenarioFailure = { step: string; error: string; label: FailureLabel }
 export type ScenarioOutcome = {
@@ -20,6 +21,8 @@ export type ScenarioOutcome = {
   down: string[]
   /** Paused on a failure, and the user continued after a manual retry passed. */
   fixed?: boolean
+  /** A setup fixture failed, so the state it was meant to reset is unknown. */
+  setupFailed?: boolean
 }
 type Held = { kind: "continue" | "end" } | { kind: "down"; failure: ScenarioFailure; down: string[] }
 
@@ -53,6 +56,8 @@ export async function runScenario(
     recheck: () => Promise<string[]>
     /** Set when the run pauses on a failed step instead of ending the scenario. */
     pause?: PauseHook
+    /** Set when this scenario's setup already holds; its fixtures are skipped. */
+    reuseSetup?: HeldSetup
   },
 ): Promise<ScenarioOutcome> {
   const { drivers, dir, out, onEvent, signal, runId, db } = run
@@ -224,7 +229,11 @@ export async function runScenario(
   const outcome: ScenarioOutcome = { recovered: 0, down: [] }
   let completed = false
   try {
-    for (const name of scenario.setup ?? []) {
+    if (run.reuseSetup) {
+      const fixtures = (scenario.setup ?? []).join(", ")
+      out.line(`  ${color.dim(`↷ setup ${fixtures} skipped: same setup as ${run.reuseSetup.ranIn}, and only read-only scenarios ran since`)}`)
+    }
+    for (const name of run.reuseSetup ? [] : (scenario.setup ?? [])) {
       if (signal?.aborted) throw new Error("Execution cancelled")
       const began = Date.now()
       try {
@@ -233,6 +242,7 @@ export async function runScenario(
         const { label, down } = await settle(error)
         outcome.failure = { step: `setup: ${name}`, error: (error as Error).message, label }
         outcome.down = down
+        outcome.setupFailed = true
         out.line(`  ${color.red("✗")} setup ${name}  ${color.red(label)}\n      ${color.red(outcome.failure.error)}`)
         return outcome
       }

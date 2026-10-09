@@ -1,6 +1,7 @@
 import { Check, ExternalLink, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "../../components/Button.tsx"
+import { Checkbox } from "../../components/Checkbox.tsx"
 import {
   EnvVariablesEditor,
   type EnvVarRow,
@@ -148,6 +149,17 @@ export function ScenarioSettingsModal({
                 })
               )}
             </div>
+            <Checkbox
+              className="pt-1.5"
+              checked={draftScenario.raw.read_only === true}
+              onCheckedChange={(checked) => {
+                const { read_only: _readOnly, ...rest } = draftScenario.raw
+                const raw = checked ? { ...rest, read_only: true } : rest
+                updateDraft({ ...draftScenario, raw })
+              }}
+              label="Read-only"
+              description="This scenario never changes what its setup fixtures reset. The next scenario with the same setup then skips it."
+            />
           </div>
 
           {/* Scenario Variables */}

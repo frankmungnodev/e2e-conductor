@@ -5,11 +5,13 @@ import type { Scenario } from "./db/scenarios.ts"
  * The content of a scenario that decides what a run does, as canonical JSON, and its SHA-256
  * fingerprint. Steps stay as written, with placeholders unsubstituted, so no secret is stored.
  * Name, description, step ids and action ids are left out: changing them changes nothing that runs.
+ * `read_only` is in only when true, so scenarios saved before it existed keep their fingerprint.
  */
 export function scenarioVersion(scenario: Scenario): { fingerprint: string; json: string } {
   const content = {
     setup: scenario.setup ?? [],
     vars: scenario.vars ?? {},
+    ...(scenario.read_only ? { read_only: true } : {}),
     steps: scenario.steps.map(({ id: _id, actions, ...step }) => ({
       ...withoutEmpty(step),
       ...(actions ? { actions: actions.map(({ id: _actionId, ...action }) => withoutEmpty(action)) } : {}),

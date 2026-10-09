@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS scenarios (
   description TEXT,
   setup_fixtures TEXT,             -- Serialized JSON array: string[]
   vars TEXT,                       -- Serialized JSON object: Record<string, unknown>
+  read_only INTEGER DEFAULT 0,     -- 1 when the steps never change what the setup fixtures reset
   created_at INTEGER,
   updated_at INTEGER
 );
@@ -141,7 +142,7 @@ A **Preset** is a reusable **Step** template (storing target platform and pre-co
 
 During test execution (`src/runner.ts`):
 
-1. **Setup Fixtures**: If `scenario.setup` contains fixture names, each fixture command is executed sequentially before any step starts.
+1. **Setup Fixtures**: If `scenario.setup` contains fixture names, each fixture command is executed sequentially before any step starts, unless the run skips them because the same setup still holds (`fixtures.md`, section 3).
 2. **Sequential Step Evaluation**: Steps are queried from `scenario_steps` ordered by `order_num ASC`.
 3. **Variable Interpolation**: Step fields undergo placeholder substitution: `${ctx.X}` reads the scenario's `vars` and every value extracted by an earlier step, `${env.Y}` the environment variables, `${run.Z}` the run (for example `${run.id}`). A string that is exactly one placeholder keeps the value's type.
 4. **Target Dispatch**: The step payload is routed to the designated target driver.

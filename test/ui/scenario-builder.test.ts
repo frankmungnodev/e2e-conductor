@@ -14,6 +14,7 @@ type ScenarioSummary = {
   id: string
   name: string
   vars?: Record<string, unknown>
+  raw: { read_only?: boolean }
   steps: Array<{ name: string; target: string }>
 }
 
@@ -63,6 +64,8 @@ describe("Scenario builder", () => {
     await settings.getByRole("button", { name: "Add Variable" }).click()
     await settings.getByRole("textbox", { name: "e.g. API_KEY" }).pressSequentially("BASE_URL")
     await settings.getByRole("textbox", { name: "e.g. secret_val" }).fill("http://localhost")
+    // The native input is visually hidden under its label, so click the label text.
+    await settings.getByText("Read-only", { exact: true }).click()
     await settings.getByRole("button", { name: "Done" }).click()
     await settings.waitFor({ state: "detached" })
 
@@ -88,6 +91,7 @@ describe("Scenario builder", () => {
     assert.equal(scenario?.steps[0].target, "shell")
     assert.equal(scenario?.steps[1].name, PRESET_NAME)
     assert.deepEqual(scenario?.vars, { BASE_URL: "http://localhost" })
+    assert.equal(scenario?.raw.read_only, true)
 
     await page.reload()
     await page.getByText("UI Smoke Scenario").first().waitFor()

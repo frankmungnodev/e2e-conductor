@@ -82,6 +82,7 @@ export type ScenarioData = {
   description?: string
   setup?: string[]
   vars?: Record<string, unknown>
+  read_only?: boolean
   steps: ScenarioStep[]
 }
 

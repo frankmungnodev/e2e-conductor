@@ -105,6 +105,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
       description TEXT,
       setup_fixtures TEXT,
       vars TEXT,
+      read_only INTEGER DEFAULT 0,
       created_at INTEGER,
       updated_at INTEGER
     );
@@ -216,6 +217,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
   addMissingColumn(db, "step_runs", "manual", "INTEGER DEFAULT 0")
   addMissingColumn(db, "platforms", "needs", "TEXT")
   addMissingColumn(db, "runs", "pid", "INTEGER")
+  addMissingColumn(db, "scenarios", "read_only", "INTEGER DEFAULT 0")
 
   // Older databases linked platforms by copying their fields, so an edit to a platform never reached
   // an environment. Clear copied values that still equal the platform's, so they inherit again.

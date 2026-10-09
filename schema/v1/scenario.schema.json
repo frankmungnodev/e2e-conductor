@@ -21,6 +21,10 @@
       "type": "object",
       "description": "Initial ${ctx.*} values"
     },
+    "read_only": {
+      "type": "boolean",
+      "description": "The steps never change what the setup fixtures reset. The next scenario with the same setup then skips it"
+    },
     "steps": {
       "type": "array",
       "minItems": 1,

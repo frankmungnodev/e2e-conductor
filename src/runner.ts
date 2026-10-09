@@ -18,6 +18,7 @@ import { prepareMobile, prepareServices, type StartedService, stopService } from
 import { ENVIRONMENT_DOWN, type NotRun, notRunAfter, type RunReason, resultLine, settleStatus } from "./run-result.ts"
 import { loadScenarios, type Step, targetsUsed } from "./scenario.ts"
 import { runScenario } from "./scenario-run.ts"
+import { type HeldSetup, heldAfter, reusableSetup } from "./setup-reuse.ts"
 
 export type RunEvent =
   | { type: "preflight_start" }
@@ -268,6 +269,8 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
 
     // An environment-down stop breaks out here instead of throwing like a cancel, so the run
     // still writes summary.json, prints its result and sends `finish`.
+    // Carried across scenarios and iterations: a setup whose state every later scenario left alone.
+    let held: HeldSetup | undefined
     iterations: for (let iteration = 1; iteration <= options.repeat; iteration++) {
       for (const [index, scenario] of scenarios.entries()) {
         if (options.signal?.aborted) throw new Error("Execution cancelled")
@@ -287,7 +290,9 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           db,
           recheck,
           pause: options.pause,
+          reuseSetup: reusableSetup(held, scenario),
         })
+        held = heldAfter(held, scenario, label, outcome.setupFailed === true)
         summary.total++
         summary.recovered += outcome.recovered
         if (outcome.failure) {

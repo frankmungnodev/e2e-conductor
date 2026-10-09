@@ -70,6 +70,8 @@ export type Scenario = {
   description?: string
   setup?: string[]
   vars?: Record<string, unknown>
+  /** The steps never change what the setup fixtures reset, so the next scenario can reuse that state. */
+  read_only?: boolean
   steps: Step[]
 }
 
@@ -89,6 +91,7 @@ type ScenarioRow = {
   description?: string | null
   setup_fixtures?: string | null
   vars?: string | null
+  read_only?: number | null
 }
 
 type StepRow = {
@@ -129,6 +132,7 @@ function mapScenarioRow(row: ScenarioRow, steps: Step[]): Scenario {
     description: row.description || undefined,
     setup: safeJsonParse<string[]>(row.setup_fixtures),
     vars: safeJsonParse<Record<string, unknown>>(row.vars),
+    ...(row.read_only ? { read_only: true } : {}),
     steps,
   }
 }
@@ -161,13 +165,14 @@ export function saveScenario(db: DatabaseSync, scenario: Scenario): void {
   const varsJson = scenario.vars ? JSON.stringify(scenario.vars) : null
 
   db.prepare(`
-    INSERT INTO scenarios (id, name, description, setup_fixtures, vars, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO scenarios (id, name, description, setup_fixtures, vars, read_only, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       description = excluded.description,
       setup_fixtures = excluded.setup_fixtures,
       vars = excluded.vars,
+      read_only = excluded.read_only,
       updated_at = excluded.updated_at
   `).run(
     scenario.id,
@@ -175,6 +180,7 @@ export function saveScenario(db: DatabaseSync, scenario: Scenario): void {
     scenario.description || null,
     setupJson,
     varsJson,
+    scenario.read_only ? 1 : 0,
     now,
     now,
   )
