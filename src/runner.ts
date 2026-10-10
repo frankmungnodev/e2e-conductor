@@ -80,6 +80,8 @@ export type RunOptions = {
   /** Fail a run whose only issue is steps that passed on a retry. */
   strict?: boolean  /** Pause on a failed step so the user can fix and retry it; see `src/hold.ts`. */
   pause?: PauseHook
+  /** Save the screen after every web and Android step; see `runScenario`. */
+  stepScreenshots?: boolean
 }
 
 // `label` is optional only because summaries written before labels existed lack it.
@@ -289,6 +291,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
           db,
           recheck,
           pause: options.pause,
+          stepScreenshots: options.stepScreenshots,
           reuseSetup: reusableSetup(held, scenario),
         })
         held = heldAfter(held, scenario, label, outcome)

@@ -1,4 +1,4 @@
-import { basename } from "node:path"
+import { basename, join } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
 import { checkAssert, extract, type FailureLabel, failureLabel } from "./assertions.ts"
 import { type LoadedConfig, resolveFromConfig } from "./config.ts"
@@ -60,6 +60,8 @@ export async function runScenario(
     pause?: PauseHook
     /** Set when this scenario's setup already holds; its fixtures are skipped. */
     reuseSetup?: HeldSetup
+    /** Save the screen after each step as `step-<n>.png` in `dir`. */
+    stepScreenshots?: boolean
   },
 ): Promise<ScenarioOutcome> {
   const { drivers, dir, out, onEvent, signal, runId, db } = run
@@ -124,6 +126,18 @@ export async function runScenario(
     const down = await run.recheck()
     if (signal?.aborted) throw new Error("Execution cancelled")
     return { label: failureLabel(error, down), down }
+  }
+
+  // Saves the screen a step left behind, overwriting an earlier attempt's image. Best-effort: a
+  // failed capture is logged and the step keeps its result. Drivers without a screen are skipped.
+  const captureStep = async (target: string, index: number) => {
+    const driver = drivers.get(target)
+    if (!run.stepScreenshots || !driver?.captureScreen || signal?.aborted) return
+    try {
+      await driver.captureScreen(join(dir, `step-${index + 1}.png`))
+    } catch (error) {
+      out.detail(`screenshot failed: ${(error as Error).message}`)
+    }
   }
 
   // One attempt of a step: runs it, records its row, and returns the error when it fails.
@@ -197,6 +211,7 @@ export async function runScenario(
       const tag = color.dim(`[${step.target}]`)
       const tried = await attemptStep(step, index, attempt, true)
       const duration = tried.row.durationMs ?? 0
+      await captureStep(step.target, index)
       if (!tried.error) {
         // Later iterations of this run use the fix too.
         scenario.steps[index] = step
@@ -287,6 +302,8 @@ export async function runScenario(
       const tag = color.dim(`[${raw.target}]`)
       // Measured before the re-check, so the step's time is the step's own.
       const stepDuration = Date.now() - began
+      // Before the re-check and any pause, so a failed step shows the screen it failed on.
+      await captureStep(raw.target, index)
       if (lastError) {
         const { label, down } = await settle(lastError)
         if (lastFailedRow) record({ ...lastFailedRow, failureLabel: label })

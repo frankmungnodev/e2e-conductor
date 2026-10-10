@@ -82,4 +82,37 @@ describe("buildRunReport", () => {
       { name: "Step 1", fixedByHand: true, recovered: false },
     ])
   })
+
+  it("attaches each step-<n>.png to its step, from that iteration's folder only", () => {
+    const iteration = (n: number) => ({
+      runId: "run-1",
+      scenarioId: "login",
+      iteration: n,
+      fingerprint: "f1",
+      status: "PASSED" as const,
+      artifactsDir: `login-${n}`,
+      startedAt: 1000,
+      changedSinceLastPass: false,
+    })
+    const image = (dir: string, name: string) => ({ name, url: `/api/artifacts/run-1/${dir}/${name}`, isImage: true })
+    const [first, second] = buildRunReport({
+      scenarioRuns: [iteration(1), iteration(2)],
+      stepRuns: [],
+      versions: { f1: version },
+      names: {},
+      files: {
+        "login-1": [image("login-1", "step-1.png"), image("login-1", "step-3.png"), image("login-1", "step-1.png.bak"), image("login-1", "web-failure.png")],
+        "login-2": [image("login-2", "step-2.png")],
+      },
+    })
+    assert.deepEqual(
+      first.steps.map((step) => step.screenshot?.url),
+      ["/api/artifacts/run-1/login-1/step-1.png", undefined, "/api/artifacts/run-1/login-1/step-3.png"],
+    )
+    assert.deepEqual(
+      second.steps.map((step) => step.screenshot?.url),
+      [undefined, "/api/artifacts/run-1/login-2/step-2.png", undefined],
+    )
+    assert.equal(first.files.length, 4, "the scenario keeps every file, step images included")
+  })
 })

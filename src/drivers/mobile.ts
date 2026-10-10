@@ -165,11 +165,16 @@ export class MobileDriver implements Driver {
     }
   }
 
-  async endScenario(failed: boolean, artifactsDir: string) {
-    if (!failed) return
+  async captureScreen(path: string) {
     // Binary PNG output, so not through runAdb.
     const shot = spawnSync(this.adb, ["-s", this.device, "exec-out", "screencap", "-p"], { maxBuffer: 64 * 1024 * 1024 })
-    if (shot.status === 0) writeFileSync(join(artifactsDir, "mobile-failure.png"), shot.stdout)
+    if (shot.status !== 0) throw new Error(`adb screencap failed (exit ${shot.status ?? "signal"})`)
+    writeFileSync(path, shot.stdout)
+  }
+
+  async endScenario(failed: boolean, artifactsDir: string) {
+    if (!failed) return
+    await this.captureScreen(join(artifactsDir, "mobile-failure.png")).catch(() => {})
   }
 }
 

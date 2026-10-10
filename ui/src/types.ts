@@ -302,6 +302,8 @@ export type StepReport = {
   recovered: boolean
   fixedByHand: boolean
   statusCode?: number
+  /** The screen as the step left it, saved when the run had "Screenshot every step" on. */
+  screenshot?: ReportFile
 }
 
 /** One scenario-iteration of a run, mirroring `ScenarioReport` in src/run-report.ts. */

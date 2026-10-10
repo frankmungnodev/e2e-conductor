@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, it } from "node:test"
 import { AssertionFailure, failureLabel } from "../src/assertions.ts"
 import type { StepAction } from "../src/db/scenarios.ts"
@@ -177,6 +179,26 @@ describe("WebDriver Playwright actions", () => {
         log: () => {},
       })
       assert.ok(res.data)
+    } finally {
+      await driver.close()
+    }
+  })
+
+  it("captures the visible page to a given path, and does nothing before a page is open", async () => {
+    const dir = tempDir("web-driver-capture")
+    const target = { driver: "web" as const, service: "web", modules: dir, headless: true }
+    const driver = new WebDriver(target, { url: "http://localhost:3000" })
+    const before = join(dir, "before.png")
+    const after = join(dir, "after.png")
+    try {
+      await driver.captureScreen(before)
+      assert.equal(existsSync(before), false)
+
+      const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent("<h1>Step</h1>")}`
+      await driver.run({ step: { name: "Open", target: "web", action: "navigate", url: dataUrl }, env: {}, artifactsDir: dir, log: () => {} })
+      await driver.captureScreen(after)
+      const png = readFileSync(after)
+      assert.equal(png.subarray(1, 4).toString(), "PNG")
     } finally {
       await driver.close()
     }

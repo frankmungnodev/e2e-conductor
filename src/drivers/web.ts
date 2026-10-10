@@ -389,6 +389,11 @@ export class WebDriver implements Driver {
     }
   }
 
+  /** The visible viewport, as the user saw it; nothing before the scenario opened a page. */
+  async captureScreen(path: string) {
+    await this.page?.screenshot({ path })
+  }
+
   async endScenario(failed: boolean, artifactsDir: string) {
     if (!this.context) return
     if (failed && this.page) {

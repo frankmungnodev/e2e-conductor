@@ -21,6 +21,8 @@ export type StepReport = {
   /** Passed on a retry the user made while the run was paused. */
   fixedByHand: boolean
   statusCode?: number
+  /** The screen as the step left it, saved when the run had "Screenshot every step" on. */
+  screenshot?: ReportFile
 }
 
 export type ScenarioReport = {
@@ -60,6 +62,7 @@ export function buildRunReport({ scenarioRuns, stepRuns, versions, names, files 
       if (index === undefined) continue
       byIndex.set(index, [...(byIndex.get(index) ?? []), attempt])
     }
+    const scenarioFiles = (run.artifactsDir && files[run.artifactsDir]) || []
     const count = Math.max(pinned.length, ...[...byIndex.keys()].map((index) => index + 1))
     const steps: StepReport[] = Array.from({ length: count }, (_, index) => {
       const runs = (byIndex.get(index) ?? []).sort((a, b) => a.attempt - b.attempt)
@@ -78,6 +81,7 @@ export function buildRunReport({ scenarioRuns, stepRuns, versions, names, files 
         recovered: status === "PASSED" && !last?.manual && (last?.attempt ?? 1) > 1,
         fixedByHand: status === "PASSED" && last?.manual === true,
         statusCode: last?.statusCode,
+        screenshot: scenarioFiles.find((file) => file.name === `step-${index + 1}.png`),
       }
     })
     return {
@@ -88,7 +92,7 @@ export function buildRunReport({ scenarioRuns, stepRuns, versions, names, files 
       durationMs: run.completedAt ? run.completedAt - run.startedAt : undefined,
       changedSinceLastPass: run.changedSinceLastPass,
       steps,
-      files: (run.artifactsDir && files[run.artifactsDir]) || [],
+      files: scenarioFiles,
     }
   })
 }

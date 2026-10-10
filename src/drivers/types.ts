@@ -22,5 +22,7 @@ export interface Driver {
   run(input: StepRun): Promise<StepResult>
   /** Called when a scenario ends. `failed` tells the driver to keep evidence. */
   endScenario?(failed: boolean, artifactsDir: string): Promise<void>
+  /** Saves the current screen as a PNG at `path`. Only drivers with a screen have it. */
+  captureScreen?(path: string): Promise<void>
   close?(): Promise<void>
 }

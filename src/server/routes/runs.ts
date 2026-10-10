@@ -67,6 +67,7 @@ export const runRoutes: Route[] = [
         verbose?: boolean
         environment?: string
         pauseOnFailure?: boolean
+        stepScreenshots?: boolean
       }
       if (body.headless) process.env.E2E_HEADLESS = "1"
       if (body.verbose) process.env.E2E_VERBOSE = "1"
@@ -81,6 +82,7 @@ export const runRoutes: Route[] = [
         checkOnly: false,
         signal: controller.signal,
         pause: hold?.hook,
+        stepScreenshots: Boolean(body.stepScreenshots),
         onEvent: (event) => {
           // Save a passing retry before broadcasting it, and say on the event whether it was saved.
           if (event.type === "hold_retry" && event.passed) {
