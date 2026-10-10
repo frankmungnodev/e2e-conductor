@@ -467,9 +467,8 @@ export type WizardApplyPayload = {
   fixtures?: Record<string, { cmd: string; cwd?: string }>
 }
 
-
 /** A step's latest executions, from `GET /api/scenarios/:id/step-history`. */
-export interface StepHistory {
+export type StepHistory = {
   executions: number
   /** Passed on the first attempt. */
   passed: number

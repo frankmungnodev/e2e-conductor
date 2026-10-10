@@ -299,12 +299,14 @@ export const runRoutes: Route[] = [
         const scenariosList = readdirSync(runDir).filter((e) => statSync(join(runDir, e)).isDirectory())
         for (const s of scenariosList) {
           const sDir = join(runDir, s)
-          const files = readdirSync(sDir).filter((f) => statSync(join(sDir, f)).isFile())
+          const files = readdirSync(sDir)
+            .map((f) => ({ f, stat: statSync(join(sDir, f)) }))
+            .filter(({ stat }) => stat.isFile())
           // Artifacts are cached for an hour, and a manual retry rewrites a step screenshot in place,
           // so the URL carries the file's modification time.
-          scenarioArtifacts[s] = files.map((f) => ({
+          scenarioArtifacts[s] = files.map(({ f, stat }) => ({
             name: f,
-            url: `/api/artifacts/${runId}/${s}/${f}?v=${Math.floor(statSync(join(sDir, f)).mtimeMs)}`,
+            url: `/api/artifacts/${runId}/${s}/${f}?v=${Math.floor(stat.mtimeMs)}`,
             isImage: [".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(extname(f).toLowerCase()),
           }))
         }

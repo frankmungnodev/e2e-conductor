@@ -77,6 +77,7 @@ export function ScenarioResultCard({ report, showIteration, onPreview }: Props) 
 function StepRow({ step, waiting, onPreview }: { step: StepReport; waiting: boolean; onPreview: (url: string) => void }) {
   const note = stepNote(step)
   const notRun = step.status === "NOT_RUN"
+  const screenshot = step.screenshot
   return (
     <li className="flex flex-col gap-1">
       <div className="flex items-center gap-2 text-xs">
@@ -90,14 +91,14 @@ function StepRow({ step, waiting, onPreview }: { step: StepReport; waiting: bool
         </span>
       </div>
       {note && <span className="pl-5.5 text-xs text-warning">{note}</span>}
-      {step.screenshot && (
+      {screenshot && (
         <button
           type="button"
-          onClick={() => onPreview(step.screenshot?.url ?? "")}
+          onClick={() => onPreview(screenshot.url)}
           aria-label={`Screenshot of step ${step.index + 1}`}
           className="ml-5.5 self-start w-40 border border-border rounded-xs overflow-hidden bg-activity hover:border-border-focus cursor-pointer transition"
         >
-          <img src={step.screenshot.url} alt="" className="w-full h-24 object-contain" />
+          <img src={screenshot.url} alt="" className="w-full h-24 object-contain" />
         </button>
       )}
       {step.status === "FAILED" && (
