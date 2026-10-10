@@ -300,9 +300,11 @@ export const runRoutes: Route[] = [
         for (const s of scenariosList) {
           const sDir = join(runDir, s)
           const files = readdirSync(sDir).filter((f) => statSync(join(sDir, f)).isFile())
+          // Artifacts are cached for an hour, and a manual retry rewrites a step screenshot in place,
+          // so the URL carries the file's modification time.
           scenarioArtifacts[s] = files.map((f) => ({
             name: f,
-            url: `/api/artifacts/${runId}/${s}/${f}`,
+            url: `/api/artifacts/${runId}/${s}/${f}?v=${Math.floor(statSync(join(sDir, f)).mtimeMs)}`,
             isImage: [".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(extname(f).toLowerCase()),
           }))
         }

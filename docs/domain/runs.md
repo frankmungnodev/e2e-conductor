@@ -113,7 +113,7 @@ Execution progress follows a deterministic state machine:
 A run started with **Screenshot Every Step** (`e2e run --screenshots`, or `POST /api/run` with `stepScreenshots: true`) saves the screen after each web and Android step as `step-<n>.png` (`<n>` is the 1-based step position) in the scenario-iteration's artifacts folder. The option is off by default; without it a run saves only the failure evidence it always did.
 - **When**: after the step's last automatic attempt, passed or failed, and before the re-check and any pause, so a failed step shows the screen it failed on. A manual retry during a pause (section 4) retakes it, so the image always shows the step's final attempt.
 - **Which steps**: only targets whose driver has a screen (`captureScreen` on `WebDriver` and `MobileDriver`). HTTP and shell steps get no image. Web images capture the viewport; the failure screenshot stays full-page.
-- **Best-effort**: a failed capture is logged as a detail line and never changes the step's status, duration or failure label. Capture time is not counted in the step's `duration_ms`.
+- **Best-effort**: an Android capture times out after 10 s. A failed capture is logged as a detail line and never changes the step's status, duration or failure label. Capture time is not counted in the step's `duration_ms`.
 - **Storage**: images are files only; nothing is stored in SQLite. The run report (`buildRunReport` in `src/run-report.ts`) attaches each `step-<n>.png` to step `<n>` of its scenario-iteration as `screenshot`.
 
 ---
@@ -246,7 +246,7 @@ The orchestrator provides unified access to both database-backed telemetry and f
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/runs` | `GET` | Returns execution history sorted by `started_at DESC`, merging SQLite records with filesystem summary metadata. |
-| `/api/runs/:runId` | `GET` | Returns full run metadata, scenario-level artifact listings, captured screenshots, the array of all associated `stepRuns`, and `scenarioRuns`: each scenario-iteration's `fingerprint`, `status`, `artifactsDir` and `changedSinceLastPass` (section 5). |
+| `/api/runs/:runId` | `GET` | Returns full run metadata, scenario-level artifact listings (each URL carries `?v=<mtime>`, because artifacts are served with a one-hour cache and a manual retry rewrites a step screenshot in place), captured screenshots, the array of all associated `stepRuns`, and `scenarioRuns`: each scenario-iteration's `fingerprint`, `status`, `artifactsDir` and `changedSinceLastPass` (section 5). |
 | `/api/step-runs` | `GET` | Queries step execution telemetry filtered by `scenarioId`, `stepId`, or `runId`. |
 | `/api/run/hold/retry` | `POST` | Retries an edited step (`{ step }`) on the paused run. 400 for an invalid step or an unprepared target, 409 when the run is not paused. |
 | `/api/run/hold/continue` | `POST` | Continues the paused scenario from the next step. 409 until a retry has passed. |

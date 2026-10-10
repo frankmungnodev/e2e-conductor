@@ -166,8 +166,12 @@ export class MobileDriver implements Driver {
   }
 
   async captureScreen(path: string) {
-    // Binary PNG output, so not through runAdb.
-    const shot = spawnSync(this.adb, ["-s", this.device, "exec-out", "screencap", "-p"], { maxBuffer: 64 * 1024 * 1024 })
+    // Binary PNG output, so not through runAdb. Synchronous like runAdb, so the timeout keeps a hung
+    // adb from freezing the GUI server, which runs in the same process.
+    const shot = spawnSync(this.adb, ["-s", this.device, "exec-out", "screencap", "-p"], {
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 10_000,
+    })
     if (shot.status !== 0) throw new Error(`adb screencap failed (exit ${shot.status ?? "signal"})`)
     writeFileSync(path, shot.stdout)
   }
