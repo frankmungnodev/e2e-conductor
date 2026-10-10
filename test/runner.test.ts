@@ -217,4 +217,17 @@ describe("runner recovered steps", () => {
     const rows = storedRun(dir)?.stepRuns ?? []
     assert.deepEqual(rows.map((row) => row.iteration).sort(), [1, 2])
   })
+
+  it("keeps the response of a step whose assertion failed, and its HTTP exchanges", async () => {
+    const dir = project([
+      { id: "a", name: "A", steps: [{ ...healthStep(), assert: { status: 201 } }] },
+    ])
+    await execute(dir)
+
+    const [row] = storedRun(dir)?.stepRuns ?? []
+    assert.equal(row.status, "FAILED")
+    assert.equal(row.statusCode, 200)
+    assert.deepEqual(row.resultData, { ok: true })
+    assert.ok(row.artifactsPath && existsSync(join(row.artifactsPath, "http-exchanges.json")))
+  })
 })

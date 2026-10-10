@@ -1,77 +1,108 @@
+import { writeFileSync } from "node:fs"
+import { join } from "node:path"
 import type { ServiceConfig } from "../config.ts"
 import type { Driver, StepResult, StepRun } from "./types.ts"
+
+/** One request and its response, kept until the scenario ends and written only when it failed. */
+type HttpExchange = {
+  step: string
+  startedAt: string
+  durationMs: number
+  request: { method: string; url: string; headers: Record<string, string>; body?: unknown }
+  response?: { status: number; headers: Record<string, string>; body: unknown }
+  error?: string
+}
+
+// Header and field names whose values are credentials. Their values never reach a file.
+const SECRET_NAME = /authorization|cookie|password|passwd|secret|token|api[-_]?key|session/i
+// A response body longer than this is cut, so one large download does not bloat the evidence.
+const MAX_BODY_CHARS = 64 * 1024
+// Only the latest exchanges of a long scenario are kept.
+const MAX_EXCHANGES = 200
 
 /** Keeps cookies between the steps of one scenario, like a browser session. */
 export class HttpDriver implements Driver {
   private readonly cookies = new Map<string, string>()
+  private exchanges: HttpExchange[] = []
 
   constructor(private readonly service: ServiceConfig) {}
 
   async run({ step, log }: StepRun): Promise<StepResult> {
     if (step.actions && step.actions.length > 0) {
       let lastResult: StepResult = { data: {} }
-      for (let i = 0; i < step.actions.length; i++) {
-        const act = step.actions[i]
-        const actionMethod = act.method ?? (act.action.startsWith("http_") ? act.action.replace("http_", "") : "GET")
-        const actionUrl = act.url ?? step.url ?? "/"
-        const targetUrl = /^https?:\/\//.test(actionUrl) ? actionUrl : new URL(actionUrl, this.service.url).href
-        const method = actionMethod.toUpperCase()
-        const body = act.body ?? step.body
-        const hasBody = body !== undefined
-        log(`${method} ${targetUrl}`)
-        if (hasBody) log(`body ${JSON.stringify(body)}`)
-
-        const response = await fetch(targetUrl, {
+      for (const act of step.actions) {
+        const method = (act.method ?? (act.action.startsWith("http_") ? act.action.replace("http_", "") : "GET")).toUpperCase()
+        lastResult = await this.request(step.name, log, {
           method,
-          headers: {
-            ...(hasBody ? { "Content-Type": "application/json" } : {}),
-            ...(this.cookies.size > 0 ? { Cookie: [...this.cookies].map(([name, value]) => `${name}=${value}`).join("; ") } : {}),
-            ...step.headers,
-            ...act.headers,
-          },
-          body: hasBody ? JSON.stringify(body) : undefined,
-          signal: AbortSignal.timeout(step.timeout_ms ?? 30_000),
+          url: act.url ?? step.url ?? "/",
+          headers: { ...step.headers, ...act.headers },
+          body: act.body ?? step.body,
+          timeoutMs: step.timeout_ms,
         })
-        this.storeCookies(response.headers.getSetCookie())
-        const text = await response.text()
-        let data: unknown = text
-        try {
-          data = JSON.parse(text)
-        } catch {
-          // not JSON; keep the text
-        }
-        log(`-> ${response.status} ${text.slice(0, 300)}`)
-        lastResult = { data, status: response.status, output: text }
       }
       return lastResult
     }
-
-    const url = /^https?:\/\//.test(step.url ?? "") ? (step.url as string) : new URL(step.url ?? "/", this.service.url).href
-    const method = step.method ?? "GET"
-    const hasBody = step.body !== undefined
-    log(`${method} ${url}`)
-    if (hasBody) log(`body ${JSON.stringify(step.body)}`)
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        ...(hasBody ? { "Content-Type": "application/json" } : {}),
-        ...(this.cookies.size > 0 ? { Cookie: [...this.cookies].map(([name, value]) => `${name}=${value}`).join("; ") } : {}),
-        ...step.headers,
-      },
-      body: hasBody ? JSON.stringify(step.body) : undefined,
-      signal: AbortSignal.timeout(step.timeout_ms ?? 30_000),
+    return this.request(step.name, log, {
+      method: step.method ?? "GET",
+      url: step.url ?? "/",
+      headers: step.headers,
+      body: step.body,
+      timeoutMs: step.timeout_ms,
     })
-    this.storeCookies(response.headers.getSetCookie())
-    const text = await response.text()
-    let data: unknown = text
-    try {
-      data = JSON.parse(text)
-    } catch {
-      // not JSON; keep the text
+  }
+
+  private async request(
+    stepName: string,
+    log: StepRun["log"],
+    req: { method: string; url: string; headers?: Record<string, string>; body?: unknown; timeoutMs?: number },
+  ): Promise<StepResult> {
+    const url = /^https?:\/\//.test(req.url) ? req.url : new URL(req.url, this.service.url).href
+    const hasBody = req.body !== undefined
+    log(`${req.method} ${url}`)
+    if (hasBody) log(`body ${JSON.stringify(req.body)}`)
+    const headers: Record<string, string> = {
+      ...(hasBody ? { "Content-Type": "application/json" } : {}),
+      ...(this.cookies.size > 0 ? { Cookie: [...this.cookies].map(([name, value]) => `${name}=${value}`).join("; ") } : {}),
+      ...req.headers,
     }
-    log(`-> ${response.status} ${text.slice(0, 300)}`)
-    return { data, status: response.status, output: text }
+    const began = Date.now()
+    const exchange: HttpExchange = {
+      step: stepName,
+      startedAt: new Date(began).toISOString(),
+      durationMs: 0,
+      request: { method: req.method, url: redactUrl(url), headers: redact(headers) as Record<string, string>, ...(hasBody ? { body: redact(req.body) } : {}) },
+    }
+    this.exchanges.push(exchange)
+    if (this.exchanges.length > MAX_EXCHANGES) this.exchanges.shift()
+
+    try {
+      const response = await fetch(url, {
+        method: req.method,
+        headers,
+        body: hasBody ? JSON.stringify(req.body) : undefined,
+        signal: AbortSignal.timeout(req.timeoutMs ?? 30_000),
+      })
+      this.storeCookies(response.headers.getSetCookie())
+      const text = await response.text()
+      let data: unknown = text
+      try {
+        data = JSON.parse(text)
+      } catch {
+        // not JSON; keep the text
+      }
+      log(`-> ${response.status} ${text.slice(0, 300)}`)
+      exchange.response = {
+        status: response.status,
+        headers: redact(Object.fromEntries(response.headers)) as Record<string, string>,
+        body: text.length > MAX_BODY_CHARS ? `${text.slice(0, MAX_BODY_CHARS)}… (${text.length} chars, cut)` : redact(data),
+      }
+      return { data, status: response.status, output: text }
+    } catch (error) {
+      exchange.error = (error as Error).message
+      throw error
+    } finally {
+      exchange.durationMs = Date.now() - began
+    }
   }
 
   private storeCookies(setCookies: string[]) {
@@ -88,7 +119,30 @@ export class HttpDriver implements Driver {
     }
   }
 
-  async endScenario() {
+  /** On failure, writes the scenario's requests and responses to `http-exchanges.json`, with credentials redacted. */
+  async endScenario(failed: boolean, artifactsDir: string) {
     this.cookies.clear()
+    const exchanges = this.exchanges
+    this.exchanges = []
+    if (failed && exchanges.length > 0) {
+      writeFileSync(join(artifactsDir, "http-exchanges.json"), `${JSON.stringify(exchanges, null, 2)}\n`)
+    }
   }
+}
+
+/** A copy with the value of every header or field named like a credential replaced, at any depth. */
+export function redact(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redact)
+  if (value === null || typeof value !== "object") return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, field]) => [key, SECRET_NAME.test(key) ? "[redacted]" : redact(field)]),
+  )
+}
+
+function redactUrl(url: string): string {
+  const parsed = new URL(url)
+  for (const name of [...parsed.searchParams.keys()]) {
+    if (SECRET_NAME.test(name)) parsed.searchParams.set(name, "[redacted]")
+  }
+  return parsed.href
 }

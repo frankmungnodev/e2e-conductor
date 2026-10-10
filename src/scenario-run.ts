@@ -5,7 +5,7 @@ import { type LoadedConfig, resolveFromConfig } from "./config.ts"
 import { type Scope, substitute } from "./context.ts"
 import { type StepRunRecord, saveStepRun } from "./db/runs.ts"
 import { type ScenarioRunStatus, saveScenarioRun, saveScenarioVersion } from "./db/scenario-runs.ts"
-import type { Driver } from "./drivers/types.ts"
+import type { Driver, StepResult } from "./drivers/types.ts"
 import type { PausedStep, PauseHook } from "./hold.ts"
 import { color, type RunLog, stripAnsi } from "./logger.ts"
 import { runShell, sleep } from "./process.ts"
@@ -154,11 +154,13 @@ export async function runScenario(
       manual,
     }
     record({ ...row, status: "RUNNING" })
+    // Kept for the failed row too: an assertion that failed is read against this result.
+    let result: StepResult | undefined
     try {
       const step = substitute(raw, scope)
       const driver = drivers.get(step.target)
       if (!driver) throw new Error(`target "${step.target}" was not prepared for this run`)
-      const result = await driver.run({ step, env: config.env, artifactsDir: dir, log: (line) => out.detail(line) })
+      result = await driver.run({ step, env: config.env, artifactsDir: dir, log: (line) => out.detail(line) })
       checkAssert(step, result)
       extract(step, result, scope.ctx)
       const passedRow: StepRunRecord = {
@@ -177,6 +179,8 @@ export async function runScenario(
         durationMs: Date.now() - attemptBegan,
         errorMessage: (error as Error).message,
         artifactsPath: dir,
+        statusCode: result?.status ?? result?.exitCode,
+        resultData: result?.data,
       }
       record(failedRow)
       return { error: error as Error, row: failedRow }

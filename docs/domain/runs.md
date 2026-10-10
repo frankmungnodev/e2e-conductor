@@ -103,7 +103,7 @@ Execution progress follows a deterministic state machine:
 1. **Per-Attempt Tracking**: Each step attempt (initial execution or retry) creates a `step_runs` record with `status = "RUNNING"`.
 2. **Outcome Recording**:
    - If the step succeeds, `status = "PASSED"`, `duration_ms` is recorded, and any HTTP status code or result data is stored.
-   - If the step fails, `status = "FAILED"`, `duration_ms` is recorded, and the sanitized error message is saved.
+   - If the step fails, `status = "FAILED"`, `duration_ms` is recorded, and the sanitized error message is saved. When the driver returned a result before an assertion failed, its status code and result data are saved too, so the row shows what the assertion was read against.
    - If configured retries remain, subsequent attempts insert new `step_runs` rows with incremented `attempt` numbers.
    - When the final attempt fails, the runner re-checks the environment (section 3) and stores the failure label on that attempt's row.
    - A step whose final row is `PASSED` with `attempt > 1` and `manual = 0` is **recovered**. Recovered is derived from the rows, not stored per step. A step that passed on a manual retry is never recovered.
@@ -120,7 +120,8 @@ Each step's latest 20 **executions** summarize how it has been doing (`src/db/st
 When a scenario-iteration fails or is fixed (section 4), each driver it used keeps evidence in its artifacts folder. Every file is best-effort: one that cannot be captured is skipped and never changes the outcome.
 - **Web**: `web-trace.zip`, the Playwright trace of the whole scenario.
 - **Android**: `mobile-failure.png` (the screen), `mobile-logcat.txt` (`adb logcat -d -v threadtime`) and `mobile-ui.xml` (the `uiautomator dump` view hierarchy, written only when the dump succeeds). The driver clears the device log (`adb logcat -c`) before each scenario-iteration's first step (`startScenario` on the `Driver` interface), so the log covers only that scenario-iteration. A device that refuses to clear keeps older lines too.
-- **HTTP and shell**: nothing.
+- **HTTP**: `http-exchanges.json`, every request of the scenario-iteration in order (latest 200): step name, start time, duration, method, URL, headers and body, and the response's status, headers and body (cut at 64 KB), or the error of a request that got no response. Values of headers, fields and URL query parameters named like a credential (`authorization`, `cookie`, `password`, `secret`, `token`, `api_key`, `session`, case-insensitive, at any depth) are written as `[redacted]`. The driver keeps exchanges in memory only until the scenario-iteration ends, and drops them when it passes.
+- **Shell**: nothing.
 
 The files show under **Result Files & Reports** in the GUI (section 7).
 
