@@ -2,7 +2,7 @@ import { relative } from "node:path"
 import { parseArgs } from "node:util"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
 import { resolveCliPaths, resolveProjectDir } from "./db/paths.ts"
-import { exportToJson } from "./export.ts"
+import { checkExport, exportToJson } from "./export.ts"
 import { importFromJson } from "./import.ts"
 import { initProject, runInteractiveInit } from "./init.ts"
 import { color } from "./logger.ts"
@@ -32,6 +32,7 @@ Options:
       --install           Build and install mobile apps before running
       --strict            Fail the run when a step passed only on a retry
       --screenshots       Save a screenshot after every web and Android step
+      --check             With export: write nothing, exit 1 when JSON files differ from SQLite
       --headless          Hide the browser (same as E2E_HEADLESS=1)
   -v, --verbose           Print step details (same as E2E_VERBOSE=1)
   -i, --interactive       Interactive setup wizard (for init)
@@ -55,6 +56,7 @@ async function main() {
       install: { type: "boolean", default: false },
       strict: { type: "boolean", default: false },
       screenshots: { type: "boolean", default: false },
+      check: { type: "boolean", default: false },
       headless: { type: "boolean", default: false },
       verbose: { type: "boolean", short: "v", default: false },
       interactive: { type: "boolean", short: "i", default: false },
@@ -115,6 +117,21 @@ async function main() {
       console.log(`${scenario.id.padEnd(36)} ${scenario.name} ${color.dim(`[${targets}]`)}`)
     }
     return
+  }
+
+  if (command === "export" && values.check) {
+    const { missing, changed, stale } = checkExport(config)
+    for (const file of missing) console.log(`${color.red("missing")} ${relative(process.cwd(), file)}`)
+    for (const file of changed) console.log(`${color.red("changed")} ${relative(process.cwd(), file)}`)
+    for (const file of stale) console.log(`${color.yellow("stale")}   ${relative(process.cwd(), file)} ${color.dim("(no longer in SQLite)")}`)
+    const drift = missing.length + changed.length + stale.length
+    if (drift === 0) {
+      console.log(`${color.green("✓")} JSON files match SQLite`)
+      return
+    }
+    console.log(color.dim(`${missing.length} missing, ${changed.length} changed, ${stale.length} stale`))
+    console.log(`Run "e2e export" to write missing and changed files${stale.length > 0 ? ", and delete stale files by hand" : ""}.`)
+    process.exit(1)
   }
 
   if (command === "export") {

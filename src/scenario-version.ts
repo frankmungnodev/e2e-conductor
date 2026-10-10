@@ -28,7 +28,8 @@ function withoutEmpty<T extends object>(record: T): Partial<T> {
   return Object.fromEntries(Object.entries(record).filter(([, value]) => value != null)) as Partial<T>
 }
 
-function sortKeys(value: unknown): unknown {
+/** Copies a JSON value with every object's keys sorted, so equal content stringifies the same. */
+export function sortKeys(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortKeys)
   if (value === null || typeof value !== "object") return value
   return Object.fromEntries(

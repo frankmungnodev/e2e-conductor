@@ -7,7 +7,7 @@ import { withDb } from "../src/db/connection.ts"
 import { resolveDbPath } from "../src/db/paths.ts"
 import { deleteScenario, saveScenario } from "../src/db/scenarios.ts"
 import { deleteStepPreset } from "../src/db/step-presets.ts"
-import { exportToJson } from "../src/export.ts"
+import { checkExport, exportToJson } from "../src/export.ts"
 import { getOrSeedPresets, getOrSeedScenarios } from "../src/scenario.ts"
 import { validateScenario } from "../src/schema.ts"
 import { tempDir } from "./temp-dir.ts"
@@ -79,5 +79,44 @@ describe("JSON import and export", () => {
     assert.equal(written.id, undefined)
     assert.equal(written.name, "Created")
     assert.ok(validateScenario(written), JSON.stringify(validateScenario.errors))
+  })
+
+  it("finds no drift right after an export, even when a file is reformatted", () => {
+    const config = project()
+    exportToJson(config)
+    const file = join(config.configDir, "scenarios", "smoke.json")
+    writeFileSync(file, JSON.stringify(JSON.parse(readFileSync(file, "utf8"))))
+
+    assert.deepEqual(checkExport(config), { missing: [], changed: [], stale: [] })
+  })
+
+  it("reports missing, changed and stale files without writing any", () => {
+    const config = project()
+    exportToJson(config)
+    const scenariosDir = join(config.configDir, "scenarios")
+    withDb(resolveDbPath(config.configDir), (db) => {
+      const smoke = getOrSeedScenarios(config)[0]
+      saveScenario(db, { ...smoke, steps: [{ ...smoke.steps[0], name: "renamed" }] })
+      saveScenario(db, { id: "created", name: "Created", steps: [{ name: "ls", target: "shell", command: "ls" }] })
+      deleteStepPreset(db, "preset-echo")
+    })
+
+    const drift = checkExport(config)
+
+    assert.deepEqual(drift, {
+      missing: [join(scenariosDir, "created.json")],
+      changed: [join(scenariosDir, "smoke.json")],
+      stale: [join(config.configDir, "presets", "preset-echo.json")],
+    })
+    assert.equal(existsSync(join(scenariosDir, "created.json")), false)
+  })
+
+  it("reports a file that is not valid JSON as changed", () => {
+    const config = project()
+    exportToJson(config)
+    const file = join(config.configDir, "scenarios", "smoke.json")
+    writeFileSync(file, "{ not json")
+
+    assert.deepEqual(checkExport(config).changed, [file])
   })
 })
