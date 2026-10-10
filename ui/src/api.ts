@@ -95,6 +95,7 @@ export async function startRun(options: {
   headless?: boolean
   verbose?: boolean
   pauseOnFailure?: boolean
+  stepScreenshots?: boolean
 }): Promise<{ ok: boolean; runId: string }> {
   const res = await fetch(`${API_BASE}/api/run`, {
     method: "POST",

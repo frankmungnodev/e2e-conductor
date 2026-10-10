@@ -27,6 +27,7 @@ type RunnerViewProps = {
     headless: boolean
     verbose: boolean
     pauseOnFailure: boolean
+    stepScreenshots: boolean
   }) => void
   onStopRun: () => void
   events: RunEvent[]
@@ -52,7 +53,7 @@ export function RunnerView({
   // Controls state
   const [selectedScenarios, setSelectedScenarios] = useState<string[]>([])
   const options = useRunOptions()
-  const { repeat, startServices, installMobile, headless, verbose, pauseOnFailure } = options
+  const { repeat, startServices, installMobile, headless, verbose, pauseOnFailure, stepScreenshots } = options
   const pause = usePause(events, isRunning)
   const [scenarioFilter, setScenarioFilter] = useState<string>("")
   const [logFilter, setLogFilter] = useState<string>("")
@@ -127,6 +128,7 @@ export function RunnerView({
       headless,
       verbose,
       pauseOnFailure,
+      stepScreenshots,
     })
   }
 
@@ -139,6 +141,7 @@ export function RunnerView({
       headless,
       verbose,
       pauseOnFailure,
+      stepScreenshots,
     })
   }
 

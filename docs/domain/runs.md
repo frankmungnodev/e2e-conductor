@@ -109,6 +109,13 @@ Execution progress follows a deterministic state machine:
    - A step whose final row is `PASSED` with `attempt > 1` and `manual = 0` is **recovered**. Recovered is derived from the rows, not stored per step. A step that passed on a manual retry is never recovered.
    - Manual retries (section 4) add rows with `manual = 1`, numbered after the automatic attempts.
 
+### Step Screenshots
+A run started with **Screenshot Every Step** (`e2e run --screenshots`, or `POST /api/run` with `stepScreenshots: true`) saves the screen after each web and Android step as `step-<n>.png` (`<n>` is the 1-based step position) in the scenario-iteration's artifacts folder. The option is off by default; without it a run saves only the failure evidence it always did.
+- **When**: after the step's last automatic attempt, passed or failed, and before the re-check and any pause, so a failed step shows the screen it failed on. A manual retry during a pause (section 4) retakes it, so the image always shows the step's final attempt.
+- **Which steps**: only targets whose driver has a screen (`captureScreen` on `WebDriver` and `MobileDriver`). HTTP and shell steps get no image. Web images capture the viewport; the failure screenshot stays full-page.
+- **Best-effort**: a failed capture is logged as a detail line and never changes the step's status, duration or failure label. Capture time is not counted in the step's `duration_ms`.
+- **Storage**: images are files only; nothing is stored in SQLite. The run report (`buildRunReport` in `src/run-report.ts`) attaches each `step-<n>.png` to step `<n>` of its scenario-iteration as `screenshot`.
+
 ---
 
 ## 3. Failure Labels, Environment-Down Stop, and Strict Mode
@@ -255,13 +262,14 @@ In the Web GUI:
 - **Runner View (`ui/src/views/runner/`)**:
   - **Step tree**: each failed step shows its failure label badge (`Environment Down`, `Assertion Failed`, `Step Error`); a recovered step shows a `Recovered` warning badge, and its scenario header counts recovered steps. A scenario that failed in setup shows its label and error in the scenario header. Scenarios the run never reached show `Not Run`.
   - **Status bar**: Passed, Failed, Fixed, Not Run, Recovered and Total counts (Fixed, Not Run and Recovered only when above zero), plus an `Environment Down` badge naming what was down, or a `Fixed During Run` badge.
-  - **Run Options**: a `Pause on Failure` checkbox, off by default.
+  - **Run Options**: `Pause on Failure` and `Screenshot Every Step` checkboxes, both off by default and not kept across a page reload.
   - **Pause banner** (`PausePanel.tsx`): while the run is paused, shows the scenario, step, label and error, with `Edit and Retry Step` (a JSON dialog, `RetryStepModal.tsx`), `Continue` (enabled once a retry passes), `End Scenario` and `Stop Run`. A passing retry shows a toast naming the scenario the fix was saved to.
   - **Fixed results**: a fixed scenario shows a `Fixed` badge; its fixed step shows `Fixed By Retry` and its number of manual retries.
 - **Reports & Artifacts View (`ArtifactsView.tsx`)**:
   - **Run History Sidebar**: Displays run timestamp, environment, duration, and status badge.
   - **Run Details View**:
-    - **Screenshots Tab**: Grid of screenshots captured during failures or explicit visual check steps. Below it, **Result Files & Reports** lists each scenario-iteration's folder and files; a scenario-iteration that changed since its last pass (section 5) shows a `Changed Since Last Pass` warning badge, whatever its own outcome.
+    - **Results Tab**: each step row shows a thumbnail of its step screenshot (section 2, Step Screenshots) when one exists; clicking it opens the full-size preview. The scenario's `Saved when it failed` list leaves out step screenshots.
+    - **Screenshots Tab**: Grid of every screenshot in the run: failure screenshots, explicit `screenshot` actions and step screenshots. Below it, **Result Files & Reports** lists each scenario-iteration's folder and files; a scenario-iteration that changed since its last pass (section 5) shows a `Changed Since Last Pass` warning badge, whatever its own outcome.
     - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, failure label, a recovered marker on a passing automatic retry, a `Manual Retry` marker on a retry made while paused, and diagnostic error message or status code.
     - **Run Log Tab**: Full terminal stream and execution log (`run.log`).
 - **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Fixed`, `Fixed By Retry`, `Fixed During Run`, `Manual Retry`, `Retry Passed`, `Environment Down`, `Assertion Failed`, `Step Error`, `Changed Since Last Pass`).

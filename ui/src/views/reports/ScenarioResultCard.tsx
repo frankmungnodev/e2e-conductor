@@ -2,7 +2,7 @@ import { ChevronDown, ChevronRight, FileArchive, FileText } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "../../components/Badge.tsx"
 import { failureLabelText } from "../../runResult.ts"
-import type { ScenarioReport, StepReport } from "../../types.ts"
+import type { ReportFile, ScenarioReport, StepReport } from "../../types.ts"
 import { formatDuration, stepNote } from "./reportFormat.ts"
 import { iconStatusOf, StatusIcon } from "./StatusIcon.tsx"
 
@@ -25,6 +25,9 @@ export function ScenarioResultCard({ report, showIteration, onPreview }: Props) 
             : report.status === "RUNNING"
               ? `Running: ${passed} of ${report.steps.length} steps done`
             : `${passed} of ${report.steps.length} steps passed`
+  // Step screenshots show on their rows, so the files list keeps only the failure evidence.
+  const stepImages = new Set(report.steps.flatMap((step) => (step.screenshot ? [step.screenshot.url] : [])))
+  const evidence = report.files.filter((file) => !stepImages.has(file.url))
 
   return (
     <section className="border border-border rounded-xs bg-sidebar">
@@ -60,10 +63,10 @@ export function ScenarioResultCard({ report, showIteration, onPreview }: Props) 
           )}
           <ol className="flex flex-col gap-1">
             {report.steps.map((step) => (
-              <StepRow key={step.index} step={step} waiting={report.status === "RUNNING"} />
+              <StepRow key={step.index} step={step} waiting={report.status === "RUNNING"} onPreview={onPreview} />
             ))}
           </ol>
-          {report.files.length > 0 && <Files report={report} onPreview={onPreview} />}
+          {evidence.length > 0 && <Files files={evidence} onPreview={onPreview} />}
         </div>
       )}
     </section>
@@ -71,7 +74,7 @@ export function ScenarioResultCard({ report, showIteration, onPreview }: Props) 
 }
 
 /** `waiting`: the scenario is still running, so a step with no result yet is coming, not skipped. */
-function StepRow({ step, waiting }: { step: StepReport; waiting: boolean }) {
+function StepRow({ step, waiting, onPreview }: { step: StepReport; waiting: boolean; onPreview: (url: string) => void }) {
   const note = stepNote(step)
   const notRun = step.status === "NOT_RUN"
   return (
@@ -87,6 +90,16 @@ function StepRow({ step, waiting }: { step: StepReport; waiting: boolean }) {
         </span>
       </div>
       {note && <span className="pl-5.5 text-xs text-warning">{note}</span>}
+      {step.screenshot && (
+        <button
+          type="button"
+          onClick={() => onPreview(step.screenshot?.url ?? "")}
+          aria-label={`Screenshot of step ${step.index + 1}`}
+          className="ml-5.5 self-start w-40 border border-border rounded-xs overflow-hidden bg-activity hover:border-border-focus cursor-pointer transition"
+        >
+          <img src={step.screenshot.url} alt="" className="w-full h-24 object-contain" />
+        </button>
+      )}
       {step.status === "FAILED" && (
         <div className="ml-5.5 px-3 py-2 rounded-xs border border-error-border bg-error-bg flex flex-col gap-1.5">
           {step.failureLabel && (
@@ -101,9 +114,9 @@ function StepRow({ step, waiting }: { step: StepReport; waiting: boolean }) {
   )
 }
 
-function Files({ report, onPreview }: { report: ScenarioReport; onPreview: (url: string) => void }) {
-  const images = report.files.filter((file) => file.isImage)
-  const others = report.files.filter((file) => !file.isImage)
+function Files({ files, onPreview }: { files: ReportFile[]; onPreview: (url: string) => void }) {
+  const images = files.filter((file) => file.isImage)
+  const others = files.filter((file) => !file.isImage)
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-medium text-fg-muted">Saved when it failed</span>

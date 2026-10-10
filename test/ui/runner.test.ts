@@ -60,6 +60,7 @@ describe("Runner view options and failures", () => {
       headless: true,
       verbose: false,
       pauseOnFailure: false,
+      stepScreenshots: false,
     })
 
     await eventually(
@@ -68,6 +69,38 @@ describe("Runner view options and failures", () => {
       20000,
     )
     await page.getByText(/2 passed/).first().waitFor()
+  })
+
+  it("sends Screenshot Every Step with the run and shows each step's screenshot in Reports", async () => {
+    const { url, page, api } = await startUiSession("runner-screenshots")
+    await page.goto(`${url}/?tab=runner`)
+    await page.getByRole("button", { name: "Run Options" }).click()
+    assert.equal(await page.getByRole("checkbox", { name: "Screenshot Every Step" }).isChecked(), false, "off by default")
+    await setOption(page, "Screenshot Every Step", true)
+
+    const started = page.waitForRequest((req) => req.url().endsWith("/api/run") && req.method() === "POST")
+    await page.getByRole("button", { name: `Run ${SHELL_SCENARIO_NAME} only` }).click()
+    assert.equal((await started).postDataJSON().stepScreenshots, true)
+    const done = await eventually(
+      () => api<RunStatus & { lastSummary?: { artifacts?: string } }>("/api/run/status"),
+      (s) => !s.isRunning && s.lastSummary?.passed === 1,
+      20000,
+    )
+
+    // The seeded project has no web or Android target, so the test saves the step image itself.
+    const onePixelPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    writeFileSync(join(done.lastSummary?.artifacts ?? "", SHELL_SCENARIO_ID, "step-1.png"), Buffer.from(onePixelPng, "base64"))
+
+    await page.goto(`${url}/?tab=artifacts`)
+    await page.getByRole("button", { name: new RegExp(SHELL_SCENARIO_NAME) }).click()
+    await page.getByRole("button", { name: "Screenshot of step 1" }).click()
+    await page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Screenshot" }) }).waitFor()
+    assert.equal(await page.getByText("Saved when it failed").count(), 0, "a step image is not listed again as failure evidence")
+
+    // Like the other run options, it is not kept across a reload.
+    await page.goto(`${url}/?tab=runner`)
+    await page.getByRole("button", { name: "Run Options" }).click()
+    assert.equal(await page.getByRole("checkbox", { name: "Screenshot Every Step" }).isChecked(), false)
   })
 
   it("reports a scenario whose step fails", async () => {

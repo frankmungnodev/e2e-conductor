@@ -159,6 +159,7 @@ function AppContent() {
     headless: boolean
     verbose: boolean
     pauseOnFailure?: boolean
+    stepScreenshots?: boolean
   }) => {
     try {
       setIsRunning(true)

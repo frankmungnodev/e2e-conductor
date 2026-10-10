@@ -8,6 +8,7 @@ export function useRunOptions() {
   const [headless, setHeadless] = useState<boolean>(false)
   const [verbose, setVerbose] = useState<boolean>(true)
   const [pauseOnFailure, setPauseOnFailure] = useState<boolean>(false)
+  const [stepScreenshots, setStepScreenshots] = useState<boolean>(false)
   const [showOptions, setShowOptions] = useState<boolean>(false)
   return {
     repeat,
@@ -22,6 +23,8 @@ export function useRunOptions() {
     setVerbose,
     pauseOnFailure,
     setPauseOnFailure,
+    stepScreenshots,
+    setStepScreenshots,
     showOptions,
     setShowOptions,
   }

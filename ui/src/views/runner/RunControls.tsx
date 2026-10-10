@@ -33,6 +33,8 @@ export function RunControls({
     setVerbose,
     pauseOnFailure,
     setPauseOnFailure,
+    stepScreenshots,
+    setStepScreenshots,
     showOptions,
     setShowOptions,
   } = options
@@ -55,6 +57,7 @@ export function RunControls({
             <span>
               {repeat > 1 ? `${repeat} times · ` : ""}
               {pauseOnFailure ? "Pause on failure · " : ""}
+              {stepScreenshots ? "Screenshots · " : ""}
               {headless ? "Browser hidden" : "Browser shown"}
             </span>
             {showOptions ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -85,6 +88,13 @@ export function RunControls({
                 label="Pause on Failure"
                 checked={pauseOnFailure}
                 onChange={(e) => setPauseOnFailure(e.target.checked)}
+                disabled={isRunning}
+              />
+              <Checkbox
+                size="sm"
+                label="Screenshot Every Step"
+                checked={stepScreenshots}
+                onChange={(e) => setStepScreenshots(e.target.checked)}
                 disabled={isRunning}
               />
               <Checkbox

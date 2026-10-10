@@ -61,7 +61,7 @@ export function ReportsView() {
               <EmptyState
                 icon={<ImageIcon className="w-6 h-6" />}
                 title="No Screenshots"
-                description="A screenshot is saved when a web or Android step fails. This run had none."
+                description="A screenshot is saved when a web or Android step fails, and after every step when a run has Screenshot Every Step on. This run had none."
                 bordered
               />
             ) : (
