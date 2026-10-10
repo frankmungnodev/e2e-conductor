@@ -5,7 +5,7 @@ import { prefixError } from "../assertions.ts"
 import type { MobileTarget } from "../config.ts"
 import { restoreKeyboards } from "../preflight.ts"
 import { runAdb, sleep } from "../process.ts"
-import { AdbFlowRunner } from "./adb-flow.ts"
+import { AdbFlowRunner, UI_DUMP } from "./adb-flow.ts"
 import type { Driver, StepResult, StepRun } from "./types.ts"
 
 export class MobileDriver implements Driver {
@@ -176,9 +176,23 @@ export class MobileDriver implements Driver {
     writeFileSync(path, shot.stdout)
   }
 
+  async startScenario() {
+    // Some devices refuse to clear a buffer; the log then also holds lines from before the scenario.
+    runAdb(this.adb, this.device, ["logcat", "-c"], { allowFailure: true })
+  }
+
+  /**
+   * On failure, keeps the screen (`mobile-failure.png`), the device log since the scenario started
+   * (`mobile-logcat.txt`) and the screen's view hierarchy (`mobile-ui.xml`). Each is best-effort,
+   * so one that fails never stops the others.
+   */
   async endScenario(failed: boolean, artifactsDir: string) {
     if (!failed) return
     await this.captureScreen(join(artifactsDir, "mobile-failure.png")).catch(() => {})
+    const logcat = runAdb(this.adb, this.device, ["logcat", "-d", "-v", "threadtime"], { allowFailure: true })
+    if (logcat) writeFileSync(join(artifactsDir, "mobile-logcat.txt"), logcat)
+    const ui = runAdb(this.adb, this.device, ["shell", UI_DUMP], { allowFailure: true })
+    if (ui.includes("<hierarchy")) writeFileSync(join(artifactsDir, "mobile-ui.xml"), ui)
   }
 }
 

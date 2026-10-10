@@ -247,6 +247,9 @@ export async function runScenario(
   const outcome: ScenarioOutcome = { recovered: 0, down: [] }
   let completed = false
   try {
+    for (const driver of drivers.values()) {
+      await driver.startScenario?.().catch(() => {})
+    }
     if (run.reuseSetup) {
       const fixtures = (scenario.setup ?? []).join(", ")
       out.line(`  ${color.dim(`↷ setup ${fixtures} skipped: same setup as ${run.reuseSetup.ranIn}, and only read-only scenarios ran since`)}`)

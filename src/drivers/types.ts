@@ -20,6 +20,8 @@ export type StepRun = {
 
 export interface Driver {
   run(input: StepRun): Promise<StepResult>
+  /** Called before a scenario's first step, so evidence kept at its end covers only that scenario. */
+  startScenario?(): Promise<void>
   /** Called when a scenario ends. `failed` tells the driver to keep evidence. */
   endScenario?(failed: boolean, artifactsDir: string): Promise<void>
   /** Saves the current screen as a PNG at `path`. Only drivers with a screen have it. */

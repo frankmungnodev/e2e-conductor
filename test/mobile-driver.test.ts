@@ -34,3 +34,43 @@ describe("mobile screen capture", () => {
     assert.equal(existsSync(path), false)
   })
 })
+
+describe("mobile failure evidence", () => {
+  const target: MobileTarget = { driver: "mobile", platform: "android", appId: "com.example", flows: "flows" }
+  // Answers each adb call by its first arguments after `-s <device>`, and logs every call.
+  const script = (dir: string) => `echo "$3 $4" >> ${join(dir, "calls")}
+case "$3 $4" in
+  "exec-out screencap") printf 'PNGDATA' ;;
+  "logcat -d") echo "E AndroidRuntime: FATAL EXCEPTION: main" ;;
+  "shell "*) echo '<?xml version="1.0"?><hierarchy rotation="0"></hierarchy>' ;;
+esac
+exit 0`
+
+  it("clears the device log when a scenario starts", async () => {
+    const dir = tempDir("mobile-start")
+    await new MobileDriver(target, "emulator-5554", fakeAdb(dir, "adb", script(dir))).startScenario()
+    assert.equal(readFileSync(join(dir, "calls"), "utf8"), "logcat -c\n")
+  })
+
+  it("keeps the screen, device log and view hierarchy when a scenario fails", async () => {
+    const dir = tempDir("mobile-evidence")
+    await new MobileDriver(target, "emulator-5554", fakeAdb(dir, "adb", script(dir))).endScenario(true, dir)
+    assert.equal(readFileSync(join(dir, "mobile-failure.png"), "utf8"), "PNGDATA")
+    assert.match(readFileSync(join(dir, "mobile-logcat.txt"), "utf8"), /FATAL EXCEPTION/)
+    assert.match(readFileSync(join(dir, "mobile-ui.xml"), "utf8"), /<hierarchy/)
+  })
+
+  it("keeps nothing when a scenario passes", async () => {
+    const dir = tempDir("mobile-pass")
+    await new MobileDriver(target, "emulator-5554", fakeAdb(dir, "adb", script(dir))).endScenario(false, dir)
+    assert.equal(existsSync(join(dir, "calls")), false)
+  })
+
+  it("writes no view hierarchy when the dump fails, and still keeps the log", async () => {
+    const dir = tempDir("mobile-no-dump")
+    const adb = fakeAdb(dir, "adb", `[ "$3" = "logcat" ] && echo "I ActivityManager: start" && exit 0\nexit 0`)
+    await new MobileDriver(target, "emulator-5554", adb).endScenario(true, dir)
+    assert.equal(existsSync(join(dir, "mobile-ui.xml")), false)
+    assert.ok(existsSync(join(dir, "mobile-logcat.txt")))
+  })
+})

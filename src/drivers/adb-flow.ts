@@ -37,6 +37,9 @@ const POLL_MS = 300
 // Pause between keys when retyping text slowly (see typeText).
 const KEY_DELAY_MS = 120
 
+/** Shell command that prints the screen's view hierarchy as XML, or nothing when the dump fails. */
+export const UI_DUMP = "rm -f /sdcard/e2e-ui.xml; uiautomator dump /sdcard/e2e-ui.xml >/dev/null 2>&1; cat /sdcard/e2e-ui.xml 2>/dev/null; true"
+
 export class AdbFlowRunner {
   constructor(
     private readonly adb: string,
@@ -52,9 +55,7 @@ export class AdbFlowRunner {
     // A dump taken while the screen changes (e.g. a cold start's splash screen) can fail without
     // writing the file. Delete the old file first, so a failed dump never returns the previous
     // screen, and read a failed dump as an empty screen, so waits keep polling.
-    const xml = this.shell([
-      "rm -f /sdcard/e2e-ui.xml; uiautomator dump /sdcard/e2e-ui.xml >/dev/null 2>&1; cat /sdcard/e2e-ui.xml 2>/dev/null; true",
-    ])
+    const xml = this.shell([UI_DUMP])
     const nodes: Node[] = []
     for (const match of xml.matchAll(/<node\b([^>]*?)\/?>/g)) {
       const attr = (name: string) => match[1].match(new RegExp(`\\b${name}="([^"]*)"`))?.[1] ?? ""

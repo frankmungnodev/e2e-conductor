@@ -109,7 +109,14 @@ Execution progress follows a deterministic state machine:
    - A step whose final row is `PASSED` with `attempt > 1` and `manual = 0` is **recovered**. Recovered is derived from the rows, not stored per step. A step that passed on a manual retry is never recovered.
    - Manual retries (section 4) add rows with `manual = 1`, numbered after the automatic attempts.
 
-### Step Screenshots
+### Failure Evidence
+When a scenario-iteration fails or is fixed (section 4), each driver it used keeps evidence in its artifacts folder. Every file is best-effort: one that cannot be captured is skipped and never changes the outcome.
+- **Web**: `web-trace.zip`, the Playwright trace of the whole scenario.
+- **Android**: `mobile-failure.png` (the screen), `mobile-logcat.txt` (`adb logcat -d -v threadtime`) and `mobile-ui.xml` (the `uiautomator dump` view hierarchy, written only when the dump succeeds). The driver clears the device log (`adb logcat -c`) before each scenario-iteration's first step (`startScenario` on the `Driver` interface), so the log covers only that scenario-iteration. A device that refuses to clear keeps older lines too.
+- **HTTP and shell**: nothing.
+
+The files show under **Result Files & Reports** in the GUI (section 7).
+
 A run started with **Screenshot Every Step** (`e2e run --screenshots`, or `POST /api/run` with `stepScreenshots: true`) saves the screen after each web and Android step as `step-<n>.png` (`<n>` is the 1-based step position) in the scenario-iteration's artifacts folder. The option is off by default; without it a run saves only the failure evidence it always did.
 - **When**: after the step's last automatic attempt, passed or failed, and before the re-check and any pause, so a failed step shows the screen it failed on. A manual retry during a pause (section 4) retakes it, so the image always shows the step's final attempt.
 - **Which steps**: only targets whose driver has a screen (`captureScreen` on `WebDriver` and `MobileDriver`). HTTP and shell steps get no image. Web images capture the viewport; the failure screenshot stays full-page.
