@@ -467,3 +467,17 @@ export type WizardApplyPayload = {
   fixtures?: Record<string, { cmd: string; cwd?: string }>
 }
 
+
+/** A step's latest executions, from `GET /api/scenarios/:id/step-history`. */
+export interface StepHistory {
+  executions: number
+  /** Passed on the first attempt. */
+  passed: number
+  /** Passed only on a retry. */
+  recovered: number
+  failed: number
+  /** 95th percentile duration of passing executions. */
+  p95Ms?: number
+  /** Outcome of each execution, newest first. */
+  recent: Array<"PASSED" | "RECOVERED" | "FAILED">
+}

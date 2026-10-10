@@ -2,8 +2,9 @@ import { ArrowDown, ArrowUp, Check, Copy, Layers, Loader2, Plus, Settings, Trash
 import { Badge, type BadgeVariant } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
 import { EmptyState } from "../../components/EmptyState.tsx"
-import type { ScenarioItem } from "../../types.ts"
+import type { ScenarioItem, StepHistory } from "../../types.ts"
 import { titleCase } from "./stepDefaults.ts"
+import { isFlaky } from "./stepHistory.ts"
 
 export interface StepListPanelProps {
   draftScenario: ScenarioItem
@@ -17,6 +18,8 @@ export interface StepListPanelProps {
   duplicateStep: (index: number) => void
   deleteStep: (index: number) => void
   getTargetBadgeVariant: (target: string) => BadgeVariant
+  /** Each step's latest runs, keyed by step id. */
+  stepHistory: Record<string, StepHistory>
 }
 
 /** The draft scenario's header, the Add Step trigger, and its ordered step list. */
@@ -32,6 +35,7 @@ export function StepListPanel({
   duplicateStep,
   deleteStep,
   getTargetBadgeVariant,
+  stepHistory,
 }: StepListPanelProps) {
   return (
     <section className="w-96 border-r border-border bg-titlebar flex flex-col shrink-0">
@@ -128,9 +132,16 @@ export function StepListPanel({
                     {st.name}
                   </span>
                 </div>
-                <Badge variant={getTargetBadgeVariant(st.target)} size="xs">
-                  {titleCase(st.target)}
-                </Badge>
+                <div className="flex items-center gap-1 shrink-0">
+                  {st.id && isFlaky(stepHistory[st.id]) && (
+                    <Badge variant="warning" size="xs">
+                      Flaky
+                    </Badge>
+                  )}
+                  <Badge variant={getTargetBadgeVariant(st.target)} size="xs">
+                    {titleCase(st.target)}
+                  </Badge>
+                </div>
               </div>
 
               <div className="flex items-center justify-between text-xs text-fg-muted">

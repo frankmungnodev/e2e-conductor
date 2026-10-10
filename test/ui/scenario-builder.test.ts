@@ -3,6 +3,9 @@ import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import type { Page } from "playwright"
+import { loadConfig } from "../../src/config.ts"
+import { withDb } from "../../src/db/connection.ts"
+import { saveRun, saveStepRun } from "../../src/db/runs.ts"
 import { eventually, FIXTURE_NAME, PRESET_NAME, SHELL_SCENARIO_ID, SHELL_SCENARIO_NAME, startUiSession, type UiSession } from "./helpers.ts"
 
 /** The open dialog with this heading; another dialog may still be animating closed. */
@@ -176,5 +179,41 @@ describe("Step presets", () => {
       (p) => !p.presets.some((x) => x.name === "Smoke preset"),
     )
     assert.ok(after.presets.some((x) => x.name === PRESET_NAME), "other presets are kept")
+  })
+})
+
+describe("Step history", () => {
+  it("shows a step's run history and marks a step that passed only after a retry as flaky", async () => {
+    const { url, page, api, projectDir } = await startUiSession("step-history")
+    const stepId = (await shellScenario(api, (s) => s !== undefined))?.steps[0] as { id?: string } | undefined
+    assert.ok(stepId?.id, "seeded step has an id")
+    withDb((await loadConfig(projectDir)).dbPath, (db) => {
+      saveRun(db, { id: "r1", environmentName: "main", status: "PASSED", totalScenarios: 1, passedScenarios: 1, failedScenarios: 0, startedAt: 1 })
+      for (const [iteration, attempts] of [
+        [1, 1],
+        [2, 2],
+      ]) {
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+          saveStepRun(db, {
+            id: `r1:${SHELL_SCENARIO_ID}:${iteration}:1:${attempt}`,
+            runId: "r1",
+            stepId: stepId.id,
+            scenarioId: SHELL_SCENARIO_ID,
+            iteration,
+            attempt,
+            status: attempt === attempts ? "PASSED" : "FAILED",
+            durationMs: 1500,
+            createdAt: iteration * 10 + attempt,
+          })
+        }
+      }
+    })
+
+    await page.goto(`${url}/?tab=scenarios`)
+    const panel = page.getByLabel("Run History")
+    await panel.getByText("Passed first try in 1 of the last 2 runs").waitFor()
+    await panel.getByText("1 passed only after a retry").waitFor()
+    await panel.getByText("1.5s").waitFor()
+    assert.equal(await page.getByText("Flaky", { exact: true }).count(), 2, "badge in the step list and the panel")
   })
 })

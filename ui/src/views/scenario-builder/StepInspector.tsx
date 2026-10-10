@@ -8,8 +8,9 @@ import { Panel } from "../../components/Panel.tsx"
 import { Select } from "../../components/Select.tsx"
 import { TabButton } from "../../components/Tabs.tsx"
 import type { StepDriver } from "../../targetDriver.ts"
-import type { ScenarioItem, ScenarioStep, StepAction } from "../../types.ts"
+import type { ScenarioItem, ScenarioStep, StepAction, StepHistory } from "../../types.ts"
 import { StepActionCard } from "./StepActionCard.tsx"
+import { StepHistoryPanel } from "./StepHistoryPanel.tsx"
 import { titleCase } from "./stepDefaults.ts"
 
 export interface StepInspectorProps {
@@ -31,6 +32,8 @@ export interface StepInspectorProps {
   handleJsonChange: (text: string) => void
   openSavePreset: (stepName: string) => void
   openAddStep: () => void
+  /** The selected step's latest runs; undefined when it has none. */
+  stepHistory?: StepHistory
 }
 
 /** The selected step's editor: name, target, actions, retry policy, and the scenario's raw JSON. */
@@ -53,6 +56,7 @@ export function StepInspector({
   handleJsonChange,
   openSavePreset,
   openAddStep,
+  stepHistory,
 }: StepInspectorProps) {
   return (
         <section className="flex-1 flex flex-col bg-sidebar overflow-hidden">
@@ -263,6 +267,8 @@ export function StepInspector({
                     />
                   </div>
                 </Panel>
+
+                <StepHistoryPanel history={stepHistory} />
               </div>
             ) : (
               /* RAW JSON VIEW */

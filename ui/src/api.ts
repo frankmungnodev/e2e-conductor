@@ -10,6 +10,7 @@ import type {
   ScenarioItem,
   ScenarioStep,
   StepGroup,
+  StepHistory,
   StepPreset,
   StepRunItem,
 } from "./types.ts"
@@ -39,6 +40,12 @@ export async function saveScenario(id: string, content: any): Promise<{ ok: bool
     const err = await res.json().catch(() => ({}))
     throw new Error(err.error ?? "Failed to save scenario")
   }
+  return res.json()
+}
+
+export async function fetchStepHistory(scenarioId: string): Promise<Record<string, StepHistory>> {
+  const res = await fetch(`${API_BASE}/api/scenarios/${encodeURIComponent(scenarioId)}/step-history`)
+  if (!res.ok) throw new Error("Failed to load step history")
   return res.json()
 }
 

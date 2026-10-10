@@ -11,6 +11,7 @@ import { ScenarioSettingsModal } from "./ScenarioSettingsModal.tsx"
 import { StepInspector } from "./StepInspector.tsx"
 import { StepListPanel } from "./StepListPanel.tsx"
 import { type SaveScenario, useScenarioDraft } from "./useScenarioDraft.tsx"
+import { useStepHistory } from "./useStepHistory.ts"
 import { useStepPresets } from "./useStepPresets.tsx"
 
 export type ScenarioBuilderProps = {
@@ -49,6 +50,7 @@ export function ScenarioBuilder({
   const presets = useStepPresets(confirm)
   const draft = useScenarioDraft({ scenarios, config, inspectorMode, onSaveScenario, onDeleteScenario, confirm })
   const { draftScenario, selectedStepIdx } = draft
+  const stepHistory = useStepHistory(draftScenario?.id)
 
   // Target options from config
   const configuredTargets = Object.keys(config?.targets ?? {})
@@ -132,6 +134,7 @@ export function ScenarioBuilder({
             duplicateStep={draft.duplicateStep}
             deleteStep={draft.deleteStep}
             getTargetBadgeVariant={badgeVariantOf}
+            stepHistory={stepHistory}
           />
 
           {/* ========================================================================= */}
@@ -156,6 +159,7 @@ export function ScenarioBuilder({
             handleJsonChange={draft.handleJsonChange}
             openSavePreset={presets.openSavePreset}
             openAddStep={openAddStep}
+            stepHistory={selectedStep?.id ? stepHistory[selectedStep.id] : undefined}
           />
         </>
       ) : (

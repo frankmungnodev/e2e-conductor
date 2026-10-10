@@ -109,7 +109,14 @@ Execution progress follows a deterministic state machine:
    - A step whose final row is `PASSED` with `attempt > 1` and `manual = 0` is **recovered**. Recovered is derived from the rows, not stored per step. A step that passed on a manual retry is never recovered.
    - Manual retries (section 4) add rows with `manual = 1`, numbered after the automatic attempts.
 
-### Failure Evidence
+### Step History
+Each step's latest 20 **executions** summarize how it has been doing (`src/db/step-history.ts`). Nothing new is stored; the history is read from `step_runs`.
+- **Execution**: one per step per scenario-iteration, read from its last automatic attempt. Manual retries during a pause are left out, so a step that failed and was fixed by hand counts as failed. `RUNNING` and `CANCELLED` attempts are left out.
+- **Outcomes**: passed (first attempt), recovered (passed on attempt 2 or later), failed.
+- **p95**: the 95th percentile duration of passing executions, nearest rank. Absent when none passed.
+- **Flaky**: at least one recovered execution, or both passed and failed executions, in the window.
+- **Identity**: by `step_id`, so history follows a step through edits and reordering, and spans every environment. A step whose content changed keeps its older executions.
+
 When a scenario-iteration fails or is fixed (section 4), each driver it used keeps evidence in its artifacts folder. Every file is best-effort: one that cannot be captured is skipped and never changes the outcome.
 - **Web**: `web-trace.zip`, the Playwright trace of the whole scenario.
 - **Android**: `mobile-failure.png` (the screen), `mobile-logcat.txt` (`adb logcat -d -v threadtime`) and `mobile-ui.xml` (the `uiautomator dump` view hierarchy, written only when the dump succeeds). The driver clears the device log (`adb logcat -c`) before each scenario-iteration's first step (`startScenario` on the `Driver` interface), so the log covers only that scenario-iteration. A device that refuses to clear keeps older lines too.
@@ -258,6 +265,7 @@ The orchestrator provides unified access to both database-backed telemetry and f
 | `/api/run/hold/retry` | `POST` | Retries an edited step (`{ step }`) on the paused run. 400 for an invalid step or an unprepared target, 409 when the run is not paused. |
 | `/api/run/hold/continue` | `POST` | Continues the paused scenario from the next step. 409 until a retry has passed. |
 | `/api/run/hold/end-scenario` | `POST` | Ends the paused scenario failed; the run moves on. 409 when the run is not paused. |
+| `/api/scenarios/:id/step-history` | `GET` | Each step's history (section 2, Step History), keyed by step id: `executions`, `passed`, `recovered`, `failed`, `p95Ms` and `recent` (outcomes newest first). Steps that never ran are absent. |
 | `/api/steps/:stepId/runs` | `GET` | Queries historical execution records for a specific step across all runs, enabling flakiness detection and performance tracking. |
 
 ---
@@ -272,6 +280,9 @@ In the Web GUI:
   - **Run Options**: `Pause on Failure` and `Screenshot Every Step` checkboxes, both off by default and not kept across a page reload.
   - **Pause banner** (`PausePanel.tsx`): while the run is paused, shows the scenario, step, label and error, with `Edit and Retry Step` (a JSON dialog, `RetryStepModal.tsx`), `Continue` (enabled once a retry passes), `End Scenario` and `Stop Run`. A passing retry shows a toast naming the scenario the fix was saved to.
   - **Fixed results**: a fixed scenario shows a `Fixed` badge; its fixed step shows `Fixed By Retry` and its number of manual retries.
+- **Scenario Builder (`ui/src/views/scenario-builder/`)**:
+  - **Step list**: a step that is flaky (section 2, Step History) shows a `Flaky` warning badge.
+  - **Run History panel** (`StepHistoryPanel.tsx`), under the selected step's retry policy: first-try passes out of the latest executions, a strip of outcomes (oldest left), recovered and failed counts, and the p95 duration of passes.
 - **Reports & Artifacts View (`ArtifactsView.tsx`)**:
   - **Run History Sidebar**: Displays run timestamp, environment, duration, and status badge.
   - **Run Details View**:
@@ -279,7 +290,7 @@ In the Web GUI:
     - **Screenshots Tab**: Grid of every screenshot in the run: failure screenshots, explicit `screenshot` actions and step screenshots. Below it, **Result Files & Reports** lists each scenario-iteration's folder and files; a scenario-iteration that changed since its last pass (section 5) shows a `Changed Since Last Pass` warning badge, whatever its own outcome.
     - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, failure label, a recovered marker on a passing automatic retry, a `Manual Retry` marker on a retry made while paused, and diagnostic error message or status code.
     - **Run Log Tab**: Full terminal stream and execution log (`run.log`).
-- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Fixed`, `Fixed By Retry`, `Fixed During Run`, `Manual Retry`, `Retry Passed`, `Environment Down`, `Assertion Failed`, `Step Error`, `Changed Since Last Pass`).
+- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Fixed`, `Fixed By Retry`, `Fixed During Run`, `Manual Retry`, `Retry Passed`, `Environment Down`, `Assertion Failed`, `Step Error`, `Changed Since Last Pass`, `Flaky`).
 
 ---
 

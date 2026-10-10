@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs"
 import { withDb } from "../../db/connection.ts"
 import { deleteScenario, getScenario, saveScenario } from "../../db/scenarios.ts"
+import { getStepExecutions, summarizeStepHistory } from "../../db/step-history.ts"
 import { checkSteps, getOrSeedScenarios, type Scenario, targetsUsed } from "../../scenario.ts"
 import { describeErrors, validateScenario } from "../../schema.ts"
 import { readBody, sendJson } from "../http.ts"
@@ -60,6 +61,19 @@ export const scenarioRoutes: Route[] = [
       }
 
       return sendJson(res, 200, { ok: true, id: body.id, isValid: errors.length === 0, errors })
+    },
+  },
+  // GET /api/scenarios/:id/step-history
+  {
+    match: ({ req, pathname }) => /^\/api\/scenarios\/[^/]+\/step-history$/.test(pathname) && req.method === "GET",
+    handle: async ({ state, res, pathname }) => {
+      const id = decodeURIComponent(pathname.split("/")[3])
+      if (!existsSync(state.config.dbPath)) return sendJson(res, 200, {})
+      try {
+        return sendJson(res, 200, withDb(state.config.dbPath, (db) => summarizeStepHistory(getStepExecutions(db, id))))
+      } catch (error) {
+        return sendJson(res, 500, { error: (error as Error).message })
+      }
     },
   },
   // DELETE /api/scenarios/:id
