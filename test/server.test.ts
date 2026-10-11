@@ -3,11 +3,16 @@ import { mkdirSync, symlinkSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
+import { loadConfig } from "../src/config.ts"
 import { withDb } from "../src/db/connection.ts"
+import { saveEnvPlatform } from "../src/db/env-platforms.ts"
 import { resolveDbPath } from "../src/db/paths.ts"
+import { savePlatform } from "../src/db/platforms.ts"
 import { saveRun, saveStepRun } from "../src/db/runs.ts"
 import { saveScenarioRun } from "../src/db/scenario-runs.ts"
+import type { Scenario } from "../src/scenario.ts"
 import { startServer } from "../src/server.ts"
+import { draftProject, storedScenarioRuns } from "./runner-project.ts"
 import { tempDir } from "./temp-dir.ts"
 
 function mockProject(): LoadedConfig {
@@ -388,5 +393,82 @@ describe("startServer", () => {
     } finally {
       await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
     }
+  })
+})
+
+describe("POST /api/run and drafts", () => {
+  const shell = (id: string): Scenario => ({ id, name: id, steps: [{ name: "Pass", target: "shell", command: "true" }] })
+
+  async function withServer(dir: string, test: (url: string) => Promise<void>) {
+    const { server, url } = await startServer(await loadConfig(dir), { port: 0, host: "127.0.0.1", open: false })
+    try {
+      await test(url)
+    } finally {
+      await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
+    }
+  }
+
+  const startRun = (url: string, body: unknown) =>
+    fetch(`${url}/api/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+
+  const isRunning = async (url: string) => ((await (await fetch(`${url}/api/run/status`)).json()) as { isRunning: boolean }).isRunning
+
+  async function finished(url: string) {
+    const deadline = Date.now() + 5000
+    while (await isRunning(url)) {
+      if (Date.now() > deadline) throw new Error("run did not finish")
+      await new Promise((resolveWait) => setTimeout(resolveWait, 20))
+    }
+  }
+
+  it("runs only kept scenarios when no filter is given (AE4)", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft")], ["dev"])
+    await withServer(dir, async (url) => {
+      assert.equal((await startRun(url, {})).status, 200)
+      await finished(url)
+    })
+    assert.deepEqual(
+      storedScenarioRuns(dir).map((row) => row.scenarioId),
+      ["kept"],
+    )
+  })
+
+  it("runs the given drafts on a marked environment", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft")], ["dev"])
+    await withServer(dir, async (url) => {
+      assert.equal((await startRun(url, { drafts: ["draft"] })).status, 200)
+      await finished(url)
+    })
+    assert.deepEqual(
+      storedScenarioRuns(dir).map((row) => row.scenarioId),
+      ["draft"],
+    )
+  })
+
+  it("answers 409 with the refusal on an unmarked environment and starts no run", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft")], ["staging"])
+    await withServer(dir, async (url) => {
+      const res = await startRun(url, { drafts: ["draft"] })
+      assert.equal(res.status, 409)
+      const body = (await res.json()) as { error: string }
+      assert.match(body.error, /environment "dev" does not allow drafts\. Environments that allow drafts: staging/)
+      assert.equal(await isRunning(url), false)
+    })
+  })
+
+  it("refuses a draft run whose environment fails to load instead of running it on the active one", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft")], ["dev", "staging"])
+    // In staging the api platform is off, so the web platform that needs it fails to load.
+    withDb(resolveDbPath(dir), (db) => {
+      savePlatform(db, { id: "plat-ui", name: "ui", type: "web", url: "http://127.0.0.1:1", needs: ["api"] })
+      saveEnvPlatform(db, { envName: "staging", platformId: "plat-api", enabled: false })
+    })
+    await withServer(dir, async (url) => {
+      const res = await startRun(url, { drafts: ["draft"], environment: "staging" })
+      assert.equal(res.status, 409)
+      const body = (await res.json()) as { error: string }
+      assert.match(body.error, /Environment "staging" failed to load: .*needs unknown target "api"/)
+      assert.equal(await isRunning(url), false)
+    })
   })
 })

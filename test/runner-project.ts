@@ -4,7 +4,8 @@ import { join } from "node:path"
 import { after, before } from "node:test"
 import { loadConfig } from "../src/config.ts"
 import { openDatabase } from "../src/db/connection.ts"
-import { saveEnvironment } from "../src/db/environments.ts"
+import { saveDraft, saveDraftGroup } from "../src/db/drafts.ts"
+import { saveEnvironment, setAllowDrafts } from "../src/db/environments.ts"
 import { saveFixture } from "../src/db/fixtures.ts"
 import { savePlatform } from "../src/db/platforms.ts"
 import { getRun, getRuns } from "../src/db/runs.ts"
@@ -42,6 +43,21 @@ export function project(scenarios: Scenario[], fixtures: Record<string, string> 
   savePlatform(db, { id: "plat-api", name: "api", type: "api", url: backend.url, health: "/health", serviceName: "backend" })
   for (const [name, cmd] of Object.entries(fixtures)) saveFixture(db, name, { cmd })
   for (const scenario of scenarios) saveScenario(db, scenario)
+  db.close()
+  return dir
+}
+
+/**
+ * A project with kept `scenarios` and `drafts` saved as drafts in one group. It has two environments,
+ * `dev` (active) and `staging`, and `marked` names the ones that allow drafts.
+ */
+export function draftProject(scenarios: Scenario[], drafts: Scenario[], marked: string[] = []) {
+  const dir = project(scenarios)
+  const db = openDatabase(join(dir, ".e2e", "e2e.db"))
+  saveEnvironment(db, "staging", { scenarios: "scenarios", results: "results" })
+  saveDraftGroup(db, { key: "batch", prompt: "test all the features" })
+  for (const draft of drafts) saveDraft(db, draft, "batch")
+  for (const name of marked) setAllowDrafts(db, name, true)
   db.close()
   return dir
 }

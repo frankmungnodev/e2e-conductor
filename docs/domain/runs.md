@@ -99,6 +99,14 @@ Execution progress follows a deterministic state machine:
 5. **Logs**: every line goes to `<results>/run.log` (the newest run) and to `<results>/artifacts/<runId>/run.log` (kept with the run). `GET /api/runs/:runId` returns the run's own log, falls back to `run.log` only for the run `summary.json` describes, and returns an empty log otherwise.
 6. **Report**: `GET /api/runs/:runId` also returns `report`, built by `buildRunReport` in `src/run-report.ts`: one entry per scenario-iteration with its current scenario name, duration, files, and one row per step, named from the pinned content (section 5), its attempts collapsed into a status (`PASSED`, `FAILED`, `RUNNING`, `NOT_RUN`), the last failure's error and label, and whether it passed on an automatic retry (recovered) or a manual one. The Reports tab shows this, failed scenarios first.
 
+### Scenario Selection and Draft Runs
+A run is either ordinary or a draft run, never both (`loadScenarios` in `src/scenario.ts`, gate in `src/draft-run.ts`).
+
+- **Ordinary run** (run all, a `-s` / `scenarios` substring filter, `e2e run`, `e2e list`): drafts and draft revisions are dropped first, then the filter applies, then validation. An invalid draft never fails an ordinary run. When a filter matches only drafts, the run stops before preflight with `"<text>" matches only drafts (<ids>). Drafts run from the UI's Drafts tab.`, and `e2e run` exits 1.
+- **Draft run** (`RunOptions.drafts`, `POST /api/run` with `drafts`): loads exactly those ids, never by substring, and ignores `scenarios`. `run()` refuses it before opening anything unless every id is a draft or revision and the environment the run loaded has the draft mark (`allowDrafts`, `environments.md` section 5). The refusal names the environments that allow drafts, or says none does and that the mark is set in the UI's Config view. `E2E_ENV` and `--env` do not get around it: the check reads the environment actually loaded.
+- **Over HTTP**, `POST /api/run` with `drafts` runs the same checks before it sets the active run or answers: the requested `environment` loads, every id is a draft, and the mark is set. A failure answers 409 with the message, and no run starts. An ordinary run whose `environment` fails to load still falls back to the active environment.
+- **The CLI** has no way to start a draft run or to set the mark.
+
 ### Step Run Lifecycle
 1. **Per-Attempt Tracking**: Each step attempt (initial execution or retry) creates a `step_runs` record with `status = "RUNNING"`.
 2. **Outcome Recording**:
@@ -273,6 +281,7 @@ The orchestrator provides unified access to both database-backed telemetry and f
 
 | Endpoint | Method | Purpose |
 |---|---|---|
+| `/api/run` | `POST` | Starts a run (`scenarios`, `repeat`, `environment`, `pauseOnFailure`, `drafts`, ...) and answers `{ ok, runId }`. 409 when a run is in progress, or for a draft run that is refused (section 2, Scenario Selection and Draft Runs). |
 | `/api/runs` | `GET` | Returns execution history sorted by `started_at DESC`, merging SQLite records with filesystem summary metadata. |
 | `/api/runs/:runId` | `GET` | Returns full run metadata, scenario-level artifact listings (each URL carries `?v=<mtime>`, because artifacts are served with a one-hour cache and a manual retry rewrites a step screenshot in place), captured screenshots, the array of all associated `stepRuns`, and `scenarioRuns`: each scenario-iteration's `fingerprint`, `status`, `artifactsDir` and `changedSinceLastPass` (section 5). |
 | `/api/runs/:runId/scenarios/:scenarioId/:iteration/timeline` | `GET` | The scenario-iteration's failure timeline (section 2, Failure Timeline): `startedAt`, `events` (each with `at`, `source` `step`, `http` or `device`, `level`, `title`, `detail` and `durationMs`), `deviceEntries` and `deviceClock` (`exact` or `assumed`). 404 when the run has no such scenario-iteration. |
@@ -318,3 +327,4 @@ In the Web GUI:
 5. **Counts Add Up**: A run's passed, failed, fixed and not-run scenario-iterations always sum to its total.
 6. **A Fixed Run Is Never Green**: A run in which the user fixed a step while paused never ends `PASSED`.
 7. **A Run Pins Only What It Started**: A scenario-iteration is pinned to the content it started with, and only scenario-iterations that started are pinned.
+8. **Drafts Stay Out of Ordinary Runs**: An ordinary run never loads a draft, and a draft run loads only drafts, by exact id, on an environment with the draft mark.

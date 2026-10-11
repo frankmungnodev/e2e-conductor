@@ -1,10 +1,11 @@
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
 import { existsSync, readFileSync } from "node:fs"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import type { RunEvent } from "../src/runner.ts"
 import type { Scenario } from "../src/scenario.ts"
-import { backend, execute, healthStep, project, storedRun } from "./runner-project.ts"
+import { backend, draftProject, execute, healthStep, project, storedRun } from "./runner-project.ts"
 import { tempDir } from "./temp-dir.ts"
 
 describe("runner failure labels and environment stop", () => {
@@ -229,5 +230,96 @@ describe("runner recovered steps", () => {
     assert.equal(row.statusCode, 200)
     assert.deepEqual(row.resultData, { ok: true })
     assert.ok(row.artifactsPath && existsSync(join(row.artifactsPath, "http-exchanges.json")))
+  })
+})
+
+describe("runner draft safety", () => {
+  const shell = (id: string): Scenario => ({ id, name: id, steps: [{ name: "Pass", target: "shell", command: "true" }] })
+  const ran = (events: RunEvent[]) => {
+    const start = events.find((event) => event.type === "run_start")
+    return start?.type === "run_start" ? start.scenarios.map((scenario) => scenario.id) : []
+  }
+  /** Runs with `E2E_ENV` set, restoring it afterwards. */
+  async function withE2eEnv<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    const before = process.env.E2E_ENV
+    process.env.E2E_ENV = name
+    try {
+      return await fn()
+    } finally {
+      if (before === undefined) delete process.env.E2E_ENV
+      else process.env.E2E_ENV = before
+    }
+  }
+
+  it("runs only kept scenarios when no filter is given (AE4)", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft")], ["dev"])
+    const { summary, events } = await execute(dir)
+
+    assert.deepEqual(ran(events), ["kept"])
+    assert.equal(summary.total, 1)
+  })
+
+  it("leaves a draft out of a substring filter that also matches a kept scenario", async () => {
+    const dir = draftProject([shell("login-admin")], [shell("login")])
+    const { events } = await execute(dir, { scenarios: ["login"] })
+
+    assert.deepEqual(ran(events), ["login-admin"])
+  })
+
+  it("starts an ordinary run when a draft is invalid", async () => {
+    const invalid: Scenario = { id: "broken", name: "Broken", steps: [{ name: "Nowhere", target: "nope", command: "true" }] }
+    const dir = draftProject([shell("kept")], [invalid])
+    const { summary, events } = await execute(dir)
+
+    assert.equal(summary.status, "PASSED")
+    assert.deepEqual(ran(events), ["kept"])
+  })
+
+  it("says a filter matched only drafts instead of running them", async () => {
+    const dir = draftProject([shell("kept")], [shell("login")])
+
+    await assert.rejects(execute(dir, { scenarios: ["login"] }), /"login" matches only drafts \(login\).*Drafts tab/)
+  })
+
+  it("exits 1 from the CLI when -s matches only drafts", () => {
+    const dir = draftProject([shell("kept")], [shell("login")])
+    const cli = resolve(import.meta.dirname, "..", "bin", "e2e.mjs")
+    const result = spawnSync(process.execPath, [cli, "run", "-d", dir, "-s", "login"], { encoding: "utf8" })
+
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /"login" matches only drafts \(login\).*Drafts tab/)
+  })
+
+  it("runs exactly the drafts it is given on a marked environment", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft-a"), shell("draft-b")], ["dev"])
+    const { summary, events } = await execute(dir, { drafts: ["draft-b"] })
+
+    assert.equal(summary.status, "PASSED")
+    assert.deepEqual(ran(events), ["draft-b"])
+  })
+
+  it("refuses a draft run when E2E_ENV names an unmarked environment, naming the marked ones (AE5)", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft")], ["staging"])
+    const events: RunEvent[] = []
+
+    await withE2eEnv("dev", () =>
+      assert.rejects(
+        execute(dir, { drafts: ["draft"] }, (event) => events.push(event)),
+        /environment "dev" does not allow drafts\. Environments that allow drafts: staging/,
+      ),
+    )
+    assert.deepEqual(ran(events), [])
+  })
+
+  it("refuses a draft run when no environment is marked, saying where the mark is set", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft")])
+
+    await assert.rejects(execute(dir, { drafts: ["draft"] }), /No environment allows drafts.*Config view/)
+  })
+
+  it("refuses a draft run that names a kept scenario", async () => {
+    const dir = draftProject([shell("kept")], [shell("draft")], ["dev"])
+
+    await assert.rejects(execute(dir, { drafts: ["draft", "kept"] }), /"kept" is not a draft/)
   })
 })

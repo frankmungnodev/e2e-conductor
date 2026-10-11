@@ -180,11 +180,27 @@ export function getOrSeedScenarios(config: LoadedConfig, { throwOnDbError = fals
   return list
 }
 
-export function loadScenarios(config: LoadedConfig, filters: string[] = []): Scenario[] {
-  const all = getOrSeedScenarios(config)
-  const filtered = all.filter((s) => filters.length === 0 || filters.some((filter) => s.id.includes(filter)))
+/**
+ * Loads and validates the scenarios a run or `e2e list` uses. Without `drafts`, drafts are dropped before
+ * the substring `filters` and before validation, so an ordinary run never sees one. With `drafts`, it
+ * loads exactly those ids and ignores `filters`; the caller checks they are drafts (`draftRunRefusal`).
+ */
+export function loadScenarios(config: LoadedConfig, filters: string[] = [], drafts?: string[]): Scenario[] {
+  const matches = (s: Scenario) => filters.length === 0 || filters.some((filter) => s.id.includes(filter))
+  const filtered = drafts
+    ? getOrSeedScenarios(config).filter((s) => drafts.includes(s.id))
+    : getOrSeedScenarios(config, { keptOnly: true }).filter(matches)
 
-  if (filtered.length === 0) {
+  if (drafts) {
+    const missing = drafts.filter((id) => !filtered.some((s) => s.id === id))
+    if (missing.length > 0) throw new Error(`No scenarios with ids ${missing.join(", ")}`)
+  } else if (filtered.length === 0) {
+    const draftMatches = filters.length > 0 ? getOrSeedScenarios(config).filter(matches).map((s) => s.id) : []
+    if (draftMatches.length > 0) {
+      throw new Error(
+        `${filters.map((filter) => `"${filter}"`).join(", ")} matches only drafts (${draftMatches.join(", ")}). Drafts run from the UI's Drafts tab.`,
+      )
+    }
     const dir = resolveFromConfig(config, config.scenarios)
     throw new Error(`No scenarios in ${dir}${filters.length ? ` matching ${filters.join(", ")}` : ""}`)
   }

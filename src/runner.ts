@@ -5,6 +5,7 @@ import type { FailureLabel } from "./assertions.ts"
 import { type LoadedConfig, resolveFromConfig, type ServiceConfig, SHELL_TARGET, serviceOf, servicesNeeded } from "./config.ts"
 import { openDatabase } from "./db/connection.ts"
 import { saveRun } from "./db/runs.ts"
+import { draftRunRefusal } from "./draft-run.ts"
 import { HttpDriver } from "./drivers/http.ts"
 import { MobileDriver } from "./drivers/mobile.ts"
 import { ShellDriver } from "./drivers/shell.ts"
@@ -78,7 +79,13 @@ export type RunOptions = {
   /** Optional abort signal to cancel a running execution */
   signal?: AbortSignal
   /** Fail a run whose only issue is steps that passed on a retry. */
-  strict?: boolean  /** Pause on a failed step so the user can fix and retry it; see `src/hold.ts`. */
+  strict?: boolean
+  /**
+   * Run exactly these draft ids instead of kept scenarios; `scenarios` is then ignored. Refused unless
+   * every id is a draft and the loaded environment allows drafts; see `draftRunRefusal`.
+   */
+  drafts?: string[]
+  /** Pause on a failed step so the user can fix and retry it; see `src/hold.ts`. */
   pause?: PauseHook
   /** Save the screen after every web and Android step; see `runScenario`. */
   stepScreenshots?: boolean
@@ -120,6 +127,12 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     options.onEvent?.({ type: "log", text: line, level: isDetail ? "detail" : "info" })
   })
 
+  // Before anything opens or starts, so a refused draft run leaves nothing behind.
+  if (options.drafts) {
+    const refusal = draftRunRefusal(config, options.drafts)
+    if (refusal) throw new Error(refusal)
+  }
+
   let db: DatabaseSync | undefined
   const dbPath = config.dbPath
   if (existsSync(dbPath)) {
@@ -130,7 +143,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     }
   }
 
-  const scenarios = loadScenarios(config, options.scenarios)
+  const scenarios = loadScenarios(config, options.scenarios, options.drafts)
   const used = targetsUsed(scenarios)
   const drivers = new Map<string, Driver>()
   let services: StartedService[] = []

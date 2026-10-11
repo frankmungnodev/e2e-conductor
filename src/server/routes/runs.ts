@@ -1,10 +1,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
-import { reloadConfig, resolveFromConfig } from "../../config.ts"
+import { type LoadedConfig, reloadConfig, resolveFromConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { effectiveStatus, getRun, getRuns, getStepRuns } from "../../db/runs.ts"
 import { getScenarioRuns, getScenarioVersion } from "../../db/scenario-runs.ts"
 import { getScenario, replaceScenarioStep } from "../../db/scenarios.ts"
+import { draftRunRefusal } from "../../draft-run.ts"
 import { HoldController } from "../../hold.ts"
 import { buildRunReport } from "../../run-report.ts"
 import { type RunOptions, run, type Summary } from "../../runner.ts"
@@ -55,9 +56,6 @@ export const runRoutes: Route[] = [
   {
     match: ({ req, pathname }) => pathname === "/api/run" && req.method === "POST",
     handle: async ({ state, req, res }) => {
-      if (state.activeRun) {
-        return sendJson(res, 409, { error: "A test run is already in progress", runId: state.activeRun.runId })
-      }
       const body = (await readBody(req)) as {
         scenarios?: string[]
         repeat?: number
@@ -68,7 +66,32 @@ export const runRoutes: Route[] = [
         environment?: string
         pauseOnFailure?: boolean
         stepScreenshots?: boolean
+        drafts?: string[]
       }
+
+      // A run on another environment loads it now. A draft run is refused here, before anything is
+      // started or answered, when the environment fails to load or `draftRunRefusal` says no; `run()`
+      // checks the gate again.
+      let environmentConfig: LoadedConfig | undefined
+      if (body.environment) {
+        try {
+          environmentConfig = await reloadConfig(state.config, body.environment)
+        } catch (error) {
+          // An ordinary run falls back to the active environment.
+          if (body.drafts) {
+            return sendJson(res, 409, { error: `Environment "${body.environment}" failed to load: ${(error as Error).message}` })
+          }
+        }
+      }
+      if (body.drafts) {
+        const refusal = draftRunRefusal(environmentConfig ?? state.config, body.drafts)
+        if (refusal) return sendJson(res, 409, { error: refusal })
+      }
+      // Checked after the awaits, so a request that arrived meanwhile cannot start a second run.
+      if (state.activeRun) {
+        return sendJson(res, 409, { error: "A test run is already in progress", runId: state.activeRun.runId })
+      }
+
       if (body.headless) process.env.E2E_HEADLESS = "1"
       if (body.verbose) process.env.E2E_VERBOSE = "1"
 
@@ -83,6 +106,7 @@ export const runRoutes: Route[] = [
         signal: controller.signal,
         pause: hold?.hook,
         stepScreenshots: Boolean(body.stepScreenshots),
+        drafts: body.drafts,
         onEvent: (event) => {
           // Save a passing retry before broadcasting it, and say on the event whether it was saved.
           if (event.type === "hold_retry" && event.passed) {
@@ -106,15 +130,7 @@ export const runRoutes: Route[] = [
       // Launch run asynchronously
       void (async () => {
         try {
-          let runConfig = state.config
-          if (body.environment) {
-            try {
-              runConfig = await reloadConfig(state.config, body.environment)
-            } catch {
-              // Fall back to state.config if loading fails
-            }
-          }
-          const summary = await run(runConfig, runOptions)
+          const summary = await run(environmentConfig ?? state.config, runOptions)
           state.lastSummary = summary
         } catch (err) {
           const errorMsg = (err as Error).message
@@ -127,9 +143,9 @@ export const runRoutes: Route[] = [
             type: "finish",
             summary: {
               status: "FAILED",
-              total: Math.max(1, (runOptions.scenarios?.length || 1) * (runOptions.repeat || 1)),
+              total: Math.max(1, ((runOptions.drafts ?? runOptions.scenarios)?.length || 1) * (runOptions.repeat || 1)),
               passed: 0,
-              failed: Math.max(1, (runOptions.scenarios?.length || 1) * (runOptions.repeat || 1)),
+              failed: Math.max(1, ((runOptions.drafts ?? runOptions.scenarios)?.length || 1) * (runOptions.repeat || 1)),
               duration_ms: Date.now() - (state.activeRun?.startedAt ?? Date.now()),
               failures: [{ scenario: "run", iteration: 1, step: "init", error: errorMsg }],
               artifacts: "",
