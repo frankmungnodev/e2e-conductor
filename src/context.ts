@@ -7,7 +7,7 @@ export type Scope = {
   run: Record<string, unknown>
 }
 
-const PLACEHOLDER = /\$\{(ctx|env|run)\.([^}]+)\}/g
+export const PLACEHOLDER = /\$\{(ctx|env|run)\.([^}]+)\}/g
 const WHOLE_PLACEHOLDER = /^\$\{(ctx|env|run)\.([^}]+)\}$/
 
 function lookup(scope: Scope, root: keyof Scope, path: string): unknown {

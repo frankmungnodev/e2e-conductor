@@ -3,7 +3,8 @@ import { basename, join } from "node:path"
 import { type LoadedConfig, resolveFromConfig } from "./config.ts"
 import { withDb } from "./db/connection.ts"
 import { getScenario, type Scenario, saveScenario } from "./db/scenarios.ts"
-import { getOrSeedScenarios } from "./scenario.ts"
+import { formatProblem } from "./problems.ts"
+import { checkSteps, getOrSeedScenarios } from "./scenario.ts"
 import { scenarioVersion } from "./scenario-version.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 
@@ -17,7 +18,8 @@ export type ImportResult = {
 /**
  * Saves every `<scenarios folder>/*.json` file into SQLite, keyed by file name: a new id is added,
  * an existing one is replaced when the file differs. The file wins because importing is an explicit
- * request. Scenarios with no file are left alone, and invalid files are reported, never saved.
+ * request. Scenarios with no file are left alone, and invalid files (schema or `checkSteps` problems)
+ * are reported, never saved.
  * Steps keep their ids when the file has them (an export writes them), which keeps their run history.
  */
 export function importFromJson(config: LoadedConfig): ImportResult {
@@ -48,6 +50,11 @@ export function importFromJson(config: LoadedConfig): ImportResult {
         continue
       }
       const scenario = { ...(raw as Omit<Scenario, "id">), id: basename(file, ".json") } as Scenario
+      const problems = checkSteps(config, scenario)
+      if (problems.length > 0) {
+        result.invalid.push({ file: path, problems: problems.map(formatProblem) })
+        continue
+      }
       const existing = getScenario(db, scenario.id)
       if (existing && sameScenario(existing, scenario)) {
         result.unchanged.push(scenario.id)

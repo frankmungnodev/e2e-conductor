@@ -74,4 +74,18 @@ describe("importFromJson", () => {
     assert.match(invalid[1].problems.join(), /steps/)
     assert.equal(stored(config, "no-steps"), undefined)
   })
+  it("lists a file that fails the step check, such as an unknown target, as invalid and saves nothing from it", () => {
+    const config = project()
+    write(config, "ghost.json", { name: "Ghost", steps: [{ name: "open", target: "ghost", command: "true" }] })
+    write(config, "smoke.json", echo("Smoke"))
+
+    const result = importFromJson(config)
+    assert.deepEqual(result.added, ["smoke"])
+    assert.deepEqual(
+      result.invalid.map(({ file }) => file.split("/").pop()),
+      ["ghost.json"],
+    )
+    assert.deepEqual(result.invalid[0].problems, ['steps[0] "open": unknown target "ghost" (config has: shell)'])
+    assert.equal(stored(config, "ghost"), undefined)
+  })
 })
