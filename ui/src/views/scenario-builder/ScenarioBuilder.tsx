@@ -28,6 +28,8 @@ export type ScenarioBuilderProps = {
     content: string,
   ) => Promise<{ ok: boolean; isValid: boolean; errors: string[] } | undefined>
   onNavigateToConfig?: (sub?: string) => void
+  /** The scenario to open first, such as a draft from Edit in Builder. */
+  initialScenarioId?: string
 }
 
 export function ScenarioBuilder({
@@ -36,6 +38,7 @@ export function ScenarioBuilder({
   onSaveScenario,
   onDeleteScenario,
   onNavigateToConfig,
+  initialScenarioId,
 }: ScenarioBuilderProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [inspectorMode, setInspectorMode] = useUrlTab<"designer" | "json">(
@@ -48,7 +51,7 @@ export function ScenarioBuilder({
 
   const { confirm, ConfirmDialog } = useConfirmDialog()
   const presets = useStepPresets(confirm)
-  const draft = useScenarioDraft({ scenarios, config, inspectorMode, onSaveScenario, onDeleteScenario, confirm })
+  const draft = useScenarioDraft({ scenarios, config, inspectorMode, onSaveScenario, onDeleteScenario, confirm, initialScenarioId })
   const { draftScenario, selectedStepIdx } = draft
   const stepHistory = useStepHistory(draftScenario?.id)
 

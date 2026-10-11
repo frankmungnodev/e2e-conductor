@@ -212,6 +212,7 @@ export function ConfigView({ config, onConfigReload }: ConfigViewProps) {
             handleSwitchEnvironment={handleSwitchEnvironment}
             handleDeleteEnvironment={handleDeleteEnvironment}
             profile={profile}
+            onConfigReload={onConfigReload}
           />
         )}
 

@@ -104,6 +104,9 @@ export async function startRun(options: {
   verbose?: boolean
   pauseOnFailure?: boolean
   stepScreenshots?: boolean
+  /** Runs exactly these drafts; the environment must allow drafts. */
+  drafts?: string[]
+  environment?: string
 }): Promise<{ ok: boolean; runId: string }> {
   const res = await fetch(`${API_BASE}/api/run`, {
     method: "POST",

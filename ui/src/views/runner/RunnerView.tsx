@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useUrlTab } from "../../components/Tabs.tsx"
 import type { ConfigMeta, RunEvent, RunSummary, ScenarioItem } from "../../types.ts"
+import { keptScenarios } from "../drafts/draftHelpers.ts"
 import { buildExecutionTree, type ScenarioState } from "./executionTree.ts"
 import { LogPane } from "./LogPane.tsx"
 import { PausePanel } from "./PausePanel.tsx"
@@ -50,6 +51,10 @@ export function RunnerView({
   logs,
   onClearLogs,
 }: RunnerViewProps) {
+  // The list, selection and preview show kept scenarios only: drafts run from the Drafts tab. A draft
+  // run's steps still show, because the execution tree and the pause panel get the full list.
+  const kept = useMemo(() => keptScenarios(scenarios), [scenarios])
+
   // Controls state
   const [selectedScenarios, setSelectedScenarios] = useState<string[]>([])
   const options = useRunOptions()
@@ -81,16 +86,16 @@ export function RunnerView({
   // Sync selected scenarios when scenarios load or change
   useEffect(() => {
     setSelectedScenarios((prev) => {
-      const valid = prev.filter((id) => scenarios.some((s) => s.id === id))
-      if (valid.length === 0 && scenarios.length > 0) {
-        return scenarios.map((s) => s.id)
+      const valid = prev.filter((id) => kept.some((s) => s.id === id))
+      if (valid.length === 0 && kept.length > 0) {
+        return kept.map((s) => s.id)
       }
       return valid
     })
-    if (!previewScenarioId && scenarios.length > 0) {
-      setPreviewScenarioId(scenarios[0].id)
+    if (!previewScenarioId && kept.length > 0) {
+      setPreviewScenarioId(kept[0].id)
     }
-  }, [scenarios, previewScenarioId])
+  }, [kept, previewScenarioId])
 
   // Build live execution tree from events
   useEffect(() => {
@@ -105,10 +110,10 @@ export function RunnerView({
   }, [logs, autoScroll])
 
   const toggleAllScenarios = () => {
-    if (selectedScenarios.length === scenarios.length) {
+    if (selectedScenarios.length === kept.length) {
       setSelectedScenarios([])
     } else {
-      setSelectedScenarios(scenarios.map((s) => s.id))
+      setSelectedScenarios(kept.map((s) => s.id))
     }
   }
 
@@ -155,22 +160,21 @@ export function RunnerView({
   }, [logs, logFilter])
 
   const filteredScenarios = scenarioFilter
-    ? scenarios.filter(
+    ? kept.filter(
         (s) =>
           s.name.toLowerCase().includes(scenarioFilter.toLowerCase()) ||
           s.id.toLowerCase().includes(scenarioFilter.toLowerCase()),
       )
-    : scenarios
+    : kept
 
-  const activePreviewScenario =
-    scenarios.find((s) => s.id === previewScenarioId) || scenarios[0] || null
+  const activePreviewScenario = kept.find((s) => s.id === previewScenarioId) || kept[0] || null
 
   return (
     <div className="flex h-[calc(100vh-44px)] overflow-hidden bg-editor select-none">
       {/* Left Column: Test Explorer & Execution Controls */}
       <aside className="w-80 md:w-84 border-r border-border flex flex-col bg-sidebar select-none shrink-0">
         <ScenarioExplorer
-          scenarios={scenarios}
+          scenarios={kept}
           filteredScenarios={filteredScenarios}
           selectedScenarios={selectedScenarios}
           toggleAllScenarios={toggleAllScenarios}

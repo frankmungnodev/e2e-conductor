@@ -17,6 +17,8 @@ type UseScenarioDraftOptions = {
   onSaveScenario: SaveScenario
   onDeleteScenario: (id: string) => Promise<void>
   confirm: ReturnType<typeof useConfirmDialog>["confirm"]
+  /** The scenario to open first, such as a draft from Edit in Builder. Falls back to the first scenario. */
+  initialScenarioId?: string
 }
 
 /**
@@ -30,6 +32,7 @@ export function useScenarioDraft({
   onSaveScenario,
   onDeleteScenario,
   confirm,
+  initialScenarioId,
 }: UseScenarioDraftOptions) {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null)
   const [draftScenario, setDraftScenario] = useState<ScenarioItem | null>(null)
@@ -49,10 +52,11 @@ export function useScenarioDraft({
 
   const configuredTargets = Object.keys(config?.targets ?? {})
 
-  // Auto-select first scenario on mount
+  // Auto-select the initial scenario, or the first one, on mount
   useEffect(() => {
     if (!selectedScenarioId && scenarios.length > 0) {
-      selectScenario(scenarios[0].id)
+      const initial = scenarios.find((s) => s.id === initialScenarioId)
+      selectScenario((initial ?? scenarios[0]).id)
     }
   }, [scenarios, selectedScenarioId])
 

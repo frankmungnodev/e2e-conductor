@@ -7,9 +7,11 @@ import { after } from "node:test"
 import { type Browser, chromium, type Page } from "playwright"
 import { loadConfig } from "../../src/config.ts"
 import { openDatabase } from "../../src/db/connection.ts"
+import { saveDraft, saveDraftGroup, saveRevision } from "../../src/db/drafts.ts"
 import { saveEnvironment, setActiveEnvironment } from "../../src/db/environments.ts"
 import { saveFixture } from "../../src/db/fixtures.ts"
 import { savePlatform } from "../../src/db/platforms.ts"
+import { saveScenario } from "../../src/db/scenarios.ts"
 import { saveStepPreset } from "../../src/db/step-presets.ts"
 import { startServer } from "../../src/server.ts"
 import { tempDir } from "../temp-dir.ts"
@@ -58,6 +60,44 @@ function seedProject(dir: string) {
       steps: [{ name: "Say hello", target: "shell", command: `echo ${SHELL_OUTPUT}` }],
     }),
   )
+}
+
+export const DRAFT_PROMPT = "Use e2e testing to test all the features"
+export const PASSING_DRAFT_NAME = "Greet Draft"
+export const FAILING_DRAFT_NAME = "Broken Draft"
+
+/**
+ * Seeds one draft group as an agent save would: a draft that passes, a draft that fails, and a passing
+ * revision of the kept shell scenario. No environment carries the draft mark.
+ */
+export function seedDrafts(projectDir: string) {
+  const db = openDatabase(join(projectDir, ".e2e", "e2e.db"))
+  try {
+    saveScenario(db, {
+      id: SHELL_SCENARIO_ID,
+      name: SHELL_SCENARIO_NAME,
+      steps: [{ name: "Say hello", target: "shell", command: `echo ${SHELL_OUTPUT}` }],
+    })
+    saveDraftGroup(db, { key: "all-features", prompt: DRAFT_PROMPT, agent: "claude-code" })
+    saveDraft(
+      db,
+      { id: "draft-greet", name: PASSING_DRAFT_NAME, steps: [{ name: "Greet", target: "shell", command: "echo hello-draft" }] },
+      "all-features",
+    )
+    saveDraft(
+      db,
+      { id: "draft-broken", name: FAILING_DRAFT_NAME, steps: [{ name: "Fail on purpose", target: "shell", command: "exit 3" }] },
+      "all-features",
+    )
+    saveRevision(
+      db,
+      SHELL_SCENARIO_ID,
+      { id: SHELL_SCENARIO_ID, name: SHELL_SCENARIO_NAME, steps: [{ name: "Say hello again", target: "shell", command: "echo revised" }] },
+      "all-features",
+    )
+  } finally {
+    db.close()
+  }
 }
 
 export type UiSession = { url: string; page: Page; projectDir: string; api: <T = unknown>(path: string) => Promise<T> }

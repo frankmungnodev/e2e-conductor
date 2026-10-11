@@ -5,6 +5,7 @@ import { EnvVariablesEditor } from "../../components/EnvVariablesEditor.tsx"
 import { FormField, Input } from "../../components/FormControls.tsx"
 import { capitalize } from "../../format.ts"
 import type { ConfigMeta, EnvironmentMeta } from "../../types.ts"
+import { AllowDraftsToggle } from "./AllowDraftsToggle.tsx"
 import type { EnvironmentProfile } from "./useEnvironmentProfile.ts"
 
 export interface EnvironmentsTabProps {
@@ -20,6 +21,7 @@ export interface EnvironmentsTabProps {
   handleSwitchEnvironment: (envName: string) => void
   handleDeleteEnvironment: (envName: string) => void
   profile: EnvironmentProfile
+  onConfigReload: () => void
 }
 
 /** Environment profiles list plus the selected profile's editor. */
@@ -36,6 +38,7 @@ export function EnvironmentsTab({
   handleSwitchEnvironment,
   handleDeleteEnvironment,
   profile,
+  onConfigReload,
 }: EnvironmentsTabProps) {
   const {
     envDescription,
@@ -207,6 +210,8 @@ export function EnvironmentsTab({
               placeholder="e.g. Local development baseline"
             />
           </FormField>
+
+          <AllowDraftsToggle envName={selectedEnvName} environment={selectedEnvData} onConfigReload={onConfigReload} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField

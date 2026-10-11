@@ -22,16 +22,20 @@ import { ToastProvider, useToast } from "./components/Toast.tsx"
 import { finishToast } from "./runResult.ts"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 import { ConfigView } from "./views/config/ConfigView.tsx"
+import { DraftsView } from "./views/drafts/DraftsView.tsx"
+import { scenarioDraft } from "./views/drafts/draftHelpers.ts"
 import { ReportsView } from "./views/reports/ReportsView.tsx"
 import { RunnerView } from "./views/runner/RunnerView.tsx"
 import { ScenarioBuilder } from "./views/scenario-builder/ScenarioBuilder.tsx"
 
-const VALID_MAIN_TABS = ["scenarios", "runner", "artifacts", "preflight", "config"] as const
+const VALID_MAIN_TABS = ["scenarios", "drafts", "runner", "artifacts", "preflight", "config"] as const
 
 function AppContent() {
   const [activeTab, setActiveTab] = useUrlTab<TabType>("tab", "scenarios", VALID_MAIN_TABS)
   const [config, setConfig] = useState<ConfigMeta | null>(null)
   const [scenarios, setScenarios] = useState<ScenarioItem[]>([])
+  // The scenario the builder opens with, set by Edit in Builder on a draft.
+  const [builderScenarioId, setBuilderScenarioId] = useState<string | undefined>()
   const [flows, setFlows] = useState<FlowItem[]>([])
   const [preflightData, setPreflightData] = useState<PreflightData | null>(null)
   const [isPreflightLoading, setIsPreflightLoading] = useState(false)
@@ -152,7 +156,7 @@ function AppContent() {
   }, [])
 
   const handleStartRun = async (options: {
-    scenarios: string[]
+    scenarios?: string[]
     repeat: number
     start: boolean
     install: boolean
@@ -160,23 +164,30 @@ function AppContent() {
     verbose: boolean
     pauseOnFailure?: boolean
     stepScreenshots?: boolean
-  }) => {
+    drafts?: string[]
+    environment?: string
+  }): Promise<boolean> => {
     try {
       setIsRunning(true)
       setLogs([])
       setEvents([])
       const res = await startRun(options)
       setCurrentRunId(res.runId)
+      return true
     } catch (e) {
       toastError((e as Error).message, "Failed to Start Run")
       setIsRunning(false)
+      return false
     }
   }
 
   /** Re-runs one scenario from Reports with Pause on Failure, then shows it in the Runner, where the pause is handled. */
   const handleRerunPaused = (scenarioId: string) => {
+    // A draft runs only in a draft run, which names it exactly.
+    const scenario = scenarios.find((item) => item.id === scenarioId)
+    const isDraft = scenario !== undefined && scenarioDraft(scenario) !== undefined
     void handleStartRun({
-      scenarios: [scenarioId],
+      ...(isDraft ? { drafts: [scenarioId] } : { scenarios: [scenarioId] }),
       repeat: 1,
       start: true,
       install: false,
@@ -185,6 +196,26 @@ function AppContent() {
       pauseOnFailure: true,
     })
     setActiveTab("runner")
+  }
+
+  /** Runs a draft group on a draft-allowed environment, then shows it in the Runner. A refusal stays on the Drafts tab. */
+  const handleRunDrafts = async (ids: string[], environment: string, pauseOnFailure: boolean) => {
+    const started = await handleStartRun({
+      drafts: ids,
+      environment,
+      repeat: 1,
+      start: true,
+      install: false,
+      headless: false,
+      verbose: true,
+      pauseOnFailure,
+    })
+    if (started) setActiveTab("runner")
+  }
+
+  const handleEditDraft = (id: string) => {
+    setBuilderScenarioId(id)
+    setActiveTab("scenarios")
   }
 
   const handleStopRun = async () => {
@@ -291,6 +322,19 @@ function AppContent() {
             onDeleteScenario={handleDeleteScenario}
             onSaveFlow={handleSaveFlow}
             onNavigateToConfig={handleNavigateToConfig}
+            initialScenarioId={builderScenarioId}
+          />
+        )}
+
+        {activeTab === "drafts" && (
+          <DraftsView
+            scenarios={scenarios}
+            config={config ?? undefined}
+            isRunning={isRunning}
+            onRunBatch={(ids, environment, pauseOnFailure) => void handleRunDrafts(ids, environment, pauseOnFailure)}
+            onEditInBuilder={handleEditDraft}
+            onScenariosChanged={() => void fetchScenarios().then(setScenarios).catch(() => {})}
+            onOpenEnvironments={() => handleNavigateToConfig("environments")}
           />
         )}
 

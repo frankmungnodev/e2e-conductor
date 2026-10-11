@@ -1,9 +1,9 @@
-import { Activity, CheckCircle2, FileCode, Play, Server, ShieldCheck, Sliders, XCircle } from "lucide-react"
+import { Activity, CheckCircle2, FileCode, Inbox, Play, Server, ShieldCheck, Sliders, XCircle } from "lucide-react"
 import type React from "react"
 import { Badge } from "./Badge.tsx"
 import { TabButton } from "./Tabs.tsx"
 
-export type TabType = "scenarios" | "runner" | "artifacts" | "preflight" | "config"
+export type TabType = "scenarios" | "drafts" | "runner" | "artifacts" | "preflight" | "config"
 
 type HeaderProps = {
   activeTab: TabType
@@ -24,6 +24,7 @@ export function Header({
 }: HeaderProps) {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     { id: "scenarios", label: "Scenarios", icon: <FileCode className="w-3.5 h-3.5" /> },
+    { id: "drafts", label: "Drafts", icon: <Inbox className="w-3.5 h-3.5" /> },
     { id: "runner", label: "Runner", icon: <Play className="w-3.5 h-3.5" /> },
     { id: "artifacts", label: "Reports", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
     { id: "preflight", label: "Health", icon: <Server className="w-3.5 h-3.5" /> },
