@@ -2,6 +2,7 @@ import { existsSync } from "node:fs"
 import { withDb } from "../../db/connection.ts"
 import { deleteScenario, getScenario, saveScenario } from "../../db/scenarios.ts"
 import { getStepExecutions, summarizeStepHistory } from "../../db/step-history.ts"
+import { formatProblem } from "../../problems.ts"
 import { checkSteps, getOrSeedScenarios, type Scenario, targetsUsed } from "../../scenario.ts"
 import { describeErrors, validateScenario } from "../../schema.ts"
 import { readBody, sendJson } from "../http.ts"
@@ -19,7 +20,7 @@ export const scenarioRoutes: Route[] = [
         if (!validateScenario(scenario)) {
           for (const err of describeErrors(validateScenario.errors)) schemaErrors.push(err)
         }
-        const stepErrors = checkSteps(state.config, scenario)
+        const stepErrors = checkSteps(state.config, scenario).map(formatProblem)
         const errors = [...schemaErrors, ...stepErrors]
         return {
           id,
@@ -51,7 +52,7 @@ export const scenarioRoutes: Route[] = [
       if (!validateScenario(body.content)) {
         for (const err of describeErrors(validateScenario.errors)) schemaErrors.push(err)
       }
-      const stepErrors = checkSteps(state.config, scenario)
+      const stepErrors = checkSteps(state.config, scenario).map(formatProblem)
       const errors = [...schemaErrors, ...stepErrors]
 
       try {

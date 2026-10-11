@@ -4,7 +4,8 @@ import { join } from "node:path"
 import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
 import { resolveDbPath } from "../src/db/paths.ts"
-import { loadScenarios, targetsUsed } from "../src/scenario.ts"
+import { checkSteps, loadScenarios, type Scenario, type Step, targetsUsed } from "../src/scenario.ts"
+import { validateScenario } from "../src/schema.ts"
 import { tempDir } from "./temp-dir.ts"
 
 /** A config folder with the given scenario files and flow files. */
@@ -185,3 +186,77 @@ describe("loadScenarios", () => {
   })
 })
 
+
+describe("checkSteps", () => {
+  const config = (): LoadedConfig => {
+    const loaded = project({})
+    loaded.targets.web = { driver: "web", service: "api", modules: "modules" }
+    return loaded
+  }
+  const scenarioOf = (...steps: Step[]): Scenario => ({ id: "x", name: "X", steps })
+
+  it("accepts an action name in any letter case, as the mobile driver matches it", () => {
+    assert.deepEqual(checkSteps(config(), scenarioOf({ name: "s", target: "app", actions: [{ action: "tapOn", selector: "Go" }] })), [])
+  })
+
+  it("reports an unknown web action with the web actions it could be", () => {
+    const [found, ...rest] = checkSteps(config(), scenarioOf({ name: "login", target: "web", actions: [{ action: "clik", selector: "#go" }] }))
+    assert.deepEqual(rest, [])
+    assert.equal(found.code, "unknown-action")
+    assert.equal(found.pointer, "/steps/0/actions/0/action")
+    assert.equal(found.stepIndex, 0)
+    assert.equal(found.stepName, "login")
+    assert.equal(found.value, "clik")
+    assert.ok(found.hint.length > 0)
+    for (const name of ["navigate", "click", "fill", "assert_text"]) assert.ok(found.allowed?.includes(name), name)
+    assert.ok(!found.allowed?.includes("tap"))
+  })
+
+  it("reports an unknown single web action", () => {
+    const problems = checkSteps(config(), scenarioOf({ name: "s", target: "web", action: "clik" }))
+    assert.deepEqual(
+      problems.map((found) => [found.code, found.pointer]),
+      [["unknown-action", "/steps/0/action"]],
+    )
+  })
+
+  it("reports an unknown http action, and accepts an http step with no action", () => {
+    const problems = checkSteps(config(), scenarioOf({ name: "s", target: "api", actions: [{ action: "http_fetch", url: "/" }] }))
+    assert.deepEqual(
+      problems.map((found) => found.code),
+      ["unknown-action"],
+    )
+    assert.deepEqual(checkSteps(config(), scenarioOf({ name: "s", target: "api", url: "/health" })), [])
+  })
+
+  it("rejects a removed field in both the schema and the step check", () => {
+    const scenario = scenarioOf({ name: "s", target: "web", action: "click", selector: "#go", run: "login" })
+    assert.equal(validateScenario(scenario), false)
+    assert.ok(validateScenario.errors?.some((error) => error.params.additionalProperty === "run"))
+    assert.deepEqual(
+      checkSteps(config(), scenario).map((found) => [found.code, found.pointer, found.value]),
+      [["field-removed", "/steps/0/run", "run"]],
+    )
+  })
+
+  it("reports an action field the target's driver does not read", () => {
+    const problems = checkSteps(config(), scenarioOf({ name: "s", target: "api", actions: [{ action: "http_get", url: "/", selector: "#x" }] }))
+    assert.deepEqual(
+      problems.map((found) => [found.code, found.pointer]),
+      [["field-not-allowed", "/steps/0/actions/0/selector"]],
+    )
+  })
+
+  it("accepts the builder's http status and shell exit code on an action", () => {
+    const scenario = scenarioOf(
+      { name: "h", target: "api", actions: [{ id: "a1", action: "http_get", method: "GET", url: "/api", status: 200 }] },
+      { name: "c", target: "shell", actions: [{ id: "a2", action: "shell", command: "echo hi", exit_code: 0 }] },
+    )
+    assert.equal(validateScenario(scenario), true)
+    assert.deepEqual(checkSteps(config(), scenario), [])
+  })
+
+  it("accepts a mobile step with a single action", () => {
+    assert.deepEqual(checkSteps(config(), scenarioOf({ name: "s", target: "app", action: "tap", selector: "Login" })), [])
+  })
+})

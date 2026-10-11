@@ -1,4 +1,5 @@
 import { type HoldController, HoldError } from "../../hold.ts"
+import { formatProblem } from "../../problems.ts"
 import { checkSteps, type Step } from "../../scenario.ts"
 import { describeErrors, validateScenario } from "../../schema.ts"
 import { readBody, sendJson } from "../http.ts"
@@ -22,7 +23,7 @@ function act(ctx: RouteContext, action: (hold: HoldController) => void) {
 function stepProblems(state: ServerState, step: Step): string[] {
   const scenario = { id: "retry", name: "retry", steps: [step] }
   const problems = validateScenario(scenario) ? [] : describeErrors(validateScenario.errors)
-  return [...problems, ...checkSteps(state.config, scenario)]
+  return [...problems, ...checkSteps(state.config, scenario).map(formatProblem)]
 }
 
 export const holdRoutes: Route[] = [

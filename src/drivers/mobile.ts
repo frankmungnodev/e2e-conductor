@@ -41,15 +41,22 @@ export class MobileDriver implements Driver {
 
     if (step.launch) await this.launch(step.launch, runner, log)
 
-    if (!step.actions || step.actions.length === 0) {
+    const actions =
+      step.actions && step.actions.length > 0
+        ? step.actions
+        : step.action
+          ? [{ action: step.action, selector: step.selector, value: step.value, key: step.key, ms: step.ms, timeout_ms: step.timeout_ms }]
+          : []
+
+    if (actions.length === 0) {
       if (step.launch) return { data: { launched: appId } }
-      throw new Error('mobile step requires an "actions" list or "launch"')
+      throw new Error('mobile step requires an "actions" list, an "action" or "launch"')
     }
 
-    log(`running mobile step "${step.name}" with ${step.actions.length} action(s)`)
+    log(`running mobile step "${step.name}" with ${actions.length} action(s)`)
     const combinedData: Record<string, unknown> = {}
-    for (let i = 0; i < step.actions.length; i++) {
-      const actionItem = step.actions[i]
+    for (let i = 0; i < actions.length; i++) {
+      const actionItem = actions[i]
       const label = actionItem.name ? `"${actionItem.name}" (${actionItem.action})` : `action #${i + 1} (${actionItem.action})`
       log(`executing action ${label}`)
       try {

@@ -89,20 +89,14 @@
         "target_selector": { "type": "string", "description": "web: target element selector for drag and drop" },
         "width": { "type": "integer", "description": "web: viewport width for set_viewport" },
         "height": { "type": "integer", "description": "web: viewport height for set_viewport" },
-        "run": { "type": "string", "description": "web: step module name in the target's modules folder" },
-        "flow": { "type": "string", "description": "mobile: YAML flow file in the target's flows folder" },
         "launch": {
           "type": "string",
           "enum": ["fresh", "restart"],
-          "description": "mobile: launch the app through adb before the flow; fresh wipes app data"
-        },
-        "params": {
-          "type": "object",
-          "description": "web: passed to the module; mobile: replaces ${NAME} in the flow"
+          "description": "mobile: launch the app through adb before the step's actions; fresh wipes app data"
         },
         "actions": {
           "type": "array",
-          "description": "web or mobile: ordered list of execution actions",
+          "description": "Ordered list of actions the target's driver runs",
           "items": { "$ref": "#/definitions/StepAction" }
         },
         "command": { "type": "string", "description": "shell: command run with sh -c" },
@@ -132,11 +126,10 @@
         "method": { "type": "string" },
         "headers": { "type": "object", "additionalProperties": { "type": "string" } },
         "body": {},
-        "status": { "type": "integer" },
+        "status": { "type": "integer", "description": "No effect: no driver reads it. Use the step's assert.status" },
         "command": { "type": "string" },
         "cwd": { "type": "string" },
-        "exit_code": { "type": "integer" },
-        "params": { "type": "object" }
+        "exit_code": { "type": "integer", "description": "No effect: no driver reads it. Use the step's assert.exit_code" }
       }
     },
     "Assert": {

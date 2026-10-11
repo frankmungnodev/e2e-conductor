@@ -78,7 +78,20 @@ Each scenario step represents a milestone or phase (e.g., *Admin Login*, *Add to
 - `extract`: Map of variable names to JSON path expressions extracted from step results into the execution context (`extract_json`).
 
 ### Removed Step Fields
-`run` (a web module), `flow` (a YAML flow) and `params` (their arguments) are no longer run by any driver. Validation (`checkSteps` in `src/scenario.ts`) rejects a step that has one, with a message to write the step as `actions`, so `e2e list` fails instead of the run. The web target's `login` module option is gone for the same reason.
+`run` (a web module), `flow` (a YAML flow) and `params` (their arguments) are no longer run by any driver. The schema no longer lists them, and the step check (`checkSteps` in `src/scenario.ts`) rejects a step or action that has one with the code `field-removed` and a message to write the step as `actions`, so `e2e list` fails instead of the run. The web target's `login` module option is gone for the same reason.
+
+### Vocabulary & Step Check
+`src/vocabulary.ts` is the one source for the scenario vocabulary: step fields per driver, every action with its aliases and the fields it reads, `json_match` operators, placeholder namespaces, removed fields, and the problem codes with their fix hints. Tests hold the hand-written schema's `Step` and `StepAction` fields, and the web and mobile drivers' action `switch` cases, to it.
+
+`checkSteps` is the base check. It runs wherever a scenario is validated (`loadScenarios`, the scenario routes, a Pause on Failure retry) and returns problems of one shape: `{ file, pointer, stepIndex, stepName, code, message, value, allowed, hint }` (`src/problems.ts`). `pointer` is a JSON pointer such as `/steps/0/actions/1/action`; `allowed` lists the accepted values when there is a fixed set. `formatProblem` turns a problem into the one-line text those callers show, e.g. `steps[0] "Login": unknown target "ghost" (config has: api, shell)`. It checks:
+- `unknown-fixture`: a `setup` name the config does not have.
+- `unknown-target`: a step target that is neither a config target nor `shell`.
+- `field-not-allowed`: a step field the target's driver does not accept, or an action field that no action of the driver reads.
+- `field-removed`: `run`, `flow` or `params` on a step or an action.
+- `unknown-action`: an action name, in `actions[]` or a step's single `action`, that the driver does not run. Web and mobile names match in any letter case, as those drivers lower-case them (`tapOn` runs as `tapon`); `http_*` and `shell` names match exactly. An http step with no `actions` is still valid.
+- `step-needs-action`: a step with nothing for its driver to do.
+
+Action fields are checked per driver, not per action: the builder keeps an action's other fields when its type changes, so a per-action rule would reject scenarios the builder saved.
 
 ### Web Assertions Wait
 `assert_text`, `assert_not_text`, `assert_value`, `assert_url` and `assert_title` re-read the page until the check holds or `timeout_ms` (default 10 s) runs out, like `assert_visible` waits for its element. A value that never matches fails as `Assertion failed`; an element that never appears fails as `Step error`.
@@ -95,7 +108,7 @@ Each action in `step.actions` executes sequentially within the step's driver ses
     - *Waiting*: `wait_for` (`wait`), `wait_for_url`, `wait_for_load_state`
     - *Assertions*: `assert_visible`, `assert_not_visible` (`assert_hidden`), `assert_text`, `assert_not_text`, `assert_value`, `assert_checked`, `assert_not_checked`, `assert_disabled`, `assert_enabled`, `assert_url`, `assert_title`
     - *Viewport & Utilities*: `set_viewport`, `screenshot`, `eval` (`script`)
-  - **Mobile**: `tap`, `type`, `press`, `swipe`, `scroll_to`, `assert_visible`, `assert_not_visible`, `wait_for`, `back`, `hidekeyboard`, `launch`, `stop`. A mobile `selector` is `id=<resource id>` (a Compose `testTag` exposed as a resource id), or a full-match regex on the element's text or content description (`text=` prefix optional). `scroll_to` swipes until the selector is visible, in the direction in `key` (`DOWN` by default). `timeout_ms` sets how long `wait_for`, `assert_visible`, `assert_not_visible` and `scroll_to` wait. `wait_for` with `ms` pauses that long. A mobile `type` with a `selector` taps it, types into the text field that then has focus, and closes any keyboard that shows, because some devices show a system keyboard even with every listed keyboard disabled and it would cover the fields below. If the tap leaves no field focused, it taps the same spot once more, because an app that clears focus on scroll loses it when focusing scrolls the field into view. It fails if the tap left focus on the field that had it before, which means something else on screen took the tap.
+  - **Mobile**: `tap` (`tapon`, `click`), `type` (`input`, `inputtext`, `fill`), `erase` (`erasetext`, `clear`), `press` (`presskey`), `swipe`, `scroll_to`, `assert_visible` (`assertvisible`), `assert_not_visible` (`assertnotvisible`), `wait_for` (`wait`), `back`, `hidekeyboard`, `launch` (`launchapp`), `stop` (`stopapp`). A mobile step may also be one action written on the step itself (`action`, `selector`, `value`, `key`, `ms`), as on web; with `launch` the app launches first. A mobile `selector` is `id=<resource id>` (a Compose `testTag` exposed as a resource id), or a full-match regex on the element's text or content description (`text=` prefix optional). `scroll_to` swipes until the selector is visible, in the direction in `key` (`DOWN` by default). `timeout_ms` sets how long `wait_for`, `assert_visible`, `assert_not_visible` and `scroll_to` wait. `wait_for` with `ms` pauses that long. A mobile `type` with a `selector` taps it, types into the text field that then has focus, and closes any keyboard that shows, because some devices show a system keyboard even with every listed keyboard disabled and it would cover the fields below. If the tap leaves no field focused, it taps the same spot once more, because an app that clears focus on scroll loses it when focusing scrolls the field into view. It fails if the tap left focus on the field that had it before, which means something else on screen took the tap.
   - **HTTP**: `http_get`, `http_post`, `http_put`, `http_patch`, `http_delete`.
   - **Shell**: `shell`.
 - `selector`: CSS selector, XPath, or mobile element label/resource ID.
@@ -112,8 +125,8 @@ Each action in `step.actions` executes sequentially within the step's driver ses
 - `method`: HTTP request method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
 - `headers`: HTTP request headers map.
 - `body`: HTTP request JSON body.
-- `status`: Expected HTTP response status code assertion.
-- `exit_code`: Expected shell process exit code assertion.
+- `status`: Accepted and has no effect: the builder writes it, but no driver reads it. The step's `assert.status` is what checks the response.
+- `exit_code`: Accepted and has no effect, like `status`. The step's `assert.exit_code` is what checks the exit code.
 
 ---
 

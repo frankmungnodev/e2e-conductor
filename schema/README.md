@@ -3,9 +3,11 @@
 | File | Validates | `$id` |
 | --- | --- | --- |
 | `v1/scenario.schema.json` | Scenario JSON files | `urn:e2e-orchestrator:scenario:v1` |
-| `v1/flow.schema.json` | Each YAML document of a mobile flow file | `urn:e2e-orchestrator:flow:v1` |
+| `v1/flow.schema.json` | Each YAML document of a mobile flow file. No step runs flows any more; the file is a leftover | `urn:e2e-orchestrator:flow:v1` |
 
-`e2e list` and `e2e run` validate every scenario and every flow a scenario names before anything starts.
+`e2e list` and `e2e run` validate every scenario before anything starts: the schema, then the step
+check in `src/scenario.ts`, which reads the vocabulary in `src/vocabulary.ts`. A test holds the schema's
+step and action fields to that vocabulary.
 
 ## Versions
 
@@ -17,16 +19,15 @@ Each folder is one schema version. A file may declare its version: `"version": 1
   version, change its `$id` and `version` const, and load both versions until the old one is dropped.
   Files written for the new version must declare it.
 
+**Exception, kept in v1:** removing the step fields `run`, `flow` and `params` (and `params` on an
+action) was a breaking change made in place. No driver ran them, and the step check already
+rejected any scenario that had one, so no file that ran before stops passing. A v2 would have
+protected no working file.
+
 ## Editor support
 
 Scenario JSON:
 
 ```json
 { "$schema": "../node_modules/e2e-orchestrator/schema/v1/scenario.schema.json" }
-```
-
-Flow YAML (with the YAML extension, which reads this comment):
-
-```yaml
-# yaml-language-server: $schema=../node_modules/e2e-orchestrator/schema/v1/flow.schema.json
 ```

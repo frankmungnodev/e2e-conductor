@@ -15,6 +15,31 @@ describe("mobile action selectors", () => {
   })
 })
 
+describe("mobile single action", () => {
+  it("runs a step's single action, like a one-item actions list", async () => {
+    const dir = tempDir("mobile-single-action")
+    // A screen with one "Login" button; every input call is logged.
+    const adb = fakeAdb(
+      dir,
+      "adb",
+      `shift 2; [ "$1" = shell ] && shift
+case "$1" in
+  rm*) echo '<hierarchy><node text="Login" class="android.widget.Button" bounds="[0,0][100,200]" /></hierarchy>' ;;
+  input) echo "$*" >> ${join(dir, "calls")} ;;
+esac
+exit 0`,
+    )
+    const target: MobileTarget = { driver: "mobile", platform: "android", appId: "com.example", flows: "flows" }
+    const result = await new MobileDriver(target, "emulator-5554", adb).run({
+      step: { name: "login", target: "app", action: "tap", selector: "Login" },
+      env: {},
+      log: () => {},
+    } as never)
+    assert.deepEqual(result.data, { tapped: { text: "Login" } })
+    assert.equal(readFileSync(join(dir, "calls"), "utf8"), "input tap 50 100\n")
+  })
+})
+
 describe("mobile screen capture", () => {
   const target: MobileTarget = { driver: "mobile", platform: "android", appId: "com.example", flows: "flows" }
 
