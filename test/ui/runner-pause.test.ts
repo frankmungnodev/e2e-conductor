@@ -13,8 +13,8 @@ type RunStatus = {
 
 const SCENARIO_NAME = "Pause Smoke"
 
-/** Seeds a scenario whose first step fails, starts it with Pause on Failure, and waits for the pause. */
-async function startPausedRun({ url, page, projectDir, api }: UiSession) {
+/** Seeds a scenario whose first step fails. */
+function seedFailingScenario(projectDir: string) {
   writeFileSync(
     join(projectDir, "scenarios", "02-pause.json"),
     JSON.stringify({
@@ -25,6 +25,11 @@ async function startPausedRun({ url, page, projectDir, api }: UiSession) {
       ],
     }),
   )
+}
+
+/** Seeds a scenario whose first step fails, starts it with Pause on Failure, and waits for the pause. */
+async function startPausedRun({ url, page, projectDir, api }: UiSession) {
+  seedFailingScenario(projectDir)
   await page.goto(`${url}/?tab=runner`)
   await page.getByRole("button", { name: "Run Options" }).click()
   await setOption(page, "Pause on Failure", true)
@@ -88,5 +93,36 @@ describe("Runner view pause on failure", () => {
     )
     await page.getByText(/1 failed/).first().waitFor()
     assert.equal(await panel.count(), 0)
+  })
+
+  it("re-runs a failed scenario from Reports and pauses on its failure", async () => {
+    const { url, page, projectDir, api } = await startUiSession("runner-pause-rerun")
+    seedFailingScenario(projectDir)
+    const scenarios = await api<Array<{ id: string; name: string }>>("/api/scenarios")
+    const id = scenarios.find((s) => s.name === SCENARIO_NAME)?.id
+    assert.ok(id)
+    await fetch(`${url}/api/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenarios: [id] }),
+    })
+    await eventually(
+      () => api<RunStatus>("/api/run/status"),
+      (s) => !s.isRunning && s.lastSummary?.failed === 1,
+      20000,
+    )
+
+    await page.goto(`${url}/?tab=artifacts`)
+    await page.getByRole("button", { name: "Re-run with Pause on Failure" }).click()
+    const panel = page.getByRole("region", { name: "Paused on failure" })
+    await panel.waitFor()
+    assert.match(page.url(), /tab=runner/)
+
+    await panel.getByRole("button", { name: "End Scenario" }).click()
+    await eventually(
+      () => api<RunStatus>("/api/run/status"),
+      (s) => !s.isRunning,
+      20000,
+    )
   })
 })

@@ -173,6 +173,20 @@ function AppContent() {
     }
   }
 
+  /** Re-runs one scenario from Reports with Pause on Failure, then shows it in the Runner, where the pause is handled. */
+  const handleRerunPaused = (scenarioId: string) => {
+    void handleStartRun({
+      scenarios: [scenarioId],
+      repeat: 1,
+      start: true,
+      install: false,
+      headless: false,
+      verbose: true,
+      pauseOnFailure: true,
+    })
+    setActiveTab("runner")
+  }
+
   const handleStopRun = async () => {
     try {
       await stopRun()
@@ -264,7 +278,7 @@ function AppContent() {
           />
         )}
 
-        {activeTab === "artifacts" && <ReportsView />}
+        {activeTab === "artifacts" && <ReportsView isRunning={isRunning} onRerunPaused={handleRerunPaused} />}
 
         {activeTab === "scenarios" && (
           <ScenarioBuilder

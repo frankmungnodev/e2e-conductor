@@ -13,8 +13,14 @@ import { useRunHistory } from "./useRunHistory.ts"
 
 const SUBTABS = ["results", "screenshots", "log"] as const
 
+type Props = {
+  isRunning: boolean
+  /** Re-runs one failed scenario with Pause on Failure on. */
+  onRerunPaused: (scenarioId: string) => void
+}
+
 /** Reports: pick a past run on the left, read what passed, what failed and why on the right. */
-export function ReportsView() {
+export function ReportsView({ isRunning, onRerunPaused }: Props) {
   const { runs, loaded, selectedRun, selectRun, details } = useRunHistory()
   const [subtab, setSubtab] = useUrlTab<(typeof SUBTABS)[number]>("subtab", "results", SUBTABS)
   const [preview, setPreview] = useState<string | null>(null)
@@ -55,7 +61,7 @@ export function ReportsView() {
           {!details ? (
             <p className="text-xs text-fg-muted">Loading…</p>
           ) : subtab === "results" ? (
-            <Results details={details} onPreview={setPreview} />
+            <Results details={details} onPreview={setPreview} rerun={isRunning ? undefined : onRerunPaused} />
           ) : subtab === "screenshots" ? (
             images.length === 0 ? (
               <EmptyState
@@ -105,7 +111,9 @@ export function ReportsView() {
   )
 }
 
-function Results({ details, onPreview }: { details: RunDetails; onPreview: (url: string) => void }) {
+type ResultsProps = { details: RunDetails; onPreview: (url: string) => void; rerun?: (scenarioId: string) => void }
+
+function Results({ details, onPreview, rerun }: ResultsProps) {
   const reports = sortScenarioReports(details.report ?? [])
   if (reports.length === 0) {
     return (
@@ -127,6 +135,7 @@ function Results({ details, onPreview }: { details: RunDetails; onPreview: (url:
           report={report}
           showIteration={repeated}
           onPreview={onPreview}
+          rerun={rerun}
         />
       ))}
     </div>

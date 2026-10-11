@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, FileArchive, FileText, ListOrdered } from "lucide-react"
+import { ChevronDown, ChevronRight, FileArchive, FileText, ListOrdered, RotateCcw } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
@@ -8,10 +8,17 @@ import { FailureTimeline } from "./FailureTimeline.tsx"
 import { formatDuration, stepNote } from "./reportFormat.ts"
 import { iconStatusOf, StatusIcon } from "./StatusIcon.tsx"
 
-type Props = { runId: string; report: ScenarioReport; showIteration: boolean; onPreview: (url: string) => void }
+type Props = {
+  runId: string
+  report: ScenarioReport
+  showIteration: boolean
+  onPreview: (url: string) => void
+  /** Re-runs the scenario with Pause on Failure. Left out while a run is in progress. */
+  rerun?: (scenarioId: string) => void
+}
 
 /** One scenario's result. A failed one opens on its failing step and the error, so no digging is needed. */
-export function ScenarioResultCard({ runId, report, showIteration, onPreview }: Props) {
+export function ScenarioResultCard({ runId, report, showIteration, onPreview, rerun }: Props) {
   const [open, setOpen] = useState(report.status !== "PASSED")
   const [timelineOpen, setTimelineOpen] = useState(false)
   const failedStep = report.steps.find((step) => step.status === "FAILED")
@@ -71,16 +78,29 @@ export function ScenarioResultCard({ runId, report, showIteration, onPreview }: 
           </ol>
           {(report.status === "FAILED" || report.status === "FIXED") && (
             <div className="flex flex-col gap-2">
-              <Button
-                size="xs"
-                variant="ghost"
-                className="self-start"
-                icon={<ListOrdered className="w-3.5 h-3.5" />}
-                aria-expanded={timelineOpen}
-                onClick={() => setTimelineOpen(!timelineOpen)}
-              >
-                {timelineOpen ? "Hide Timeline" : "Show Timeline"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  icon={<ListOrdered className="w-3.5 h-3.5" />}
+                  aria-expanded={timelineOpen}
+                  onClick={() => setTimelineOpen(!timelineOpen)}
+                >
+                  {timelineOpen ? "Hide Timeline" : "Show Timeline"}
+                </Button>
+                {report.status === "FAILED" && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    icon={<RotateCcw className="w-3.5 h-3.5" />}
+                    disabled={!rerun}
+                    title={rerun ? "Runs this scenario again and pauses on the first failed step" : "A run is in progress"}
+                    onClick={() => rerun?.(report.scenarioId)}
+                  >
+                    Re-run with Pause on Failure
+                  </Button>
+                )}
+              </div>
               {timelineOpen && (
                 <FailureTimeline
                   runId={runId}
