@@ -18,9 +18,10 @@ export type ExportDrift = {
 type PlannedFile = { file: string; content: unknown }
 
 /**
- * Writes every scenario and step preset in SQLite to JSON files: scenarios to
+ * Writes every kept scenario and step preset in SQLite to JSON files: scenarios to
  * `<scenarios folder>/<id>.json`, presets to `<config folder>/presets/<id>.json`. Existing files with
- * the same id are overwritten. Files for ids no longer in the database are left alone.
+ * the same id are overwritten. Files for ids no longer in the database are left alone. Drafts and draft
+ * revisions are never written: they live only in SQLite until the person keeps them.
  */
 export function exportToJson(config: LoadedConfig): ExportResult {
   const { scenarios, presets } = planExport(config)
@@ -59,7 +60,7 @@ function planExport(config: LoadedConfig): { scenarios: PlannedFile[]; presets: 
   const scenariosDir = resolveFromConfig(config, config.scenarios)
   const presetsDir = join(config.configDir, "presets")
   return {
-    scenarios: getOrSeedScenarios(config, { throwOnDbError: true }).map(({ id, ...content }) => ({ file: join(scenariosDir, `${id}.json`), content })),
+    scenarios: getOrSeedScenarios(config, { throwOnDbError: true, keptOnly: true }).map(({ id, ...content }) => ({ file: join(scenariosDir, `${id}.json`), content })),
     presets: getOrSeedPresets(config, { throwOnDbError: true }).map((preset) => ({ file: join(presetsDir, `${preset.id}.json`), content: preset })),
   }
 }

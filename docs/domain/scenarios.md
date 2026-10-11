@@ -18,8 +18,19 @@ CREATE TABLE IF NOT EXISTS scenarios (
   setup_fixtures TEXT,             -- Serialized JSON array: string[]
   vars TEXT,                       -- Serialized JSON object: Record<string, unknown>
   read_only INTEGER DEFAULT 0,     -- 1 when the steps never change what the setup fixtures reset
+  draft_state TEXT,                -- NULL for a kept scenario, "draft" or "bug_found" for a draft
+  draft_group TEXT,                -- A draft's group: draft_groups.key
+  revision_of TEXT,                -- A draft revision's kept scenario id
+  base_fingerprint TEXT,           -- A draft revision's kept-scenario fingerprint when it was saved
   created_at INTEGER,
   updated_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS draft_groups (
+  key TEXT PRIMARY KEY,            -- The group slug the agent saved under
+  prompt TEXT NOT NULL,            -- The prompt the drafts came from
+  agent TEXT,                      -- Which agent wrote them
+  created_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS scenario_steps (
@@ -60,6 +71,17 @@ CREATE TABLE IF NOT EXISTS step_groups (
 
 CREATE INDEX IF NOT EXISTS idx_scenario_steps_scenario ON scenario_steps(scenario_id, order_num);
 ```
+
+### Drafts
+
+A **draft** is an ordinary scenario row with `draft_state` set: a scenario an agent saved that the person has not kept yet. Drafts run, report and pause like any scenario. The draft columns are written only by `src/db/drafts.ts`; `saveScenario` never writes them, so a builder save or a Pause on Failure fix keeps a draft a draft, and a scenario created in the builder is kept from the start.
+
+- **Groups**: each draft belongs to one group in `draft_groups`, which records the prompt and the agent. A new group needs a prompt; a later save that names the group without one keeps it. Saving a draft id again replaces that draft in place and moves it to the group of the latest save (one row per id).
+- **Ids**: every draft save drops incoming step and action ids, so steps copied from an export or a preset never collide with stored ones.
+- **Revisions**: a draft for a kept scenario's id is stored as its own row with the id `<kept id>@draft`, `revision_of` set and `base_fingerprint` holding the kept scenario's fingerprint at save time. The kept scenario keeps running unchanged until the revision is kept. Each re-save records the kept scenario's current fingerprint again.
+- **States**: `draft`, or `bug_found` when the person marked a failing draft as failing on a real app bug. Only a draft can be marked.
+- **Keep** (`keepDraft`): refused unless the draft's current content passed a run (`runs.md`, section 5, Passed on current content); `bug_found` drafts can be kept the same way. Keeping a new draft clears its draft columns. Keeping a revision is refused when the kept scenario is gone or its fingerprint differs from `base_fingerprint`; the way out is Discard plus an agent re-save. Otherwise the kept scenario's content (name, description, setup, vars, steps) is replaced in place with new step ids, so step history restarts for those steps, and the revision row is deleted.
+- **Discard**: deletes a draft (never a kept scenario), or every draft in a group plus the group row.
 
 ---
 
@@ -155,9 +177,9 @@ A **Preset** is a reusable **Step** template (storing target platform and pre-co
 
 1. **Single Source of Truth**: The SQLite database (`.e2e/e2e.db`) is the only store the API, Web GUI, and runner read and write. `--db <path>` (or `E2E_DB_PATH`) picks another database file for the whole command: `loadConfig` stores the path as `config.dbPath`, and every later read and write, including config reloads in the GUI, uses it. The project folder stays `--dir`, or the current folder, unless the `--db` file sits in a `.e2e` folder, whose parent is then the project (`resolveCliPaths` in `src/db/paths.ts`). A `--db` directory names a project and uses its default database. `e2e init --db <file>` seeds that file. Server routes reload config with `reloadConfig` (`src/config.ts`), which keeps the chosen database; saving the first environment with a custom path reloads from the new database. `POST` and `DELETE` on `/api/scenarios` and `/api/presets` change SQLite only and never touch JSON files. A failed database write returns HTTP 500.
 2. **One-Time Import**: The first time `getOrSeedScenarios()` (used by `loadScenarios()` and `GET /api/scenarios`) opens a database, it imports every valid `<scenarios folder>/*.json` file whose id the database does not have yet. It then records `scenarios_imported_at` in `settings` and never imports again, so a scenario deleted in the GUI does not come back from a leftover file. Presets follow the same rule with `<config folder>/presets/*.json` and `presets_imported_at`.
-3. **Export**: `e2e export`, `POST /api/export`, and the **Export to JSON** button on the Config view's Database tab all call `exportToJson()` in `src/export.ts`. It runs the one-time import first, then writes every scenario to `<scenarios folder>/<id>.json` (without the `id` field, which comes from the file name) and every preset to `<config folder>/presets/<id>.json`. It overwrites files with the same id and leaves files for deleted ids in place.
-   - **Drift check**: `e2e export --check` (`checkExport()` in `src/export.ts`) writes nothing. It compares each file with what an export would write and lists files that are missing (in SQLite, no file), changed (different content, or not valid JSON) or stale (a `.json` file in the scenarios or presets folder whose id SQLite no longer has). Whitespace and key order are ignored. Any other difference counts, including a step name or a missing step id. It fails when SQLite cannot be read, rather than falling back to the JSON files as the GUI's loaders do, since a fallback would compare each file with itself and report no drift. It exits 1 when anything is listed, so a consumer can run it from a pre-push hook to keep the scenarios in git the same as the ones that run. `e2e export` fixes missing and changed files; stale files must be deleted by hand, since an export never deletes.
-4. **Import**: `e2e import` (`importFromJson()` in `src/import.ts`) saves every `<scenarios folder>/*.json` file into SQLite on request, keyed by file name, for scenarios written or edited as files after the one-time import ran. A new id is added; an existing one is replaced when the file's name, description, step ids or fingerprinted content (`runs.md`, section 5) differ, because importing is an explicit request and the file wins. A file step with no `id` matches any stored id, so re-importing an unchanged hand-written file changes nothing; a changed file without step ids gives its steps new UUIDs, which starts their run history over. A file that fails the schema or the base step check (`checkSteps`, e.g. an unknown target) is invalid: it is listed with its problems and never saved, and the command exits 1. Scenarios with no file are left alone.
+3. **Export**: `e2e export`, `POST /api/export`, and the **Export to JSON** button on the Config view's Database tab all call `exportToJson()` in `src/export.ts`. It runs the one-time import first, then writes every kept scenario (never a draft or draft revision) to `<scenarios folder>/<id>.json` (without the `id` field, which comes from the file name) and every preset to `<config folder>/presets/<id>.json`. It overwrites files with the same id and leaves files for deleted ids in place.
+   - **Drift check**: `e2e export --check` (`checkExport()` in `src/export.ts`) writes nothing. It compares each file with what an export would write and lists files that are missing (in SQLite, no file; drafts are never missing), changed (different content, or not valid JSON) or stale (a `.json` file in the scenarios or presets folder whose id SQLite no longer has). Whitespace and key order are ignored. Any other difference counts, including a step name or a missing step id. It fails when SQLite cannot be read, rather than falling back to the JSON files as the GUI's loaders do, since a fallback would compare each file with itself and report no drift. It exits 1 when anything is listed, so a consumer can run it from a pre-push hook to keep the scenarios in git the same as the ones that run. `e2e export` fixes missing and changed files; stale files must be deleted by hand, since an export never deletes.
+4. **Import**: `e2e import` (`importFromJson()` in `src/import.ts`) saves every `<scenarios folder>/*.json` file into SQLite on request, keyed by file name, for scenarios written or edited as files after the one-time import ran. A new id is added; an existing one is replaced when the file's name, description, step ids or fingerprinted content (`runs.md`, section 5) differ, because importing is an explicit request and the file wins. A file step with no `id` matches any stored id, so re-importing an unchanged hand-written file changes nothing; a changed file without step ids gives its steps new UUIDs, which starts their run history over. A file that fails the schema or the base step check (`checkSteps`, e.g. an unknown target) is invalid: it is listed with its problems and never saved, and the command exits 1. A file whose id is a draft or draft revision is skipped with a reason and leaves the draft as it is, since only an agent save, Keep or Discard change drafts. Scenarios with no file are left alone.
 5. **No Database Yet**: If the database file does not exist, reads fall back to the JSON files directly. The first save creates the database, and the next read runs the one-time import.
 
 ---

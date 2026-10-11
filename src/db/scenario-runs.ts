@@ -93,3 +93,24 @@ export function getScenarioRuns(db: DatabaseSync, runId: string): Array<Scenario
     changedSinceLastPass: r.last_pass_fingerprint != null && r.last_pass_fingerprint !== r.fingerprint,
   }))
 }
+
+/**
+ * Whether the scenario passed on the content `fingerprint` names: the latest run that ran it on that
+ * content finished every iteration `PASSED`. `FIXED` does not count. Derived, never stored, so any
+ * content change (a new fingerprint) needs a new pass.
+ */
+export function passedOnContent(db: DatabaseSync, scenarioId: string, fingerprint: string): boolean {
+  const row = db
+    .prepare(`
+      SELECT NOT EXISTS (
+        SELECT 1 FROM scenario_runs sr
+        WHERE sr.run_id = latest.run_id AND sr.scenario_id = ? AND sr.fingerprint = ? AND sr.status <> 'PASSED'
+      ) AS passed
+      FROM (
+        SELECT run_id FROM scenario_runs WHERE scenario_id = ? AND fingerprint = ?
+        ORDER BY started_at DESC LIMIT 1
+      ) latest
+    `)
+    .get(scenarioId, fingerprint, scenarioId, fingerprint) as { passed: number } | undefined
+  return row?.passed === 1
+}

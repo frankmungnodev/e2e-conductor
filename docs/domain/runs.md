@@ -255,12 +255,15 @@ When a scenario-iteration starts, before its setup fixtures, `runScenario` (`src
 | `FAILED` | A step or setup fixture failed and was not fixed. |
 | `PASSED` | Everything else. |
 
-Scenario-iterations an environment-down stop never reached record nothing. A process killed mid-scenario leaves `RUNNING`. Writes are best effort: a failed write never fails a step, a scenario or the run, and never changes the exit code, `summary.json` or run events.
+Scenario-iterations an environment-down stop never reached record nothing. A process killed mid-scenario leaves `RUNNING`. Every connection waits up to 5 seconds for another connection's write transaction (an `e2e save`, for example) before a write fails, so these writes land after it commits. Writes are best effort: a failed write never fails a step, a scenario or the run, and never changes the exit code, `summary.json` or run events.
 
 A fix saved during a pause changes the scenario in memory, not the iteration's row: the iteration keeps the fingerprint it started with, and the next iteration records the fixed content. Runs from before these tables existed have no rows.
 
 ### Changed since last pass
 A scenario-iteration is **changed since last pass** when the latest `PASSED` row of the same scenario that started before it, in any run or environment, has a different fingerprint. Only a plain pass counts: `FIXED`, `FAILED`, `CANCELLED` and `RUNNING` rows are never the last pass. With no earlier pass there is nothing to compare, so the scenario-iteration is not marked. The marker is derived when read (`getScenarioRuns` in `src/db/scenario-runs.ts`), not stored, so a later pass never changes an earlier row's marker.
+
+### Passed on current content
+A scenario has **passed on its current content** when the latest run that ran it with its current fingerprint finished every iteration `PASSED`. `FIXED`, `FAILED`, `CANCELLED` and `RUNNING` rows make that run not count, so a later failed run on the same content clears the pass. Recovered steps count, as they do for a run's `PASSED`. It is derived when read (`passedOnContent` in `src/db/scenario-runs.ts`), never stored: any change to the steps gives a new fingerprint and needs a new pass. Keeping a draft requires it (`scenarios.md`, section 1, Drafts).
 
 ---
 

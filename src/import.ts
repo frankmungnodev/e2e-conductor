@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 import { type LoadedConfig, resolveFromConfig } from "./config.ts"
 import { withDb } from "./db/connection.ts"
+import { getDraft } from "./db/drafts.ts"
 import { getScenario, type Scenario, saveScenario } from "./db/scenarios.ts"
 import { formatProblem } from "./problems.ts"
 import { checkSteps, getOrSeedScenarios } from "./scenario.ts"
@@ -13,13 +14,15 @@ export type ImportResult = {
   updated: string[]
   unchanged: string[]
   invalid: { file: string; problems: string[] }[]
+  /** Files whose id is a draft or draft revision: only `e2e save` and Keep change those. */
+  skipped: { file: string; reason: string }[]
 }
 
 /**
  * Saves every `<scenarios folder>/*.json` file into SQLite, keyed by file name: a new id is added,
  * an existing one is replaced when the file differs. The file wins because importing is an explicit
  * request. Scenarios with no file are left alone, and invalid files (schema or `checkSteps` problems)
- * are reported, never saved.
+ * are reported, never saved. A file whose id is a draft or draft revision is skipped with a reason.
  * Steps keep their ids when the file has them (an export writes them), which keeps their run history.
  */
 export function importFromJson(config: LoadedConfig): ImportResult {
@@ -29,7 +32,7 @@ export function importFromJson(config: LoadedConfig): ImportResult {
   getOrSeedScenarios(config)
 
   const dir = resolveFromConfig(config, config.scenarios)
-  const result: ImportResult = { added: [], updated: [], unchanged: [], invalid: [] }
+  const result: ImportResult = { added: [], updated: [], unchanged: [], invalid: [], skipped: [] }
   if (!existsSync(dir)) return result
   const files = readdirSync(dir)
     .filter((file) => file.endsWith(".json"))
@@ -53,6 +56,10 @@ export function importFromJson(config: LoadedConfig): ImportResult {
       const problems = checkSteps(config, scenario)
       if (problems.length > 0) {
         result.invalid.push({ file: path, problems: problems.map(formatProblem) })
+        continue
+      }
+      if (getDraft(db, scenario.id)) {
+        result.skipped.push({ file: path, reason: `"${scenario.id}" is a draft; only "e2e save", Keep or Discard change it` })
         continue
       }
       const existing = getScenario(db, scenario.id)

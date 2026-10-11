@@ -137,8 +137,10 @@ function mapScenarioRow(row: ScenarioRow, steps: Step[]): Scenario {
   }
 }
 
-export function getScenarios(db: DatabaseSync): Scenario[] {
-  const scRows = db.prepare("SELECT * FROM scenarios ORDER BY id ASC").all() as ScenarioRow[]
+/** Every stored scenario; with `keptOnly`, drafts and draft revisions are left out. */
+export function getScenarios(db: DatabaseSync, { keptOnly = false } = {}): Scenario[] {
+  const where = keptOnly ? "WHERE draft_state IS NULL" : ""
+  const scRows = db.prepare(`SELECT * FROM scenarios ${where} ORDER BY id ASC`).all() as ScenarioRow[]
   const stepRows = db.prepare("SELECT * FROM scenario_steps ORDER BY scenario_id ASC, order_num ASC").all() as StepRow[]
 
   const stepsByScenario = new Map<string, Step[]>()
@@ -159,6 +161,11 @@ export function getScenario(db: DatabaseSync, id: string): Scenario | undefined 
   return mapScenarioRow(row, stepRows.map(mapStepRow))
 }
 
+/**
+ * Writes the scenario's content. The draft columns (`draft_state`, `draft_group`, `revision_of`,
+ * `base_fingerprint`) are never written here, so a builder save or a Pause on Failure fix keeps a
+ * draft a draft; `src/db/drafts.ts` owns them.
+ */
 export function saveScenario(db: DatabaseSync, scenario: Scenario): void {
   const now = Date.now()
   const setupJson = scenario.setup ? JSON.stringify(scenario.setup) : null

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS environments (
   env_vars TEXT,                   -- Serialized JSON: Record<string, string>
   is_default INTEGER DEFAULT 0,
   is_active INTEGER DEFAULT 0,
+  allow_drafts INTEGER DEFAULT 0,  -- 1 when runs that include drafts may use it
   created_at INTEGER,
   updated_at INTEGER
 );
@@ -73,6 +74,7 @@ Scenarios reference these variables via `${env.VARIABLE_NAME}`. Fixtures inherit
 
 - **Creation (`saveEnvironment`)**: Links every existing platform to the new environment with an `env_platform` row that overrides nothing, so all fields inherit from the platform. If it is the first environment, it is marked active and default.
 - **Active Switch (`setActiveEnvironment`)**: Atomically clears `is_active` on all environments, sets `is_active = 1` on the target, updates `settings.active_environment`, and triggers UI reload.
+- **Draft mark (`setAllowDrafts`)**: sets `allow_drafts`, read as `allowDrafts` on `EnvironmentConfig`. No environment carries it until the person sets it from the UI. `saveEnvironment` never writes the column, so a form save keeps the mark. The mark is cooperative: it stops mistakes, not an agent that edits SQLite or calls the API directly. Process env still wins over `env_vars` in a draft run (section 3), so a UI started from a shell that exports production values sends them into the run.
 - **Deletion (`deleteEnvironment`)**: Deletes all linked `env_platform` records. If the deleted environment was active or default, automatically promotes the next available alphabetical environment.
 
 ---

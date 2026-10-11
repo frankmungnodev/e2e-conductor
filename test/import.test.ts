@@ -4,8 +4,9 @@ import { join } from "node:path"
 import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
 import { withDb } from "../src/db/connection.ts"
+import { getDraft, saveDraft, saveDraftGroup, saveRevision } from "../src/db/drafts.ts"
 import { resolveDbPath } from "../src/db/paths.ts"
-import { getScenario } from "../src/db/scenarios.ts"
+import { getScenario, saveScenario } from "../src/db/scenarios.ts"
 import { importFromJson } from "../src/import.ts"
 import { getOrSeedScenarios } from "../src/scenario.ts"
 import { tempDir } from "./temp-dir.ts"
@@ -40,7 +41,7 @@ describe("importFromJson", () => {
   it("adds files the one-time import no longer reads, and reports re-imports as unchanged", () => {
     const config = project()
     write(config, "smoke.json", echo("Smoke"))
-    assert.deepEqual(importFromJson(config), { added: ["smoke"], updated: [], unchanged: [], invalid: [] })
+    assert.deepEqual(importFromJson(config), { added: ["smoke"], updated: [], unchanged: [], invalid: [], skipped: [] })
     const stepId = stored(config, "smoke")?.steps[0].id
 
     assert.deepEqual(importFromJson(config).unchanged, ["smoke"])
@@ -87,5 +88,28 @@ describe("importFromJson", () => {
     )
     assert.deepEqual(result.invalid[0].problems, ['steps[0] "open": unknown target "ghost" (config has: shell)'])
     assert.equal(stored(config, "ghost"), undefined)
+  })
+
+  it("skips a file whose id is a draft or a draft revision, naming the reason, and leaves the draft as it was", () => {
+    const config = project()
+    withDb(config.dbPath, (db) => {
+      saveDraftGroup(db, { key: "login", prompt: "test login" })
+      saveDraft(db, { id: "checkout", ...echo("Checkout") }, "login")
+      saveScenario(db, { id: "smoke", ...echo("Smoke") })
+      saveRevision(db, "smoke", { id: "smoke", ...echo("Smoke", "echo revised") }, "login")
+    })
+    write(config, "checkout.json", echo("Checkout", "echo from the file"))
+    write(config, "smoke@draft.json", echo("Smoke", "echo from the file"))
+
+    const result = importFromJson(config)
+    assert.deepEqual(
+      result.skipped.map(({ file }) => file.split("/").pop()),
+      ["checkout.json", "smoke@draft.json"],
+    )
+    assert.match(result.skipped[0].reason, /draft/)
+    assert.deepEqual([...result.added, ...result.updated], [])
+    assert.equal(stored(config, "checkout")?.steps[0].command, "echo hi")
+    assert.equal(stored(config, "smoke@draft")?.steps[0].command, "echo revised")
+    assert.equal(withDb(config.dbPath, (db) => getDraft(db, "checkout"))?.state, "draft")
   })
 })

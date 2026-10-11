@@ -134,12 +134,12 @@ function checkActionName(
  * Falls back to reading directly from the filesystem if the database does not exist, or if it
  * cannot be read unless `throwOnDbError` is set.
  */
-export function getOrSeedScenarios(config: LoadedConfig, { throwOnDbError = false } = {}): Scenario[] {
+export function getOrSeedScenarios(config: LoadedConfig, { throwOnDbError = false, keptOnly = false } = {}): Scenario[] {
   const dbPath = config.dbPath
   if (existsSync(dbPath)) {
     try {
       const dbScenarios = withDb(dbPath, (db) => {
-        if (getSetting(db, SCENARIOS_IMPORTED) !== undefined) return getScenarios(db)
+        if (getSetting(db, SCENARIOS_IMPORTED) !== undefined) return getScenarios(db, { keptOnly })
         const dir = resolveFromConfig(config, config.scenarios)
         const known = new Set(getScenarios(db).map((scenario) => scenario.id))
         const files = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith(".json")).sort() : []
@@ -155,7 +155,7 @@ export function getOrSeedScenarios(config: LoadedConfig, { throwOnDbError = fals
           }
         }
         setSetting(db, SCENARIOS_IMPORTED, new Date().toISOString())
-        return getScenarios(db)
+        return getScenarios(db, { keptOnly })
       })
       return dbScenarios
     } catch (error) {

@@ -14,6 +14,7 @@ export function getEnvironments(db: DatabaseSync): Record<string, EnvironmentCon
     flows?: string | null
     results?: string | null
     env_vars?: string | null
+    allow_drafts?: number | null
   }>
 
   const environments: Record<string, EnvironmentConfig> = {}
@@ -40,6 +41,7 @@ export function getEnvironments(db: DatabaseSync): Record<string, EnvironmentCon
       results: row.results || undefined,
       env: envObj,
       services,
+      allowDrafts: row.allow_drafts === 1,
     }
   }
 
@@ -106,6 +108,14 @@ export function saveEnvironment(
   // Link every existing platform, inheriting all of its fields
   const platRows = db.prepare("SELECT id FROM platforms").all() as Array<{ id: string }>
   for (const p of platRows) linkPlatform(db, name, p.id, now)
+}
+
+/**
+ * Marks the environment as allowed, or not, for runs that include drafts. Only the person sets it, from
+ * the UI. `saveEnvironment` never writes the column, so a form save keeps the mark.
+ */
+export function setAllowDrafts(db: DatabaseSync, name: string, allowed: boolean): void {
+  db.prepare("UPDATE environments SET allow_drafts = ?, updated_at = ? WHERE name = ?").run(allowed ? 1 : 0, Date.now(), name)
 }
 
 export function deleteEnvironment(db: DatabaseSync, name: string): void {

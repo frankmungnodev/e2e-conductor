@@ -88,6 +88,8 @@ export type EnvironmentConfig = {
   flows?: string
   /** Output results folder for this environment */
   results?: string
+  /** Runs that include drafts may use this environment. Set only from the UI; a form save keeps it. */
+  allowDrafts?: boolean
 }
 
 export type E2EConfig = {

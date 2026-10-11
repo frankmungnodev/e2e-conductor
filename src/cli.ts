@@ -142,14 +142,19 @@ async function main() {
   }
 
   if (command === "import") {
-    const { added, updated, unchanged, invalid } = importFromJson(config)
+    const { added, updated, unchanged, invalid, skipped } = importFromJson(config)
     for (const id of added) console.log(`${color.green("added")}   ${id}`)
     for (const id of updated) console.log(`${color.yellow("updated")} ${id}`)
     for (const { file, problems } of invalid) {
       console.log(`${color.red("invalid")} ${relative(process.cwd(), file)}`)
       for (const problem of problems) console.log(color.dim(`  ${problem}`))
     }
-    console.log(color.dim(`${added.length} added, ${updated.length} updated, ${unchanged.length} unchanged, ${invalid.length} invalid`))
+    for (const { file, reason } of skipped) console.log(`${color.yellow("skipped")} ${relative(process.cwd(), file)} ${color.dim(reason)}`)
+    console.log(
+      color.dim(
+        `${added.length} added, ${updated.length} updated, ${unchanged.length} unchanged, ${invalid.length} invalid, ${skipped.length} skipped`,
+      ),
+    )
     if (invalid.length > 0) process.exit(1)
     return
   }

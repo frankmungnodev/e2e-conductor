@@ -26,7 +26,9 @@ export function openDatabase(dbPath: string): DatabaseSync {
     mkdirSync(dir, { recursive: true })
   }
 
-  const db = new DatabaseSync(dbPath)
+  // A save's write transaction and a running batch's history writes wait for each other instead of
+  // failing at once: the runner's history writes are best-effort, so a busy error would lose a pass.
+  const db = new DatabaseSync(dbPath, { timeout: 5000 })
 
   // Initialize schema
   db.exec(`
@@ -45,6 +47,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
       env_vars TEXT,
       is_default INTEGER DEFAULT 0,
       is_active INTEGER DEFAULT 0,
+      allow_drafts INTEGER DEFAULT 0,
       created_at INTEGER,
       updated_at INTEGER
     );
@@ -106,8 +109,19 @@ export function openDatabase(dbPath: string): DatabaseSync {
       setup_fixtures TEXT,
       vars TEXT,
       read_only INTEGER DEFAULT 0,
+      draft_state TEXT,
+      draft_group TEXT,
+      revision_of TEXT,
+      base_fingerprint TEXT,
       created_at INTEGER,
       updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS draft_groups (
+      key TEXT PRIMARY KEY,
+      prompt TEXT NOT NULL,
+      agent TEXT,
+      created_at INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS scenario_steps (
@@ -218,6 +232,11 @@ export function openDatabase(dbPath: string): DatabaseSync {
   addMissingColumn(db, "platforms", "needs", "TEXT")
   addMissingColumn(db, "runs", "pid", "INTEGER")
   addMissingColumn(db, "scenarios", "read_only", "INTEGER DEFAULT 0")
+  addMissingColumn(db, "scenarios", "draft_state", "TEXT")
+  addMissingColumn(db, "scenarios", "draft_group", "TEXT")
+  addMissingColumn(db, "scenarios", "revision_of", "TEXT")
+  addMissingColumn(db, "scenarios", "base_fingerprint", "TEXT")
+  addMissingColumn(db, "environments", "allow_drafts", "INTEGER DEFAULT 0")
 
   // Older databases linked platforms by copying their fields, so an edit to a platform never reached
   // an environment. Clear copied values that still equal the platform's, so they inherit again.

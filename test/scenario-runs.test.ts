@@ -6,6 +6,7 @@ import { openDatabase } from "../src/db/connection.ts"
 import {
   getScenarioRuns,
   getScenarioVersion,
+  passedOnContent,
   type ScenarioRunRecord,
   type ScenarioRunStatus,
   saveScenarioRun,
@@ -110,5 +111,42 @@ describe("scenario runs and versions", () => {
     saveScenarioRun(db, row("kept", 100, "a", "PASSED"))
     assert.equal(getScenarioRuns(db, "kept").length, 1)
     assert.ok(db.prepare("SELECT id FROM runs WHERE id = 'kept'").get())
+  })
+})
+
+describe("passed on current content", () => {
+  it("is true after a run that passed on the content, and false for other content", () => {
+    const db = freshDb()
+    saveScenarioRun(db, row("run-1", 100, "a", "PASSED"))
+    assert.equal(passedOnContent(db, "01-smoke", "a"), true)
+    assert.equal(passedOnContent(db, "01-smoke", "b"), false)
+    assert.equal(passedOnContent(db, "02-other", "a"), false)
+  })
+
+  it("does not count a FIXED scenario run", () => {
+    const db = freshDb()
+    saveScenarioRun(db, row("run-1", 100, "a", "FIXED"))
+    assert.equal(passedOnContent(db, "01-smoke", "a"), false)
+  })
+
+  it("does not count a run where a later iteration failed", () => {
+    const db = freshDb()
+    saveScenarioRun(db, row("run-1", 100, "a", "PASSED", { iteration: 1 }))
+    saveScenarioRun(db, row("run-1", 150, "a", "FAILED", { iteration: 2 }))
+    assert.equal(passedOnContent(db, "01-smoke", "a"), false)
+  })
+
+  it("is cleared by a later failed run on the same content", () => {
+    const db = freshDb()
+    saveScenarioRun(db, row("run-1", 100, "a", "PASSED"))
+    saveScenarioRun(db, row("run-2", 200, "a", "FAILED"))
+    assert.equal(passedOnContent(db, "01-smoke", "a"), false)
+  })
+
+  it("ignores later runs on other content", () => {
+    const db = freshDb()
+    saveScenarioRun(db, row("run-1", 100, "a", "PASSED"))
+    saveScenarioRun(db, row("run-2", 200, "b", "FAILED"))
+    assert.equal(passedOnContent(db, "01-smoke", "a"), true)
   })
 })

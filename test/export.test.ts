@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
 import { withDb } from "../src/db/connection.ts"
+import { saveDraft, saveDraftGroup, saveRevision } from "../src/db/drafts.ts"
 import { resolveDbPath } from "../src/db/paths.ts"
 import { deleteScenario, saveScenario } from "../src/db/scenarios.ts"
 import { deleteStepPreset } from "../src/db/step-presets.ts"
@@ -125,5 +126,23 @@ describe("JSON import and export", () => {
     writeFileSync(config.dbPath, "not a sqlite database")
 
     assert.throws(() => checkExport(config))
+  })
+
+  it("writes no file for a draft or a draft revision, and the check does not report them missing", () => {
+    const config = project()
+    exportToJson(config)
+    withDb(resolveDbPath(config.configDir), (db) => {
+      saveDraftGroup(db, { key: "login", prompt: "test login" })
+      saveDraft(db, { id: "checkout", name: "Checkout", steps: [{ name: "ls", target: "shell", command: "ls" }] }, "login")
+      const smoke = getOrSeedScenarios(config).find((scenario) => scenario.id === "smoke")
+      assert.ok(smoke)
+      saveRevision(db, "smoke", { ...smoke, steps: [{ name: "pwd", target: "shell", command: "pwd" }] }, "login")
+    })
+
+    assert.deepEqual(checkExport(config), { missing: [], changed: [], stale: [] })
+    const { scenarios } = exportToJson(config)
+    assert.deepEqual(scenarios, [join(config.configDir, "scenarios", "smoke.json")])
+    assert.equal(existsSync(join(config.configDir, "scenarios", "checkout.json")), false)
+    assert.equal(existsSync(join(config.configDir, "scenarios", "smoke@draft.json")), false)
   })
 })
