@@ -3,7 +3,7 @@ import { basename, join, relative, resolve } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
 import type { LoadedConfig } from "./config.ts"
 import { openDatabase } from "./db/connection.ts"
-import { getDraft, getDraftGroup, revisionId, saveDraft, saveDraftGroup, saveRevision } from "./db/drafts.ts"
+import { getDraft, getDraftGroup, REVISION_SUFFIX, revisionId, saveDraft, saveDraftGroup, saveRevision } from "./db/drafts.ts"
 import { getFixtures } from "./db/fixtures.ts"
 import { findProjectDir, resolveDbPath } from "./db/paths.ts"
 import { getScenario, type Scenario } from "./db/scenarios.ts"
@@ -67,6 +67,9 @@ class SaveError extends Error {
 
 type CheckedFile = { file: string; scenario: Scenario }
 
+/** A group key is a folder name under `.e2e/drafts`, so it may not climb out of it or hide. */
+const GROUP_SLUG = /^[a-z0-9][a-z0-9_-]*$/
+
 /**
  * The agent's write path. Every file is read and held to the strict check against the environments
  * that allow drafts, then classified against what is stored. Any problem stores nothing; otherwise,
@@ -107,6 +110,12 @@ function save(request: SaveRequest, report: SaveReport): SaveExitCode {
   report.dbPath = dbPath
   const group = request.group?.trim()
   if (!group) throw new SaveError('--group <slug> is required: the drafts are stored under that group.', 2)
+  if (!GROUP_SLUG.test(group)) {
+    throw new SaveError(
+      `--group "${group}" is not a slug: use lowercase letters, digits, "-" and "_", starting with a letter or digit.`,
+      2,
+    )
+  }
   if (!existsSync(dbPath)) throw new SaveError(`No database at ${dbPath}. Run "e2e init" or "e2e ui" in ${project} first.`, 3)
 
   const db = openDatabaseOrFail(dbPath)
@@ -222,7 +231,11 @@ function readScenario(path: string, file: string): { scenario: Scenario } | { pr
       problems: errors.map((error, index) => problem("schema", { file, pointer: error.instancePath, message: messages[index] })),
     }
   }
-  return { scenario: { ...(raw as Omit<Scenario, "id">), id: basename(path, ".json") } as Scenario }
+  const id = basename(path, ".json")
+  if (id.endsWith(REVISION_SUFFIX)) {
+    return { problems: [reservedId(file, id, `"${id}" ends in "${REVISION_SUFFIX}", which marks a revision e2e save makes`)] }
+  }
+  return { scenario: { ...(raw as Omit<Scenario, "id">), id } as Scenario }
 }
 
 type Planned = { result: SaveResult; write?: () => void } | { problem: Problem; write?: never }
@@ -240,6 +253,9 @@ function classify(db: DatabaseSync, group: string, { file, scenario }: CheckedFi
     const id = revisionId(scenario.id)
     const revision = getDraft(db, id)
     const storedRevision = getScenario(db, id)
+    if (storedRevision && !revision) {
+      return { problem: reservedId(file, id, `"${id}" is a kept scenario, so "${scenario.id}" has no room for a revision`) }
+    }
     const result = { file, id, revisionOf: scenario.id }
     const unchanged = revision !== undefined && storedRevision !== undefined && sameContent(storedRevision, scenario)
     if (unchanged && (revision.state === "bug_found" || revision.group === group)) return { result: { ...result, outcome: "unchanged" } }
@@ -256,6 +272,10 @@ function classify(db: DatabaseSync, group: string, { file, scenario }: CheckedFi
     return { result: { file, id: scenario.id, outcome: "updated" }, write: () => saveDraft(db, scenario, group) }
   }
   return { result: { file, id: scenario.id, outcome: "created" }, write: () => saveDraft(db, scenario, group) }
+}
+
+function reservedId(file: string, id: string, message: string): Problem {
+  return problem("reserved-id", { file, pointer: "", message, value: id })
 }
 
 function bugFound(file: string, id: string): Problem {

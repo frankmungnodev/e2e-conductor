@@ -128,6 +128,21 @@ describe("e2e kit", () => {
     assert.equal(blocks(read(dir, "CLAUDE.md")), 1)
   })
 
+  for (const [label, text] of [
+    ["only a start marker", "# Agents\n\n<!-- e2e-kit:start -->\nMy own notes.\n"],
+    ["the end marker before the start marker", "# Agents\n\n<!-- e2e-kit:end -->\nMy own notes.\n<!-- e2e-kit:start -->\n"],
+  ]) {
+    it(`fails on an AGENTS.md with ${label} and writes nothing`, () => {
+      const dir = project()
+      writeFileSync(join(dir, "AGENTS.md"), text)
+
+      assert.throws(() => writeAgentKit(dir), /AGENTS\.md has unmatched/)
+
+      assert.equal(read(dir, "AGENTS.md"), text)
+      assert.equal(existsSync(join(dir, ".e2e/agent/kit.md")), false)
+    })
+  }
+
   it("lists every action and problem code of the vocabulary in vocabulary.json, without no-effect fields", () => {
     const dir = project()
     writeAgentKit(dir)

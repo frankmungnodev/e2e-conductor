@@ -100,6 +100,10 @@ describe("readback", () => {
     for (const jargon of ["ctx.", "vars.", "env.", "json_match", "read_only"]) assert.ok(!text.includes(jargon), jargon)
   })
 
+  it("says an indexed placeholder in plain words", () => {
+    assert.deepEqual(sentencesOf({ name: "item", target: "api", url: "/items/${ctx.items[0].id}" }), ["Sends GET /items/{items[0].id}"])
+  })
+
   it("reads the single-action and launch forms of web and mobile steps", () => {
     assert.deepEqual(sentencesOf({ name: "tap", target: "app", action: "tap", selector: "Sign in" }), ['Taps "Sign in"'])
     assert.deepEqual(sentencesOf({ name: "open", target: "app", launch: "fresh" }), ["Launches the app fresh"])

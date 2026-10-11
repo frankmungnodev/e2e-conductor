@@ -1,4 +1,5 @@
 import type { LoadedConfig } from "./config.ts"
+import { PLACEHOLDER } from "./context.ts"
 import type { StepAction } from "./db/scenarios.ts"
 import { type Assert, driverOf, type Scenario, type Step, targetsUsed } from "./scenario.ts"
 import { ACTIONS, type DriverName, findAction, type JsonMatchOperator } from "./vocabulary.ts"
@@ -25,11 +26,10 @@ type Sentence = (a: ActionFields) => string
 
 /** `${ctx.x}`, `${env.X}` and `${run.x}` placeholders in words a person reads. */
 function plain(text: string): string {
-  return text.replace(/\$\{(\w+)\.([\w.-]+)\}/g, (whole, namespace: string, name: string) => {
+  return text.replace(PLACEHOLDER, (_, namespace: "ctx" | "env" | "run", name: string) => {
     if (namespace === "ctx") return `{${name}}`
     if (namespace === "env") return `{${name} from the environment}`
-    if (namespace === "run") return name === "iteration" ? "{iteration}" : `{run ${name}}`
-    return whole
+    return name === "iteration" ? "{iteration}" : `{run ${name}}`
   })
 }
 

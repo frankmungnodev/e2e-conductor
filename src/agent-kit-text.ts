@@ -105,13 +105,13 @@ export function renderKit(facts: KitFacts): string {
     "",
     "## How to add scenarios",
     "",
-    `1. Pick a short group slug for the person's request, such as \`checkout\`. Write one scenario JSON file per scenario to \`${DRAFTS_FOLDER}\`. The file name, without \`.json\`, is the scenario id.`,
+    `1. Pick a short group slug for the person's request, such as \`checkout\`: lowercase letters, digits, \`-\` and \`_\`, starting with a letter or digit. Write one scenario JSON file per scenario to \`${DRAFTS_FOLDER}\`. The file name, without \`.json\`, is the scenario id.`,
     `2. Check the batch: \`${CHECK}\`. It stores nothing. \`e2e save\` finds the project from any folder inside it; if \`e2e\` is not on the PATH, run it through the project's package runner (for example \`npx e2e\`).`,
     "3. Fix every problem it reports and check again until `ok` is true. Each problem names the file, the step (`stepIndex`, `pointer`), a `code`, the `allowed` values when there is a fixed set, and a `hint`.",
     `4. Save: \`${SAVE}\`. A save is all or nothing: any problem stores no file.`,
-    "5. Tell the person the group is saved. They run it and decide what to keep in the e2e UI.",
+    "5. Tell the person the group is saved, and pass on every entry in `notices` (for example `no-draft-environment`) in your own words. They run the group and decide what to keep in the e2e UI.",
     "",
-    "Saving a file again updates its draft. Saving a file whose id is a kept scenario stores a revision (`<id>@draft`) and leaves the kept scenario running unchanged until the person keeps the revision.",
+    "Saving a file again updates its draft. Saving a file whose id is a kept scenario stores a revision (`<id>@draft`) and leaves the kept scenario running unchanged until the person keeps the revision. Never name a file `<id>@draft.json` yourself: that suffix is reserved, and `e2e save` refuses it.",
     "",
     "## Rules",
     "",
@@ -139,7 +139,7 @@ export function renderKit(facts: KitFacts): string {
 
 function renderProject(facts: KitFacts): string[] {
   const lines = ["## This project", ""]
-  for (const notice of facts.notices) lines.push(`Note: ${notice.message}. The person can allow drafts on an environment in the e2e UI.`, "")
+  for (const notice of facts.notices) lines.push(`Note: ${notice.message.replace(/\.$/, "")}. The person can allow drafts on an environment in the e2e UI.`, "")
   lines.push(
     `\`e2e save\` checks drafts against: ${facts.environments.map((environment) => `\`${environment.name}\``).join(", ")}. A target or env variable must exist in each of them.`,
     "",
@@ -275,7 +275,7 @@ function renderVocabularyText(): string[] {
     "",
     "Per file outcome: `created`, `updated`, `unchanged`, `revision-of` (with `revisionOf`, the kept id), `matches-kept` (the file equals its kept scenario, so nothing is stored).",
     "",
-    "Exit codes: 0 stored (or clean with `--check`), 1 problems and nothing stored, 2 usage (no `--group`, a new group without `--prompt`, no files), 3 project or database error.",
+    "Exit codes: 0 stored (or clean with `--check`), 1 problems and nothing stored, 2 usage (no `--group` or one that is not a slug, a new group without `--prompt`, no files), 3 project or database error.",
     "",
     "Problem codes:",
     "",

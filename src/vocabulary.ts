@@ -157,6 +157,8 @@ export const PROBLEM_CODES = {
   "unknown-env-var": "Use an env variable name configured for the environment.",
   "raw-url": "Use a path relative to the target's service URL instead of a full URL.",
   "duplicate-id": "Give every scenario in the batch its own file name.",
+  "reserved-id":
+    'Ids ending in "@draft" are reserved for revisions. Save the file under the scenario\'s own id, and e2e save makes the revision.',
   "draft-bug-found": "The person marked this draft Bug found, so it cannot be changed. Save it under another file name.",
   "no-draft-environment":
     "No environment is marked as allowed for drafts, so targets were checked against the default environment.",

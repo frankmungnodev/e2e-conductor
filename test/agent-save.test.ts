@@ -162,6 +162,51 @@ describe("e2e save", () => {
     assert.equal(stored(dir, "login@draft")?.steps[0].url, "/login")
   })
 
+  it("refuses a file whose id ends in @draft as reserved-id and stores nothing", () => {
+    const dir = project()
+    writeDrafts(dir, "login", { "x@draft.json": health("X"), "a.json": health("A") })
+
+    const { exitCode, report } = save(dir)
+
+    assert.equal(exitCode, 1)
+    assert.deepEqual(
+      report.problems.map((found) => [found.code, found.file]),
+      [["reserved-id", join(".e2e", "drafts", "login", "x@draft.json")]],
+    )
+    assert.deepEqual(ids(dir), [])
+  })
+
+  it("refuses a revision whose id is already a kept scenario and leaves that scenario unchanged", () => {
+    const dir = project()
+    keep(dir, { id: "x", ...health("X") })
+    keep(dir, { id: "x@draft", ...health("Kept X draft", "/kept") })
+    const kept = stored(dir, "x@draft")
+    writeDrafts(dir, "login", { "x.json": health("X", "/changed") })
+
+    const { exitCode, report } = save(dir)
+
+    assert.equal(exitCode, 1)
+    assert.deepEqual(
+      report.problems.map((found) => [found.code, found.file]),
+      [["reserved-id", join(".e2e", "drafts", "login", "x.json")]],
+    )
+    assert.match(report.problems[0].message, /"x@draft"/)
+    assert.deepEqual(stored(dir, "x@draft"), kept)
+    assert.equal(draftOf(dir, "x@draft"), undefined)
+  })
+
+  it("exits 2 for a --group that is not a slug", () => {
+    const dir = project()
+    writeDrafts(dir, "login", { "a.json": health("A") })
+
+    for (const group of ["../x", "Login", "-x", "a/b", "a b"]) {
+      const { exitCode, report } = save(dir, { group })
+      assert.equal(exitCode, 2, group)
+      assert.match(report.error ?? "", /--group/, group)
+    }
+    assert.deepEqual(ids(dir), [])
+  })
+
   it("reports a file identical to its kept scenario as matches-kept and stores no revision", () => {
     const dir = project()
     keep(dir, { id: "login", ...health("Login") })

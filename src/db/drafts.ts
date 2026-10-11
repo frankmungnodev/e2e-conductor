@@ -33,9 +33,12 @@ type DraftRow = {
 
 const DRAFT_COLUMNS = "id, draft_state, draft_group, revision_of, base_fingerprint"
 
+/** The suffix that marks a draft revision's id. Reserved: no scenario file may end its id with it. */
+export const REVISION_SUFFIX = "@draft"
+
 /** The id of a kept scenario's draft revision. */
 export function revisionId(keptId: string): string {
-  return `${keptId}@draft`
+  return `${keptId}${REVISION_SUFFIX}`
 }
 
 function mapDraftRow(row: DraftRow): Draft {

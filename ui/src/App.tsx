@@ -36,6 +36,10 @@ function AppContent() {
   const [scenarios, setScenarios] = useState<ScenarioItem[]>([])
   // The scenario the builder opens with, set by Edit in Builder on a draft.
   const [builderScenarioId, setBuilderScenarioId] = useState<string | undefined>()
+  // Only the visit that Edit in Builder opened starts on that draft; later visits start as usual.
+  useEffect(() => {
+    if (activeTab !== "scenarios") setBuilderScenarioId(undefined)
+  }, [activeTab])
   const [flows, setFlows] = useState<FlowItem[]>([])
   const [preflightData, setPreflightData] = useState<PreflightData | null>(null)
   const [isPreflightLoading, setIsPreflightLoading] = useState(false)
