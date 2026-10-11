@@ -5,7 +5,7 @@ import { withDb } from "../../db/connection.ts"
 import { getRun } from "../../db/runs.ts"
 import { getScenarioRuns, getScenarioVersion } from "../../db/scenario-runs.ts"
 import { buildFailureTimeline } from "../../failure-timeline.ts"
-import { parseSteps, stepIndexOf } from "../../run-report.ts"
+import { attemptsOf, parseSteps } from "../../run-report.ts"
 import { sendJson } from "../http.ts"
 import type { Route } from "../route.ts"
 
@@ -23,12 +23,7 @@ export const timelineRoutes: Route[] = [
       const found = withDb(state.config.dbPath, (db) => {
         const scenarioRun = getScenarioRuns(db, runId).find((r) => r.scenarioId === scenario && r.iteration === iteration)
         if (!scenarioRun) return undefined
-        const attempts = (getRun(db, runId)?.stepRuns ?? []).flatMap((attempt) => {
-          const index = stepIndexOf(attempt.id)
-          return attempt.scenarioId === scenario && attempt.iteration === iteration && index !== undefined
-            ? [{ ...attempt, index }]
-            : []
-        })
+        const attempts = attemptsOf(getRun(db, runId)?.stepRuns ?? [], scenario, iteration)
         return { scenarioRun, attempts, steps: parseSteps(getScenarioVersion(db, scenarioRun.fingerprint)) }
       })
       if (!found) return sendJson(res, 404, { error: `Scenario ${scenario} repeat ${iteration} not found in run ${runId}` })

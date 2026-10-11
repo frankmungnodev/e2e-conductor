@@ -55,12 +55,9 @@ type Input = {
 export function buildRunReport({ scenarioRuns, stepRuns, versions, names, files }: Input): ScenarioReport[] {
   return scenarioRuns.map((run) => {
     const pinned = parseSteps(versions[run.fingerprint])
-    const attempts = stepRuns.filter((step) => step.scenarioId === run.scenarioId && step.iteration === run.iteration)
     const byIndex = new Map<number, StepRunRecord[]>()
-    for (const attempt of attempts) {
-      const index = stepIndexOf(attempt.id)
-      if (index === undefined) continue
-      byIndex.set(index, [...(byIndex.get(index) ?? []), attempt])
+    for (const attempt of attemptsOf(stepRuns, run.scenarioId, run.iteration)) {
+      byIndex.set(attempt.index, [...(byIndex.get(attempt.index) ?? []), attempt])
     }
     const scenarioFiles = (run.artifactsDir && files[run.artifactsDir]) || []
     const count = Math.max(pinned.length, ...[...byIndex.keys()].map((index) => index + 1))
@@ -97,8 +94,19 @@ export function buildRunReport({ scenarioRuns, stepRuns, versions, names, files 
   })
 }
 
+/** A step attempt with its step's position in the scenario. */
+export type StepAttempt = StepRunRecord & { index: number }
+
+/** A scenario-iteration's step attempts, in the order given. An attempt whose id has no position is left out. */
+export function attemptsOf(stepRuns: StepRunRecord[], scenarioId: string, iteration: number): StepAttempt[] {
+  return stepRuns.flatMap((attempt) => {
+    const index = stepIndexOf(attempt.id)
+    return attempt.scenarioId === scenarioId && attempt.iteration === iteration && index !== undefined ? [{ ...attempt, index }] : []
+  })
+}
+
 /** A step run id is `<runId>:<scenarioId>:<iteration>:<stepIndex>:<attempt>`; run ids hold no colon. */
-export function stepIndexOf(id: string): number | undefined {
+function stepIndexOf(id: string): number | undefined {
   const parts = id.split(":")
   const index = Number(parts.at(-2))
   return parts.length >= 5 && Number.isInteger(index) ? index : undefined

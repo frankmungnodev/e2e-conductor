@@ -1,4 +1,4 @@
-import type { StepRunRecord } from "./db/runs.ts"
+import type { StepAttempt } from "./run-report.ts"
 
 export type TimelineSource = "step" | "http" | "device"
 export type TimelineLevel = "error" | "warning" | "info"
@@ -33,7 +33,7 @@ type Input = {
   /** The pinned steps, by position, for step names. */
   steps: Array<{ name?: string }>
   /** This scenario-iteration's step attempts, with each one's position. */
-  attempts: Array<StepRunRecord & { index: number }>
+  attempts: StepAttempt[]
   /** The contents of `http-exchanges.json`, if the scenario-iteration has one. */
   httpExchanges?: string
   /** The contents of `mobile-logcat.txt`, if the scenario-iteration has one. */
@@ -47,6 +47,8 @@ const MAX_ENTRY_LINES = 30
 // A threadtime line, with the year when the log was captured with `-v year`.
 const LOGCAT_LINE = /^(?:(\d{4})-)?(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+(\d+)\s+(\d+)\s+([VDIWEFA])\s+(.*?)\s*: ?(.*)$/
 const HALF_YEAR_MS = 183 * 86_400_000
+// The logcat levels the timeline keeps; verbose, debug and info lines are left out.
+const DEVICE_LEVEL: Partial<Record<string, TimelineLevel>> = { W: "warning", E: "error", F: "error", A: "error" }
 
 /**
  * Lines up a scenario-iteration's step attempts, HTTP exchanges and device log on one clock, so a
@@ -63,26 +65,33 @@ export function buildFailureTimeline({ startedAt, steps, attempts, httpExchanges
   return { startedAt, events, deviceEntries: device?.entries.length ?? 0, deviceClock: device?.clock }
 }
 
-function stepEvent(attempt: StepRunRecord & { index: number }, name: string | undefined): TimelineEvent {
+function stepEvent(attempt: StepAttempt, name: string | undefined): TimelineEvent {
   const tries = attempt.manual ? "manual retry" : attempt.attempt > 1 ? `try ${attempt.attempt}` : undefined
-  const outcome =
-    attempt.status === "FAILED"
-      ? `Failed: ${attempt.errorMessage?.split("\n")[0] ?? "no error message was recorded"}`
-      : attempt.status === "PASSED"
-        ? "Passed"
-        : attempt.status === "RUNNING"
-          ? "Did not finish"
-          : attempt.status
+  const { level, outcome } = stepOutcome(attempt)
   return {
     at: attempt.createdAt,
     source: "step",
-    level: attempt.status === "FAILED" ? "error" : attempt.status === "PASSED" ? "info" : "warning",
+    level,
     title: `${attempt.index + 1}. ${name ?? `Step ${attempt.index + 1}`}${tries ? ` (${tries})` : ""}`,
     detail: outcome,
     durationMs: attempt.durationMs,
   }
 }
 
+function stepOutcome(attempt: StepAttempt): { level: TimelineLevel; outcome: string } {
+  switch (attempt.status) {
+    case "FAILED":
+      return { level: "error", outcome: `Failed: ${attempt.errorMessage?.split("\n")[0] ?? "no error message was recorded"}` }
+    case "PASSED":
+      return { level: "info", outcome: "Passed" }
+    case "RUNNING":
+      return { level: "warning", outcome: "Did not finish" }
+    default:
+      return { level: "warning", outcome: attempt.status }
+  }
+}
+
+/** An entry of `http-exchanges.json` (`HttpExchange` in src/drivers/http.ts), every field optional because the file is read back from disk. */
 type Exchange = {
   step?: string
   startedAt?: string
@@ -138,27 +147,28 @@ export function parseLogcat(text: string, startedAt: number): { entries: Timelin
   const entries: TimelineEvent[] = []
   let clock: DeviceClock | undefined
   let lastKey: string | undefined
+  const startYear = new Date(startedAt).getFullYear()
   for (const line of text.split("\n")) {
     const match = LOGCAT_LINE.exec(line.trimEnd())
     if (!match) continue
-    const [, year, month, day, hour, minute, second, millis, pid, tid, level, tag, message] = match
-    if (!"WEFA".includes(level)) {
+    const [, year, month, day, hour, minute, second, millis, pid, tid, logLevel, tag, message] = match
+    const level = DEVICE_LEVEL[logLevel]
+    if (!level) {
       lastKey = undefined
       continue
     }
+    const time = [Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second), Number(millis)] as const
     let at: number
     if (year) {
-      at = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second), Number(millis))
+      at = Date.UTC(Number(year), ...time)
       clock ??= "exact"
     } else {
+      // One line without the year makes the whole log's times assumed.
       clock = "assumed"
-      const local = (y: number) =>
-        new Date(y, Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second), Number(millis)).getTime()
-      const startYear = new Date(startedAt).getFullYear()
-      at = local(startYear)
-      if (at - startedAt > HALF_YEAR_MS) at = local(startYear - 1)
+      at = new Date(startYear, ...time).getTime()
+      if (at - startedAt > HALF_YEAR_MS) at = new Date(startYear - 1, ...time).getTime()
     }
-    const key = `${at} ${pid} ${tid} ${level} ${tag}`
+    const key = `${at} ${pid} ${tid} ${logLevel} ${tag}`
     const previous = entries.at(-1)
     if (key === lastKey && previous) {
       const lines = previous.detail?.split("\n") ?? []
@@ -166,7 +176,7 @@ export function parseLogcat(text: string, startedAt: number): { entries: Timelin
       continue
     }
     lastKey = key
-    entries.push({ at, source: "device", level: level === "W" ? "warning" : "error", title: tag || "(no tag)", detail: message })
+    entries.push({ at, source: "device", level, title: tag || "(no tag)", detail: message })
   }
   return { entries, clock }
 }
