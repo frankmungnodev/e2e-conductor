@@ -83,6 +83,19 @@ A **draft** is an ordinary scenario row with `draft_state` set: a scenario an ag
 - **Keep** (`keepDraft`): refused unless the draft's current content passed a run (`runs.md`, section 5, Passed on current content); `bug_found` drafts can be kept the same way. Keeping a new draft clears its draft columns. Keeping a revision is refused when the kept scenario is gone or its fingerprint differs from `base_fingerprint`; the way out is Discard plus an agent re-save. Otherwise the kept scenario's content (name, description, setup, vars, steps) is replaced in place with new step ids, so step history restarts for those steps, and the revision row is deleted.
 - **Discard**: deletes a draft (never a kept scenario), or every draft in a group plus the group row.
 
+### Saving Drafts (`e2e save`)
+
+`e2e save` (`src/agent-save.ts`) is the agent's only write path. It needs no running UI.
+
+- **Project**: the nearest folder, from the current one upward, that holds `.e2e/` (`findProjectDir` in `src/db/paths.ts`). Only this command looks upward; the database is that project's (`resolveDbPath`). `--env` and `E2E_ENV` play no part.
+- **Input**: file paths or folders (their `*.json` files) as arguments; with none, `.e2e/drafts/<group>/*.json`. A scenario's id is its file name, as in `e2e import`.
+- **Flags**: `--group <slug>` (required), `--prompt <text>` (required when the group is new; a later save may leave it out), `--agent <name>`, `--check` (check and report, store nothing), `--json`.
+- **Checks**: every file is parsed (`json-parse`), validated against the schema (`schema`) and held to the strict check against every environment with the draft mark, or the default environment with the notice `no-draft-environment` when none has it. Two files with the same name in one batch give `duplicate-id`.
+- **Outcome per file**: `created` (a new id), `updated` (a changed draft, or an unchanged one saved under another group, which moves it), `unchanged` (same name, description and fingerprint: nothing is written, so its pass holds), `revision-of <kept id>` (the id is a kept scenario: the file is saved as the revision `<kept id>@draft`, and the kept scenario is untouched), `matches-kept` (the file equals its kept scenario: no revision). A Bug found draft or revision is `unchanged` when the file matches it; any change gives `draft-bug-found`.
+- **All or nothing**: any problem stores nothing. Otherwise the group and every draft and revision are written in one `BEGIN IMMEDIATE` ... `COMMIT` transaction, rolled back on any error.
+- **Output**: text for a person, or with `--json` exactly one document `{ ok, mode, project, dbPath, checkedEnvironments, group, results, problems, notices }` (plus `error` for a usage, project or database error), with no color codes. On failure `results` is empty. Every output names the database and the group.
+- **Exit codes**: 0 stored, or clean with `--check`; 1 problems, nothing stored; 2 usage (no `--group`, a new group without `--prompt`, no input files); 3 project or database error (no `.e2e/` found, no database, a database error).
+
 ---
 
 ## 2. Step Fields & Composite Actions

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { withDb } from "./connection.ts"
 
@@ -46,6 +46,20 @@ export function resolveCliPaths(
   const projectPath = named ? resolve(cwd, named) : dbNamesProject && db ? db : cwd
   const dbPath = dbIsFile ? db : db ? resolveDbPath(resolveProjectDir(db)) : undefined
   return { projectPath, dbPath }
+}
+
+/**
+ * The nearest folder, from `start` upward, that holds a `.e2e` folder: the project `e2e save` works in,
+ * so an agent can run it from anywhere in the repo. Undefined when no folder up to the root has one.
+ */
+export function findProjectDir(start: string): string | undefined {
+  let dir = resolve(start)
+  while (true) {
+    if (statSync(join(dir, DEFAULT_DB_DIR), { throwIfNoEntry: false })?.isDirectory()) return dir
+    const parent = dirname(dir)
+    if (parent === dir) return undefined
+    dir = parent
+  }
 }
 
 export function resolveDbPath(configDir: string, customPath?: string): string {

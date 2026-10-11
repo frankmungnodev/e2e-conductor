@@ -1,5 +1,6 @@
 import { relative } from "node:path"
 import { parseArgs } from "node:util"
+import { renderSaveReport, saveAgentDrafts } from "./agent-save.ts"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
 import { resolveCliPaths, resolveProjectDir } from "./db/paths.ts"
 import { checkExport, exportToJson } from "./export.ts"
@@ -19,6 +20,7 @@ Commands:
   export  Write scenarios and step presets from SQLite to JSON files
   import  Save scenario JSON files into SQLite, replacing changed ones
   init    Initialize SQLite configuration and starter scenario under .e2e
+  save    Check agent-written scenario files and store them as drafts (all or nothing)
   ui      Start the web GUI dashboard
 
 Options:
@@ -32,7 +34,12 @@ Options:
       --install           Build and install mobile apps before running
       --strict            Fail the run when a step passed only on a retry
       --screenshots       Save a screenshot after every web and Android step
-      --check             With export: write nothing, exit 1 when JSON files differ from SQLite
+      --check             With export: write nothing, exit 1 when JSON files differ from SQLite.
+                          With save: check the files and store nothing
+      --group <slug>      With save: the draft group (required); files default to .e2e/drafts/<slug>/*.json
+      --prompt <text>     With save: the prompt the drafts came from (required for a new group)
+      --agent <name>      With save: which agent wrote the drafts
+      --json              With save: print one JSON document instead of text
       --headless          Hide the browser (same as E2E_HEADLESS=1)
   -v, --verbose           Print step details (same as E2E_VERBOSE=1)
   -i, --interactive       Interactive setup wizard (for init)
@@ -57,6 +64,10 @@ async function main() {
       strict: { type: "boolean", default: false },
       screenshots: { type: "boolean", default: false },
       check: { type: "boolean", default: false },
+      group: { type: "string" },
+      prompt: { type: "string" },
+      agent: { type: "string" },
+      json: { type: "boolean", default: false },
       headless: { type: "boolean", default: false },
       verbose: { type: "boolean", short: "v", default: false },
       interactive: { type: "boolean", short: "i", default: false },
@@ -69,9 +80,25 @@ async function main() {
   })
 
   const command = positionals[0] ?? "run"
-  if (values.help || !["run", "check", "list", "export", "import", "init", "ui"].includes(command)) {
+  if (values.help || !["run", "check", "list", "export", "import", "init", "ui", "save"].includes(command)) {
     console.log(HELP)
     process.exit(values.help ? 0 : 2)
+  }
+  // save finds its own project, from the current folder upward, and ignores --env and E2E_ENV.
+  if (command === "save") {
+    const cwd = process.cwd()
+    const { exitCode, report } = saveAgentDrafts({
+      cwd,
+      inputs: positionals.slice(1),
+      group: values.group,
+      prompt: values.prompt,
+      agent: values.agent,
+      check: values.check,
+    })
+    console.log(renderSaveReport(report, cwd, values.json))
+    // Not process.exit: a long --json document to a pipe could be cut off.
+    process.exitCode = exitCode
+    return
   }
   if (values.env) process.env.E2E_ENV = values.env
   if (values.headless) process.env.E2E_HEADLESS = "1"
