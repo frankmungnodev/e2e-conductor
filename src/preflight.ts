@@ -166,17 +166,28 @@ function pickDevice(adb: string, env: Record<string, string>): string {
 
 // Where the keyboards disabled for a run are saved: on the device, so a crashed run can be undone.
 const SAVED_IMES = "e2e_saved_imes"
+// Where the autofill service turned off for a run is saved, for the same reason.
+const SAVED_AUTOFILL = "e2e_saved_autofill"
 
 function adbShell(adb: string, device: string, command: string): string {
   return runAdb(adb, device, ["shell", command], { allowFailure: true }).trim()
 }
 
-/** Re-enable the keyboards a run disabled, and make the saved default keyboard current again. */
-export function restoreKeyboards(adb: string, device: string) {
+/**
+ * Turn autofill back on, then re-enable the keyboards a run disabled and make the saved default
+ * keyboard current again. Autofill goes first: Android refuses to enable its autofill keyboard
+ * while autofill is off.
+ */
+export async function restoreKeyboards(adb: string, device: string) {
+  const autofill = adbShell(adb, device, `settings get global ${SAVED_AUTOFILL}`)
+  if (autofill && autofill !== "null") {
+    adbShell(adb, device, `settings put secure autofill_service ${autofill}`)
+    adbShell(adb, device, `settings delete global ${SAVED_AUTOFILL}`)
+  }
   const saved = adbShell(adb, device, `settings get global ${SAVED_IMES}`)
   if (!saved || saved === "null") return
   const [current, ...enabled] = saved.split(",")
-  for (const ime of enabled) adbShell(adb, device, `ime enable ${ime}`)
+  for (const ime of enabled) await enableKeyboard(adb, device, ime)
   if (current && current !== "null") adbShell(adb, device, `ime set ${current}`)
   adbShell(adb, device, `settings delete global ${SAVED_IMES}`)
 }
@@ -184,13 +195,41 @@ export function restoreKeyboards(adb: string, device: string) {
 /**
  * Disable every on-screen keyboard for the run. `input text` then types straight into the
  * focused field, and no keyboard popup (suggestions, stylus onboarding) can take the text.
+ * Returns the keyboard Android falls back to, if any: `ime list -s` leaves out some system
+ * keyboards (e.g. Transsion's on Infinix), and Android makes one current when the rest are off.
  */
-function disableKeyboards(adb: string, device: string) {
+export function disableKeyboards(adb: string, device: string): string | undefined {
   const enabled = adbShell(adb, device, "ime list -s").split("\n").map((line) => line.trim()).filter(Boolean)
-  if (enabled.length === 0) return
+  if (enabled.length === 0) return undefined
   const current = adbShell(adb, device, "settings get secure default_input_method")
   adbShell(adb, device, `settings put global ${SAVED_IMES} ${[current, ...enabled].join(",")}`)
   for (const ime of enabled) adbShell(adb, device, `ime disable ${ime}`)
+  const fallback = adbShell(adb, device, "settings get secure default_input_method")
+  return fallback && fallback !== "null" ? fallback : undefined
+}
+
+/**
+ * Enable a keyboard. Autofill's keyboard only exists again some seconds after autofill is back on
+ * (about 10 on an Infinix X6870), and until then Android calls it unknown. So wait for it, up to 20 s.
+ */
+async function enableKeyboard(adb: string, device: string, ime: string) {
+  const deadline = Date.now() + 20_000
+  while (adbShell(adb, device, `ime enable ${ime}`).includes("Unknown input method") && Date.now() < deadline) {
+    await sleep(500)
+  }
+}
+
+/**
+ * Turn autofill off for the run. Its dropdown (e.g. saved accounts under an email field) opens in
+ * a window of its own, and the UI dump then shows that window instead of the app's focused field.
+ * Returns whether autofill was on.
+ */
+export function disableAutofill(adb: string, device: string): boolean {
+  const service = adbShell(adb, device, "settings get secure autofill_service")
+  if (!service || service === "null") return false
+  adbShell(adb, device, `settings put global ${SAVED_AUTOFILL} ${service}`)
+  adbShell(adb, device, "settings put secure autofill_service null")
+  return true
 }
 
 /** Find the device, forward ports, and make sure the app is installed. */
@@ -205,7 +244,7 @@ export async function prepareMobile(
   if (!adb) throw new Error("adb not found (install Android platform-tools or set ANDROID_HOME)")
 
   const device = pickDevice(adb, config.env)
-  restoreKeyboards(adb, device) // undo a run that crashed before its cleanup
+  await restoreKeyboards(adb, device) // undo a run that crashed before its cleanup
   const model = adbShell(adb, device, "getprop ro.product.model")
   out.line(`  ${color.green("✓")} ${name}: device ${device} ${color.dim(model)}`)
 
@@ -234,8 +273,12 @@ export async function prepareMobile(
   }
   out.line(`  ${color.green("✓")} ${name}: ${target.appId} installed`)
 
-  // Last, so a failed check above never leaves the device without a keyboard.
-  disableKeyboards(adb, device)
+  // Last, so a failed check above never leaves the device without a keyboard or autofill.
+  if (disableAutofill(adb, device)) out.line(`  ${color.green("✓")} ${name}: autofill off for the run`)
+  const fallback = disableKeyboards(adb, device)
   out.line(`  ${color.green("✓")} ${name}: on-screen keyboards off for the run`)
+  if (fallback) {
+    out.line(`  ${color.yellow("!")} ${name}: Android kept keyboard ${fallback} on; typing hides it after each field`)
+  }
   return { device, adb }
 }

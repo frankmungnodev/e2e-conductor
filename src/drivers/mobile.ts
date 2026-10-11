@@ -19,7 +19,7 @@ export class MobileDriver implements Driver {
   ) {}
 
   async close() {
-    restoreKeyboards(this.adb, this.device)
+    await restoreKeyboards(this.adb, this.device)
   }
 
   /**

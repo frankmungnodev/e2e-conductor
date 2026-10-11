@@ -20,6 +20,8 @@ type Selector = {
   timeout?: number
 }
 type Bounds = { x1: number; y1: number; x2: number; y2: number }
+/** Where a tapOn landed, and the text field that had focus on the screen it tapped. */
+type Tap = { x: number; y: number; focused?: Node }
 type Node = {
   text: string
   id: string
@@ -41,6 +43,11 @@ const KEY_DELAY_MS = 120
 export const UI_DUMP = "rm -f /sdcard/e2e-ui.xml; uiautomator dump /sdcard/e2e-ui.xml >/dev/null 2>&1; cat /sdcard/e2e-ui.xml 2>/dev/null; true"
 
 export class AdbFlowRunner {
+  /** The nodes of the latest UI dump. */
+  private screen: Node[] = []
+  /** The tapOn just before the current command, which inputText checks focus against. */
+  private lastTap?: Tap
+
   constructor(
     private readonly adb: string,
     private readonly device: string,
@@ -75,6 +82,7 @@ export class AdbFlowRunner {
         y: Math.round((y1 + y2) / 2),
       })
     }
+    this.screen = nodes
     return nodes
   }
 
@@ -134,16 +142,52 @@ export class AdbFlowRunner {
   /**
    * With the on-screen keyboards off, `input text` is plain key presses. Typed with no text field
    * focused, they move focus or click the focused button (a space pressed Back once). So refuse.
+   *
+   * After a tapOn outside the field that had focus, that field keeping focus means something else
+   * took the tap: a keyboard Android shows even with every listed keyboard disabled covers the
+   * fields below it. The keys would land in the wrong field, so refuse that too.
+   *
+   * A tap that leaves no field focused gets one more try at the same spot: an app that clears focus
+   * on scroll (e.g. to close the keyboard) loses it when focusing scrolls the field into view.
    */
-  private async focusedField(): Promise<Node> {
-    const deadline = Date.now() + 2_000
+  private async focusedField(tap?: Tap): Promise<Node> {
+    const before = tap?.focused?.className.endsWith("EditText") ? tap.focused : undefined
+    const missed = (field: Node) =>
+      before !== undefined && sameBounds(field.bounds, before.bounds) && !inside(tap as Tap, before.bounds)
+    let deadline = Date.now() + 2_000
+    let retapped = false
     for (;;) {
       const focused = this.dump().find((node) => node.focused)
-      if (focused?.className.endsWith("EditText")) return focused
+      if (focused?.className.endsWith("EditText") && !missed(focused)) return focused
+      if (Date.now() > deadline && tap && !focused && !retapped) {
+        this.log(`inputText: no text field has focus after the tap at (${tap.x},${tap.y}), tapping again`)
+        this.shell(["input", "tap", String(tap.x), String(tap.y)])
+        retapped = true
+        deadline = Date.now() + 2_000
+        await sleep(POLL_MS)
+        continue
+      }
       if (Date.now() > deadline) {
+        if (focused?.className.endsWith("EditText")) {
+          throw new Error(
+            `the tap at (${tap?.x},${tap?.y}) left focus on the text field showing "${focused.text}"; something on screen, such as a keyboard, took the tap`,
+          )
+        }
         const what = focused ? `${focused.className} "${focused.text || focused.desc}"` : "nothing"
         throw new Error(`no text field has focus (focused: ${what}); tap the field itself, not its label`)
       }
+      await sleep(POLL_MS)
+    }
+  }
+
+  /**
+   * Press Back if a keyboard shows. Disabling the keyboards does not stop every device from showing
+   * one: some fall back to a system keyboard (e.g. Transsion's on Infinix) that covers the fields
+   * below the one typed into.
+   */
+  private async hideKeyboard() {
+    if (this.shell(["dumpsys", "input_method"]).includes("mInputShown=true")) {
+      this.shell(["input", "keyevent", "4"])
       await sleep(POLL_MS)
     }
   }
@@ -153,8 +197,8 @@ export class AdbFlowRunner {
    * (e.g. a Compose TextField fed by a StateFlow) can drop keys at that speed. So check the
    * focused field afterwards; if keys went missing, clear it and type one key at a time.
    */
-  private async typeText(text: string) {
-    const before = (await this.focusedField()).text
+  private async typeText(text: string, tap?: Tap) {
+    const before = (await this.focusedField(tap)).text
     this.sendText(text)
     const expected = before + text
     const deadline = Date.now() + 2_000
@@ -163,7 +207,7 @@ export class AdbFlowRunner {
       await sleep(POLL_MS)
       actual = this.focusedText()
     }
-    if (actual === expected) return
+    if (actual === expected) return this.hideKeyboard()
 
     this.log(`inputText: field shows "${actual}", retyping slowly`)
     this.shell(["input", "keyevent", "123", ...Array((actual ?? expected).length + 1).fill("67")]) // end, then delete
@@ -174,6 +218,7 @@ export class AdbFlowRunner {
     await sleep(POLL_MS)
     actual = this.focusedText()
     if (actual !== expected) throw new Error(`field shows "${actual}", expected "${expected}"`)
+    await this.hideKeyboard()
   }
 
   private screenSize(): { width: number; height: number } {
@@ -183,6 +228,8 @@ export class AdbFlowRunner {
 
   private async command(name: string, arg: unknown, appId: string) {
     const selector = toSelector(arg)
+    const tap = this.lastTap
+    this.lastTap = undefined
     switch (name) {
       case "launchApp":
         this.shell(["monkey", "-p", appId, "-c", "android.intent.category.LAUNCHER", "1"])
@@ -198,13 +245,10 @@ export class AdbFlowRunner {
         await sleep(POLL_MS)
         return
       case "hideKeyboard":
-        if (this.shell(["dumpsys", "input_method"]).includes("mInputShown=true")) {
-          this.shell(["input", "keyevent", "4"])
-          await sleep(POLL_MS)
-        }
+        await this.hideKeyboard()
         return
       case "inputText":
-        await this.typeText(String(arg))
+        await this.typeText(String(arg), tap)
         return
       case "tapOn": {
         const node = await this.waitFor(selector, true, DEFAULT_WAIT_MS).catch((error) => {
@@ -212,7 +256,9 @@ export class AdbFlowRunner {
           throw error
         })
         if (node) {
+          const focused = this.screen.find((other) => other.focused)
           this.shell(["input", "tap", String(node.x), String(node.y)])
+          this.lastTap = { x: node.x, y: node.y, focused }
           await sleep(POLL_MS)
         }
         return
@@ -280,8 +326,12 @@ export class AdbFlowRunner {
   }
 }
 
-function inside(node: Node, bounds: Bounds): boolean {
-  return node.x >= bounds.x1 && node.x <= bounds.x2 && node.y >= bounds.y1 && node.y <= bounds.y2
+function inside(point: { x: number; y: number }, bounds: Bounds): boolean {
+  return point.x >= bounds.x1 && point.x <= bounds.x2 && point.y >= bounds.y1 && point.y <= bounds.y2
+}
+
+function sameBounds(a: Bounds, b: Bounds): boolean {
+  return a.x1 === b.x1 && a.y1 === b.y1 && a.x2 === b.x2 && a.y2 === b.y2
 }
 
 function decode(text: string): string {

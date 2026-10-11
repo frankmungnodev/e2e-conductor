@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS platforms (
 - **Declarative Actions**: Executes gestures and assertions directly (`tap`, `type`, `press`, `swipe`, `assert_visible`, `wait`, `launch`) via ADB without requiring YAML flow files.
 - **Package**: `appId` specifies the application identifier.
 - **Flows (not run)**: `flows` is still stored and the GUI can edit flow files, but no step runs a YAML flow any more. A step with `flow` fails validation (`scenarios.md`, section 2).
-- **Device Setup**: `grantPermissions` auto-granted on launch; `reversePorts` forwarded via `adb reverse`.
+- **Device Setup**: `grantPermissions` auto-granted on launch; `reversePorts` forwarded via `adb reverse`. For the run, preflight disables every keyboard in `ime list -s` and turns autofill off, saving both on the device and restoring them when the run ends (or at the next preflight after a crash). It warns when Android falls back to a keyboard it does not list, such as Transsion's on Infinix phones; typing then closes that keyboard after each field.
 
 ### API (`type: "api"`)
 - **Driver**: `"http"` (`HttpTarget` in `src/config.ts`) powered by Node fetch.
