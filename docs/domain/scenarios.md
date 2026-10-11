@@ -96,6 +96,20 @@ A **draft** is an ordinary scenario row with `draft_state` set: a scenario an ag
 - **Output**: text for a person, or with `--json` exactly one document `{ ok, mode, project, dbPath, checkedEnvironments, group, results, problems, notices }` (plus `error` for a usage, project or database error), with no color codes. On failure `results` is empty. Every output names the database and the group.
 - **Exit codes**: 0 stored, or clean with `--check`; 1 problems, nothing stored; 2 usage (no `--group`, a new group without `--prompt`, no input files); 3 project or database error (no `.e2e/` found, no database, a database error).
 
+### Drafts in the UI (API and readback)
+
+The server's draft endpoints live in `src/server/routes/drafts.ts`:
+
+- `GET /api/drafts` returns drafts grouped by prompt: each group's `key`, `prompt`, `agent` and `createdAt`, and per draft its `state`, `revisionOf`, whether its current content passed (`passed`, `runs.md` section 5), the outcome of the latest run that ran it (`lastRun`, from `lastScenarioRun`) and its readback. A group with no drafts left is not listed.
+- `POST /api/drafts/:id/keep` keeps one draft (`keepDraft`). A refusal answers 409 with the reason (`not-passed`, `kept-missing`, `base-changed`); the revision refusals name Discard plus an agent re-save as the way out.
+- `POST /api/drafts/groups/:key/keep` (Keep all passing) keeps every draft in the group whose current content passed. Drafts without a pass stay drafts; revisions refused as stale or missing their kept scenario are skipped and named with their message.
+- `POST /api/drafts/:id/bug-found` marks a draft Bug found. A kept scenario cannot be marked (404).
+- `DELETE /api/drafts/:id` and `DELETE /api/drafts/groups/:key` discard one draft, or a group's drafts and revisions plus the group row. Kept scenarios are never deleted here.
+- Keep, Keep all passing and both discards answer 409 when a draft they would touch is in the run that is going on (`state.activeRun`). With `--repeat` above 1 the pass can read true while later iterations still run, so a running draft is never kept or discarded.
+- `GET /api/scenarios` marks each draft with `draft: { state, group, revisionOf }` outside `raw`, so the builder never posts draft fields back. `DELETE /api/scenarios/:id` decodes its id, so `login%40draft` deletes the revision `login@draft`.
+
+**Readback** (`src/readback.ts`) turns a draft's steps into plain sentences, one template per vocabulary action (`ACTION_SENTENCES`, keyed by driver and action name; aliases read as their action). An action the target's driver does not run reads `<action> on <target>`. It follows DESIGN.md rule 9: placeholders read as `{name}`, `{NAME from the environment}` or `{run id}`, `vars` as "Starts with values: ..." and `read_only` as "Reuses the setup (read-only)", and checks and extracted values as "Expects ..." and "Remembers ... from the response". Shell commands and absolute URLs are the only raw content: they appear verbatim in the sentences and are listed again on their own so the person sees the risky parts. A web `eval` step reads "Runs a script in the page" without its code. The readback also lists the targets and setup fixtures the draft uses.
+
 ---
 
 ## 2. Step Fields & Composite Actions

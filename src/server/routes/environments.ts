@@ -3,7 +3,7 @@ import { relative } from "node:path"
 import { reloadConfig } from "../../config.ts"
 import { withDb } from "../../db/connection.ts"
 import { type EnvPlatformRecord, getEnvPlatforms, getPlatformsForEnv, type PlatformWithEnvOverrides } from "../../db/env-platforms.ts"
-import { deleteEnvironment, saveEnvironment, setActiveEnvironment } from "../../db/environments.ts"
+import { deleteEnvironment, getEnvironments, saveEnvironment, setActiveEnvironment, setAllowDrafts } from "../../db/environments.ts"
 import { checkDbStatus, resolveDbPath, writeDbPointer } from "../../db/paths.ts"
 import { getPlatforms, type PlatformRecord } from "../../db/platforms.ts"
 import { readBody, sendJson } from "../http.ts"
@@ -104,6 +104,29 @@ export const environmentRoutes: Route[] = [
         defaultEnvironment: state.config.defaultEnvironment,
         message: `Active environment set to ${state.config.activeEnvironment}`,
       })
+    },
+  },
+  // POST /api/config/environment/allow-drafts sets or clears the mark that lets drafts run on an environment.
+  {
+    match: ({ req, pathname }) => pathname === "/api/config/environment/allow-drafts" && req.method === "POST",
+    handle: async ({ state, req, res }) => {
+      const body = (await readBody(req)) as { name?: string; allowed?: boolean }
+      const name = body?.name?.trim()
+      if (!name || typeof body.allowed !== "boolean") {
+        return sendJson(res, 400, { ok: false, error: "Environment name and allowed (true or false) are required" })
+      }
+      try {
+        const found = withDb(state.config.dbPath, (db) => {
+          if (!getEnvironments(db)[name]) return false
+          setAllowDrafts(db, name, body.allowed === true)
+          return true
+        })
+        if (!found) return sendJson(res, 404, { ok: false, error: `Environment "${name}" not found` })
+        state.config = await reloadConfig(state.config, state.config.activeEnvironment)
+      } catch (err) {
+        return sendJson(res, 500, { ok: false, error: `SQLite error: ${(err as Error).message}` })
+      }
+      return sendJson(res, 200, { ok: true, name, allowDrafts: body.allowed, environments: state.config.environments ?? {} })
     },
   },
   // POST /api/config/environment

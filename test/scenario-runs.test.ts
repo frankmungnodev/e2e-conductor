@@ -6,6 +6,7 @@ import { openDatabase } from "../src/db/connection.ts"
 import {
   getScenarioRuns,
   getScenarioVersion,
+  lastScenarioRun,
   passedOnContent,
   type ScenarioRunRecord,
   type ScenarioRunStatus,
@@ -148,5 +149,26 @@ describe("passed on current content", () => {
     saveScenarioRun(db, row("run-1", 100, "a", "PASSED"))
     saveScenarioRun(db, row("run-2", 200, "b", "FAILED"))
     assert.equal(passedOnContent(db, "01-smoke", "a"), true)
+  })
+})
+
+describe("last scenario run", () => {
+  it("is undefined for a scenario that never ran", () => {
+    assert.equal(lastScenarioRun(freshDb(), "01-smoke"), undefined)
+  })
+
+  it("reports the latest run, failed when any of its iterations failed", () => {
+    const db = freshDb()
+    saveScenarioRun(db, row("run-1", 100, "a", "PASSED"))
+    saveScenarioRun(db, row("run-2", 200, "a", "PASSED", { iteration: 1 }))
+    saveScenarioRun(db, row("run-2", 250, "a", "FAILED", { iteration: 2 }))
+    assert.deepEqual(lastScenarioRun(db, "01-smoke"), { runId: "run-2", status: "FAILED" })
+  })
+
+  it("reports a run whose iterations all passed as passed", () => {
+    const db = freshDb()
+    saveScenarioRun(db, row("run-1", 100, "a", "FAILED"))
+    saveScenarioRun(db, row("run-2", 200, "b", "PASSED"))
+    assert.deepEqual(lastScenarioRun(db, "01-smoke"), { runId: "run-2", status: "PASSED" })
   })
 })

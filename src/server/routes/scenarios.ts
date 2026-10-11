@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs"
 import { withDb } from "../../db/connection.ts"
+import { type Draft, getDrafts } from "../../db/drafts.ts"
 import { deleteScenario, getScenario, saveScenario } from "../../db/scenarios.ts"
 import { getStepExecutions, summarizeStepHistory } from "../../db/step-history.ts"
 import { formatProblem } from "../../problems.ts"
@@ -8,12 +9,22 @@ import { describeErrors, validateScenario } from "../../schema.ts"
 import { readBody, sendJson } from "../http.ts"
 import type { Route } from "../route.ts"
 
+function draftSummary(draft: Draft | undefined) {
+  if (!draft) return undefined
+  return { state: draft.state, group: draft.group, ...(draft.revisionOf ? { revisionOf: draft.revisionOf } : {}) }
+}
+
 export const scenarioRoutes: Route[] = [
   // GET /api/scenarios
   {
     match: ({ req, pathname }) => pathname === "/api/scenarios" && req.method === "GET",
     handle: async ({ state, res }) => {
       const scenariosList = getOrSeedScenarios(state.config)
+      // A draft's state travels outside `raw`, so the builder never posts it back.
+      const drafts = new Map<string, Draft>()
+      if (existsSync(state.config.dbPath)) {
+        for (const draft of withDb(state.config.dbPath, getDrafts)) drafts.set(draft.id, draft)
+      }
       const scenarios = scenariosList.map((scenario) => {
         const id = scenario.id
         const schemaErrors: string[] = []
@@ -34,6 +45,7 @@ export const scenarioRoutes: Route[] = [
           isValid: errors.length === 0,
           errors,
           targets: Array.from(targetsUsed([scenario])),
+          draft: draftSummary(drafts.get(id)),
         }
       })
       return sendJson(res, 200, scenarios)
@@ -81,7 +93,7 @@ export const scenarioRoutes: Route[] = [
   {
     match: ({ req, pathname }) => pathname.startsWith("/api/scenarios/") && req.method === "DELETE",
     handle: async ({ state, res, pathname }) => {
-      const id = pathname.replace("/api/scenarios/", "").trim()
+      const id = decodeURIComponent(pathname.replace("/api/scenarios/", "").trim())
       const dbPath = state.config.dbPath
       let found = false
       if (existsSync(dbPath)) {

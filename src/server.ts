@@ -11,6 +11,7 @@ import { getPlatforms, platformsToTargetsAndServices } from "./db/platforms.ts"
 import { CORS_HEADERS, MIME_TYPES, sendJson, sendText } from "./server/http.ts"
 import type { Route } from "./server/route.ts"
 import { artifactRoutes } from "./server/routes/artifacts.ts"
+import { draftRoutes } from "./server/routes/drafts.ts"
 import { environmentRoutes } from "./server/routes/environments.ts"
 import { exportRoutes } from "./server/routes/export.ts"
 import { fixtureRoutes } from "./server/routes/fixtures.ts"
@@ -38,6 +39,7 @@ const routes: Route[] = [
   ...fixtureRoutes,
   ...setupRoutes,
   ...scenarioRoutes,
+  ...draftRoutes,
   ...stepGroupRoutes,
   ...presetRoutes,
   ...exportRoutes,

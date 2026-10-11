@@ -114,3 +114,20 @@ export function passedOnContent(db: DatabaseSync, scenarioId: string, fingerprin
     .get(scenarioId, fingerprint, scenarioId, fingerprint) as { passed: number } | undefined
   return row?.passed === 1
 }
+
+/** A run's outcome for one scenario across its iterations: the first status in this order that any iteration has. */
+const OUTCOME_ORDER: ScenarioRunStatus[] = ["RUNNING", "FAILED", "CANCELLED", "FIXED", "PASSED"]
+
+/** The latest run that ran the scenario, with its outcome across that run's iterations. */
+export function lastScenarioRun(db: DatabaseSync, scenarioId: string): { runId: string; status: ScenarioRunStatus } | undefined {
+  const rows = db
+    .prepare(`
+      SELECT run_id, status FROM scenario_runs
+      WHERE scenario_id = ? AND run_id = (
+        SELECT run_id FROM scenario_runs WHERE scenario_id = ? ORDER BY started_at DESC LIMIT 1
+      )
+    `)
+    .all(scenarioId, scenarioId) as Array<{ run_id: string; status: ScenarioRunStatus }>
+  const status = OUTCOME_ORDER.find((candidate) => rows.some((row) => row.status === candidate))
+  return status && { runId: rows[0].run_id, status }
+}
