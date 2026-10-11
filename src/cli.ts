@@ -1,5 +1,6 @@
 import { relative } from "node:path"
 import { parseArgs } from "node:util"
+import { renderKitReport, writeAgentKit } from "./agent-kit.ts"
 import { renderSaveReport, saveAgentDrafts } from "./agent-save.ts"
 import { type LoadedConfig, loadConfig, starterConfig } from "./config.ts"
 import { resolveCliPaths, resolveProjectDir } from "./db/paths.ts"
@@ -21,6 +22,7 @@ Commands:
   import  Save scenario JSON files into SQLite, replacing changed ones
   init    Initialize SQLite configuration and starter scenario under .e2e
   save    Check agent-written scenario files and store them as drafts (all or nothing)
+  kit     Write the agent kit (.e2e/agent/) and its block in the root AGENTS.md and CLAUDE.md
   ui      Start the web GUI dashboard
 
 Options:
@@ -80,7 +82,7 @@ async function main() {
   })
 
   const command = positionals[0] ?? "run"
-  if (values.help || !["run", "check", "list", "export", "import", "init", "ui", "save"].includes(command)) {
+  if (values.help || !["run", "check", "list", "export", "import", "init", "ui", "save", "kit"].includes(command)) {
     console.log(HELP)
     process.exit(values.help ? 0 : 2)
   }
@@ -98,6 +100,11 @@ async function main() {
     console.log(renderSaveReport(report, cwd, values.json))
     // Not process.exit: a long --json document to a pipe could be cut off.
     process.exitCode = exitCode
+    return
+  }
+  // kit, like save, uses the nearest project upward and the environments save checks drafts against.
+  if (command === "kit") {
+    console.log(renderKitReport(writeAgentKit(process.cwd()), process.cwd()))
     return
   }
   if (values.env) process.env.E2E_ENV = values.env

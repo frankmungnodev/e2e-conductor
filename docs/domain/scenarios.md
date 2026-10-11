@@ -96,6 +96,16 @@ A **draft** is an ordinary scenario row with `draft_state` set: a scenario an ag
 - **Output**: text for a person, or with `--json` exactly one document `{ ok, mode, project, dbPath, checkedEnvironments, group, results, problems, notices }` (plus `error` for a usage, project or database error), with no color codes. On failure `results` is empty. Every output names the database and the group.
 - **Exit codes**: 0 stored, or clean with `--check`; 1 problems, nothing stored; 2 usage (no `--group`, a new group without `--prompt`, no input files); 3 project or database error (no `.e2e/` found, no database, a database error).
 
+### Agent Kit (`e2e kit`)
+
+`e2e kit` (`src/agent-kit.ts`, text in `src/agent-kit-text.ts`) tells a coding agent how to write scenarios that `e2e save` accepts. It finds the project the way `e2e save` does (the nearest folder upward with `.e2e/`) and writes:
+
+- `.e2e/agent/kit.md`: the save recipe (`.e2e/drafts/<group>/`, `e2e save ... --check --json`, then the save), the rules (targets by name, no raw URLs, hosts, ports or device serials, never production), what only the person does (Run batch, Keep, Keep all passing, Bug found, Discard, the draft mark) and the write paths agents must not use (`POST /api/scenarios`, `e2e import`, SQLite). Then the project: per environment `e2e save` checks against (those with the draft mark, else the default one, with the same `no-draft-environment` note), its target names with drivers and its env variable names; the fixture names; step presets and step groups with their steps, to copy inline, since no scenario field references them. Then two or three example scenarios on the project's own targets (one per driver, plus a `shell` one when there is a single driver), the vocabulary per driver from `src/vocabulary.ts`, the `--json` report shape, exit codes, and every problem code with its hint.
+- `.e2e/agent/vocabulary.json`: the same vocabulary as JSON (step fields and actions per driver, aliases, `assert` fields, `json_match` operators, placeholder namespaces, removed fields, problem codes with hints).
+- A block between `<!-- e2e-kit:start -->` and `<!-- e2e-kit:end -->` in whichever of the project root's `AGENTS.md` and `CLAUDE.md` exist, naming the kit path, the save recipe and the person-only actions. Agents read these root files even when `.e2e/` is gitignored. Neither file is ever created. Each is resolved by its real path and written in place, so a `CLAUDE.md` symlinked to `AGENTS.md` keeps its symlink and gets one block. A file without markers gets the block appended; a later run replaces only the text between the markers. A file with unmatched markers stops the command before anything is written.
+
+The kit lists names only: never env variable values, fixture commands or service URLs. Action fields with no effect (`status`, `exit_code` on an action) are left out. Running `e2e kit` again brings both files and the block up to date with the current config and vocabulary.
+
 ### Drafts in the UI (API and readback)
 
 The server's draft endpoints live in `src/server/routes/drafts.ts`:
