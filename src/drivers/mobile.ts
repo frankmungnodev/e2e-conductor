@@ -8,6 +8,9 @@ import { runAdb, sleep } from "../process.ts"
 import { AdbFlowRunner, UI_DUMP } from "./adb-flow.ts"
 import type { Driver, StepResult, StepRun } from "./types.ts"
 
+// A line of a logcat dump: a threadtime timestamp, with or without the year, or a buffer header.
+const LOGCAT_DUMP = /^(?:(?:\d{4}-)?\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s|-{9} beginning of )/m
+
 export class MobileDriver implements Driver {
   constructor(
     private readonly target: MobileTarget,
@@ -190,10 +193,14 @@ export class MobileDriver implements Driver {
     if (!failed) return
     await this.captureScreen(join(artifactsDir, "mobile-failure.png")).catch(() => {})
     // The year and UTC times put log lines on the host clock (Reports' failure timeline). Android
-    // before 7 rejects those modifiers, so it gets the plain format.
-    const logcat =
-      runAdb(this.adb, this.device, ["logcat", "-d", "-v", "threadtime", "-v", "year", "-v", "UTC"], { allowFailure: true }) ||
-      runAdb(this.adb, this.device, ["logcat", "-d", "-v", "threadtime"], { allowFailure: true })
+    // before 7 rejects those modifiers, and its adb reports exit 0 with the usage text on stdout, so
+    // the output itself decides: anything that is not a log dump gets the plain format.
+    const withYear = runAdb(this.adb, this.device, ["logcat", "-d", "-v", "threadtime", "-v", "year", "-v", "UTC"], {
+      allowFailure: true,
+    })
+    const logcat = LOGCAT_DUMP.test(withYear)
+      ? withYear
+      : runAdb(this.adb, this.device, ["logcat", "-d", "-v", "threadtime"], { allowFailure: true })
     if (logcat) writeFileSync(join(artifactsDir, "mobile-logcat.txt"), logcat)
     const ui = runAdb(this.adb, this.device, ["shell", UI_DUMP], { allowFailure: true })
     if (ui.includes("<hierarchy")) writeFileSync(join(artifactsDir, "mobile-ui.xml"), ui)

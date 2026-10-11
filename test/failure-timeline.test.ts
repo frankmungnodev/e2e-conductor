@@ -45,6 +45,12 @@ describe("parseLogcat", () => {
     assert.equal(entries[0].at, new Date(2025, 11, 31, 23, 59, 59).getTime())
   })
 
+  it("reads a line without a year after New Year in the next year when the scenario started on 31 December", () => {
+    const start = new Date(2025, 11, 31, 23, 59, 55).getTime()
+    const { entries } = parseLogcat("01-01 00:00:02.000  1  1 E App: early", start)
+    assert.equal(entries[0].at, new Date(2026, 0, 1, 0, 0, 2).getTime())
+  })
+
   it("reports no clock for a log with no lines it can read", () => {
     assert.deepEqual(parseLogcat("E AndroidRuntime: FATAL EXCEPTION", START), { entries: [], clock: undefined })
   })

@@ -167,6 +167,7 @@ export function parseLogcat(text: string, startedAt: number): { entries: Timelin
       clock = "assumed"
       at = new Date(startYear, ...time).getTime()
       if (at - startedAt > HALF_YEAR_MS) at = new Date(startYear - 1, ...time).getTime()
+      else if (startedAt - at > HALF_YEAR_MS) at = new Date(startYear + 1, ...time).getTime()
     }
     const key = `${at} ${pid} ${tid} ${logLevel} ${tag}`
     const previous = entries.at(-1)

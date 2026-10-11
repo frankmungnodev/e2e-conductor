@@ -78,6 +78,18 @@ exit 0`)
     assert.match(readFileSync(join(dir, "mobile-logcat.txt"), "utf8"), /E App: crash/)
   })
 
+  it("falls back to the plain format when an old adb prints the usage text and exits 0", async () => {
+    const dir = tempDir("mobile-legacy-adb")
+    // Android before 7 has no shell_v2: adb merges logcat's error into stdout and reports success.
+    const adb = fakeAdb(dir, "adb", `[ "$3" = "logcat" ] && [ "$8" = "year" ] && echo "Invalid parameter to -v" && echo "Usage: logcat [options] [filterspecs]" && exit 0
+[ "$3" = "logcat" ] && echo "10-11 12:00:00.000  1  1 E App: crash" && exit 0
+exit 0`)
+    await new MobileDriver(target, "emulator-5554", adb).endScenario(true, dir)
+    const log = readFileSync(join(dir, "mobile-logcat.txt"), "utf8")
+    assert.match(log, /E App: crash/)
+    assert.doesNotMatch(log, /Usage/)
+  })
+
   it("writes no view hierarchy when the dump fails, and still keeps the log", async () => {
     const dir = tempDir("mobile-no-dump")
     const adb = fakeAdb(dir, "adb", `[ "$3" = "logcat" ] && echo "I ActivityManager: start" && exit 0\nexit 0`)
