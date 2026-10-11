@@ -1,7 +1,16 @@
 import { existsSync } from "node:fs"
 import type { DatabaseSync } from "node:sqlite"
 import { withDb } from "../../db/connection.ts"
-import { type Draft, discardDraft, discardDraftGroup, getDraftGroup, getDrafts, keepDraft, markBugFound } from "../../db/drafts.ts"
+import {
+  type Draft,
+  discardDraft,
+  discardDraftGroup,
+  draftIdsInGroup,
+  getDraftGroup,
+  getDrafts,
+  keepDraft,
+  markBugFound,
+} from "../../db/drafts.ts"
 import { lastScenarioRun, passedOnContent } from "../../db/scenario-runs.ts"
 import { getScenario } from "../../db/scenarios.ts"
 import { readback } from "../../readback.ts"
@@ -63,11 +72,7 @@ export const draftRoutes: Route[] = [
     match: ({ req, pathname }) => /^\/api\/drafts\/groups\/[^/]+\/keep$/.test(pathname) && req.method === "POST",
     handle: async ({ state, res, pathname }) => {
       const key = segment(pathname, 4)
-      const ids = withDb(state.config.dbPath, (db) =>
-        getDrafts(db)
-          .filter((draft) => draft.group === key)
-          .map((draft) => draft.id),
-      )
+      const ids = withDb(state.config.dbPath, (db) => draftIdsInGroup(db, key))
       if (ids.length === 0) return sendJson(res, 404, { error: `No drafts in group "${key}"` })
       const running = inActiveRun(state, ids)
       if (running.length > 0) return sendJson(res, 409, { error: busy(running) })
@@ -91,9 +96,7 @@ export const draftRoutes: Route[] = [
       const key = segment(pathname, 4)
       const ids = withDb(state.config.dbPath, (db) => {
         if (!getDraftGroup(db, key)) return undefined
-        return getDrafts(db)
-          .filter((draft) => draft.group === key)
-          .map((draft) => draft.id)
+        return draftIdsInGroup(db, key)
       })
       if (!ids) return sendJson(res, 404, { error: `No draft group "${key}"` })
       const running = inActiveRun(state, ids)

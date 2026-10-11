@@ -134,6 +134,7 @@ export const runRoutes: Route[] = [
           state.lastSummary = summary
         } catch (err) {
           const errorMsg = (err as Error).message
+          const total = Math.max(1, ((runOptions.drafts ?? runOptions.scenarios)?.length || 1) * (runOptions.repeat || 1))
           state.broadcast({
             type: "log",
             text: `Run error: ${errorMsg}`,
@@ -143,9 +144,9 @@ export const runRoutes: Route[] = [
             type: "finish",
             summary: {
               status: "FAILED",
-              total: Math.max(1, ((runOptions.drafts ?? runOptions.scenarios)?.length || 1) * (runOptions.repeat || 1)),
+              total,
               passed: 0,
-              failed: Math.max(1, ((runOptions.drafts ?? runOptions.scenarios)?.length || 1) * (runOptions.repeat || 1)),
+              failed: total,
               duration_ms: Date.now() - (state.activeRun?.startedAt ?? Date.now()),
               failures: [{ scenario: "run", iteration: 1, step: "init", error: errorMsg }],
               artifacts: "",

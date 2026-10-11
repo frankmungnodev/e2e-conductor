@@ -131,7 +131,9 @@ export function actionFields(driver: DriverName): string[] {
 }
 
 /** `assert.json_match` operators. */
-export const JSON_MATCH_OPERATORS = ["$exists", "$contains", "$notContains", "$gt", "$gte"]
+export const JSON_MATCH_OPERATORS = ["$exists", "$contains", "$notContains", "$gt", "$gte"] as const
+
+export type JsonMatchOperator = (typeof JSON_MATCH_OPERATORS)[number]
 
 /** `${<namespace>.<name>}` placeholders and what each reads. */
 export const PLACEHOLDER_NAMESPACES: Record<string, string> = {

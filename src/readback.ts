@@ -1,7 +1,7 @@
 import type { LoadedConfig } from "./config.ts"
 import type { StepAction } from "./db/scenarios.ts"
-import { type Assert, type Scenario, type Step, targetsUsed } from "./scenario.ts"
-import { ACTIONS, type DriverName, findAction } from "./vocabulary.ts"
+import { type Assert, driverOf, type Scenario, type Step, targetsUsed } from "./scenario.ts"
+import { ACTIONS, type DriverName, findAction, type JsonMatchOperator } from "./vocabulary.ts"
 
 /**
  * A scenario's steps as plain sentences, for a person deciding whether to keep a draft. It names no
@@ -105,11 +105,6 @@ export const ACTION_SENTENCES: Record<DriverName, Record<string, Sentence>> = {
   shell: { shell: (a) => `Runs the shell command: ${a.command ?? a.value ?? ""}` },
 }
 
-function driverOf(config: LoadedConfig, target: string): DriverName | undefined {
-  if (target === "shell") return "shell"
-  return config.targets[target]?.driver as DriverName | undefined
-}
-
 function actionSentence(driver: DriverName | undefined, target: string, a: ActionFields): string {
   const spec = driver && a.action ? findAction(driver, a.action) : undefined
   const sentence = driver && spec ? ACTION_SENTENCES[driver][spec.name] : undefined
@@ -126,18 +121,24 @@ function doSentences(driver: DriverName | undefined, step: Step): string[] {
   return []
 }
 
+/** How each `json_match` operator reads, given the path and the operator's argument. */
+const MATCH_PHRASES: Record<JsonMatchOperator, (path: string, arg: unknown) => string> = {
+  $exists: (path, arg) => (arg ? `to have ${path}` : `to have no ${path}`),
+  $contains: (path, arg) => `${path} containing ${quoted(arg)}`,
+  $notContains: (path, arg) => `${path} not containing ${quoted(arg)}`,
+  $gt: (path, arg) => `${path} above ${text(arg)}`,
+  $gte: (path, arg) => `${path} at least ${text(arg)}`,
+}
+
 function matchPhrase(path: string, expected: unknown): string {
   if (expected !== null && typeof expected === "object" && !Array.isArray(expected)) {
     const ops = Object.entries(expected as Record<string, unknown>)
     if (ops.length > 0 && ops.every(([op]) => op.startsWith("$"))) {
       return ops
         .map(([op, arg]) => {
-          if (op === "$exists") return arg ? `to have ${path}` : `to have no ${path}`
-          if (op === "$contains") return `${path} containing ${quoted(arg)}`
-          if (op === "$notContains") return `${path} not containing ${quoted(arg)}`
-          if (op === "$gt") return `${path} above ${text(arg)}`
-          if (op === "$gte") return `${path} at least ${text(arg)}`
-          return `${path} matching ${text(arg)}`
+          // Every op starts with `$`, so no Object.prototype key is ever looked up.
+          const phrase = MATCH_PHRASES[op as JsonMatchOperator] as ((path: string, arg: unknown) => string) | undefined
+          return phrase ? phrase(path, arg) : `${path} matching ${text(arg)}`
         })
         .join(" and ")
     }
@@ -170,7 +171,7 @@ function rawParts(step: Step): { commands: string[]; urls: string[] } {
 
 export function readback(config: LoadedConfig, scenario: Scenario): Readback {
   const steps = scenario.steps.map((step) => {
-    const sentences = [...doSentences(driverOf(config, step.target), step), ...checkSentences(step.assert)]
+    const sentences = [...doSentences(driverOf(config.targets, step.target), step), ...checkSentences(step.assert)]
     const remembered = Object.keys(step.extract ?? {})
     if (remembered.length > 0) sentences.push(`Remembers ${remembered.join(", ")} from the response`)
     if (step.retry) sentences.push(`Tries again up to ${step.retry.times} times`)

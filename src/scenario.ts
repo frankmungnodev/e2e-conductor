@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
-import { type LoadedConfig, resolveFromConfig, SHELL_TARGET } from "./config.ts"
+import { type LoadedConfig, resolveFromConfig, SHELL_TARGET, type TargetConfig } from "./config.ts"
 import { withDb } from "./db/connection.ts"
 import { type Assert, getScenarios, type Scenario, type Step, saveScenario } from "./db/scenarios.ts"
 import { getSetting, setSetting } from "./db/settings.ts"
@@ -24,9 +24,10 @@ export type { Assert, Scenario, Step, StepPreset }
 const SCENARIOS_IMPORTED = "scenarios_imported_at"
 const PRESETS_IMPORTED = "presets_imported_at"
 
-function driverOf(config: LoadedConfig, target: string): DriverName | undefined {
+/** The driver that runs `target`: `shell` for the shell target, else the target's own driver. */
+export function driverOf(targets: Record<string, TargetConfig>, target: string): DriverName | undefined {
   if (target === SHELL_TARGET) return SHELL_TARGET
-  return config.targets[target]?.driver
+  return targets[target]?.driver
 }
 
 /**
@@ -46,7 +47,7 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario): Problem[] 
   scenario.steps.forEach((step, stepIndex) => {
     const at = { stepIndex, stepName: step.name }
     const pointer = `/steps/${stepIndex}`
-    const driver = driverOf(config, step.target)
+    const driver = driverOf(config.targets, step.target)
     if (!driver) {
       const targets = [...Object.keys(config.targets), SHELL_TARGET]
       problems.push(
@@ -60,22 +61,27 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario): Problem[] 
       )
       return
     }
-    const stepFields = [...COMMON_STEP_FIELDS, ...DRIVER_STEP_FIELDS[driver]]
-    for (const key of Object.keys(step)) {
-      if (REMOVED_FIELDS[key]) {
-        problems.push(problem("field-removed", { ...at, pointer: `${pointer}/${key}`, message: `"${key}": ${REMOVED_FIELDS[key]}`, value: key }))
-      } else if (!stepFields.includes(key)) {
-        problems.push(
-          problem("field-not-allowed", {
-            ...at,
-            pointer: `${pointer}/${key}`,
-            message: `"${key}" is not valid for a ${driver} target`,
-            value: key,
-            allowed: stepFields,
-          }),
-        )
+    /** A problem for each key of `item` that is a removed field or not in `allowed`. */
+    const checkKeys = (item: object, itemPointer: string, label: string, allowed: string[], kind: "target" | "action") => {
+      for (const key of Object.keys(item)) {
+        if (REMOVED_FIELDS[key]) {
+          problems.push(
+            problem("field-removed", { ...at, pointer: `${itemPointer}/${key}`, message: `${label}"${key}": ${REMOVED_FIELDS[key]}`, value: key }),
+          )
+        } else if (!allowed.includes(key)) {
+          problems.push(
+            problem("field-not-allowed", {
+              ...at,
+              pointer: `${itemPointer}/${key}`,
+              message: `${label}"${key}" is not valid for a ${driver} ${kind}`,
+              value: key,
+              allowed,
+            }),
+          )
+        }
       }
     }
+    checkKeys(step, pointer, "", [...COMMON_STEP_FIELDS, ...DRIVER_STEP_FIELDS[driver]], "target")
     if (typeof step.action === "string") problems.push(...checkActionName(driver, step.action, { ...at, pointer: `${pointer}/action` }, ""))
     const fields = actionFields(driver)
     ;(Array.isArray(step.actions) ? step.actions : []).forEach((item, actionIndex) => {
@@ -84,23 +90,7 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario): Problem[] 
       if (typeof item?.action === "string") {
         problems.push(...checkActionName(driver, item.action, { ...at, pointer: `${actionPointer}/action` }, label))
       }
-      for (const key of Object.keys(item ?? {})) {
-        if (REMOVED_FIELDS[key]) {
-          problems.push(
-            problem("field-removed", { ...at, pointer: `${actionPointer}/${key}`, message: `${label}"${key}": ${REMOVED_FIELDS[key]}`, value: key }),
-          )
-        } else if (!fields.includes(key)) {
-          problems.push(
-            problem("field-not-allowed", {
-              ...at,
-              pointer: `${actionPointer}/${key}`,
-              message: `${label}"${key}" is not valid for a ${driver} action`,
-              value: key,
-              allowed: fields,
-            }),
-          )
-        }
-      }
+      checkKeys(item ?? {}, actionPointer, label, fields, "action")
     })
     const hasRequired =
       (step.actions !== undefined && step.actions.length > 0) ||

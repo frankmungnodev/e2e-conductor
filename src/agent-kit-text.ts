@@ -1,4 +1,5 @@
 import { SHELL_TARGET, type TargetConfig } from "./config.ts"
+import { stepsWithoutIds } from "./db/drafts.ts"
 import type { Scenario, Step } from "./db/scenarios.ts"
 import type { StepGroup } from "./db/step-groups.ts"
 import type { StepPreset } from "./db/step-presets.ts"
@@ -39,12 +40,12 @@ const CHECK = 'e2e save --group <group> --prompt "<the person\'s request, word f
 const SAVE = 'e2e save --group <group> --prompt "<the same request>" --agent <your name> --json'
 
 /** The person-only actions, all in the e2e UI. */
-const PERSON_ONLY = [
-  "Run batch (runs every draft of a group)",
-  "Keep and Keep all passing (a draft needs a pass on its current content first)",
-  "Bug found (sets a failing draft aside as a real app bug; you cannot change it after that)",
-  "Discard (a draft or a whole group)",
-  "Allow drafts on an environment (the draft mark)",
+const PERSON_ONLY: Array<{ name: string; note: string }> = [
+  { name: "Run batch", note: "runs every draft of a group" },
+  { name: "Keep and Keep all passing", note: "a draft needs a pass on its current content first" },
+  { name: "Bug found", note: "sets a failing draft aside as a real app bug; you cannot change it after that" },
+  { name: "Discard", note: "a draft or a whole group" },
+  { name: "Allow drafts on an environment", note: "the draft mark" },
 ]
 
 /** Write paths an agent must never use: they skip the draft state and the strict check. */
@@ -89,7 +90,7 @@ export function renderInstructionBlock(): string {
     "",
     `- Write one scenario JSON file per scenario to \`${DRAFTS_FOLDER}<scenario-id>.json\`.`,
     `- Check them with \`${CHECK}\`, fix every problem, then save them as drafts with \`${SAVE}\`.`,
-    `- Only the person, in the e2e UI: ${PERSON_ONLY.map((action) => action.split(" (")[0]).join(", ")}.`,
+    `- Only the person, in the e2e UI: ${PERSON_ONLY.map((action) => action.name).join(", ")}.`,
     `- Never write scenarios through ${FORBIDDEN}.`,
     KIT_END,
   ].join("\n")
@@ -125,7 +126,7 @@ export function renderKit(facts: KitFacts): string {
     "",
     "These happen in the e2e UI, by the person. Do not try to do them:",
     "",
-    ...PERSON_ONLY.map((action) => `- ${action}`),
+    ...PERSON_ONLY.map((action) => `- ${action.name} (${action.note})`),
     "",
     `Never write scenarios through ${FORBIDDEN}. \`e2e save\` is the only write path for agents.`,
     "",
@@ -161,10 +162,7 @@ function renderProject(facts: KitFacts): string[] {
 
 function reusable(title: string, description: string | undefined, steps: Step[]): string[] {
   // Stored step and action ids are dropped: a draft save drops them anyway.
-  const copy = steps.map(({ id: _id, ...step }) => ({
-    ...step,
-    ...(step.actions ? { actions: step.actions.map(({ id: _actionId, ...action }) => action) } : {}),
-  }))
+  const copy = stepsWithoutIds(steps)
   return [`#### ${title}`, "", ...(description ? [description, ""] : []), "```json", JSON.stringify(copy, null, 2), "```", ""]
 }
 

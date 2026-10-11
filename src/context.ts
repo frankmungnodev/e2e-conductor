@@ -70,7 +70,7 @@ export function mismatch(actual: unknown, expected: unknown): string | undefined
     const keys = Object.keys(ops)
     if (keys.length > 0 && keys.every((key) => key.startsWith("$"))) {
       for (const [op, arg] of Object.entries(ops)) {
-        if (!JSON_MATCH_OPERATORS.includes(op)) return `unknown operator ${op}`
+        if (!(JSON_MATCH_OPERATORS as readonly string[]).includes(op)) return `unknown operator ${op}`
         const failed =
           (op === "$exists" && (actual !== undefined) !== arg) ||
           (op === "$contains" && (actual === undefined || !stringify(actual).includes(String(arg)))) ||

@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite"
 import { scenarioVersion } from "../scenario-version.ts"
 import { passedOnContent } from "./scenario-runs.ts"
-import { deleteScenario, getScenario, type Scenario, saveScenario } from "./scenarios.ts"
+import { deleteScenario, getScenario, type Scenario, type Step, saveScenario } from "./scenarios.ts"
 
 export type DraftState = "draft" | "bug_found"
 
@@ -54,6 +54,14 @@ export function getDraft(db: DatabaseSync, id: string): Draft | undefined {
     | DraftRow
     | undefined
   return row ? mapDraftRow(row) : undefined
+}
+
+/** The ids of the drafts in the group, in `getDrafts` order. */
+export function draftIdsInGroup(db: DatabaseSync, key: string): string[] {
+  const rows = db.prepare("SELECT id FROM scenarios WHERE draft_group = ? AND draft_state IS NOT NULL ORDER BY id ASC").all(key) as Array<{
+    id: string
+  }>
+  return rows.map(({ id }) => id)
 }
 
 export function getDrafts(db: DatabaseSync): Draft[] {
@@ -167,11 +175,13 @@ export function discardDraftGroup(db: DatabaseSync, key: string): string[] {
 }
 
 function withoutIds(scenario: Scenario): Scenario {
-  return {
-    ...scenario,
-    steps: scenario.steps.map(({ id: _id, actions, ...step }) => ({
-      ...step,
-      ...(actions ? { actions: actions.map(({ id: _actionId, ...action }) => action) } : {}),
-    })),
-  }
+  return { ...scenario, steps: stepsWithoutIds(scenario.steps) }
+}
+
+/** `steps` without their stored step and action ids, as a draft save stores them. */
+export function stepsWithoutIds(steps: Step[]): Step[] {
+  return steps.map(({ id: _id, actions, ...step }) => ({
+    ...step,
+    ...(actions ? { actions: actions.map(({ id: _actionId, ...action }) => action) } : {}),
+  }))
 }

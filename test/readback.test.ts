@@ -3,7 +3,7 @@ import { describe, it } from "node:test"
 import type { LoadedConfig } from "../src/config.ts"
 import { ACTION_SENTENCES, readback } from "../src/readback.ts"
 import type { Scenario, Step } from "../src/scenario.ts"
-import { ACTIONS, type DriverName } from "../src/vocabulary.ts"
+import { ACTIONS, type DriverName, JSON_MATCH_OPERATORS } from "../src/vocabulary.ts"
 
 const config: LoadedConfig = {
   configDir: "/project",
@@ -106,5 +106,13 @@ describe("readback", () => {
     assert.deepEqual(sentencesOf({ name: "fill", target: "site", action: "fill", selector: "#email", value: "a@b.co" }), [
       'Fills "#email" with "a@b.co"',
     ])
+  })
+
+  it("has its own phrase for every json_match operator", () => {
+    for (const operator of JSON_MATCH_OPERATORS) {
+      const [, check] = sentencesOf({ name: "get", target: "api", url: "/items", assert: { json_match: { count: { [operator]: 1 } } } })
+      assert.ok(check.startsWith("Expects the response to have "), operator)
+      assert.ok(!check.includes("matching"), operator)
+    }
   })
 })

@@ -2,13 +2,12 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from
 import { join, relative } from "node:path"
 import { KIT_END, KIT_START, type KitFacts, renderInstructionBlock, renderKit, renderVocabulary } from "./agent-kit-text.ts"
 import { withDb } from "./db/connection.ts"
-import { getEnvironments } from "./db/environments.ts"
 import { getFixtures } from "./db/fixtures.ts"
 import { findProjectDir, resolveDbPath } from "./db/paths.ts"
 import { getStepGroups } from "./db/step-groups.ts"
 import { getStepPresets } from "./db/step-presets.ts"
 import { color } from "./logger.ts"
-import { environmentsToCheck } from "./strict-check.ts"
+import { draftEnvironmentsToCheck } from "./strict-check.ts"
 
 /** The root instruction files that get the kit block, when they exist. The kit never creates them. */
 const INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md"]
@@ -44,10 +43,7 @@ export function writeAgentKit(cwd: string): KitReport {
 
   // The same environments `e2e save` checks against: the ones that allow drafts, else the default one.
   const facts = withDb(dbPath, (db): KitFacts => {
-    const allowed = Object.entries(getEnvironments(db))
-      .filter(([, environment]) => environment.allowDrafts)
-      .map(([name]) => name)
-    const { environments, notices } = environmentsToCheck(db, allowed)
+    const { environments, notices } = draftEnvironmentsToCheck(db)
     return { environments, notices, fixtures: Object.keys(getFixtures(db)), presets: getStepPresets(db), stepGroups: getStepGroups(db) }
   })
 

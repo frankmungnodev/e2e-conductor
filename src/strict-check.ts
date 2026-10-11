@@ -6,7 +6,7 @@ import { getDefaultEnvironment, getEnvironments } from "./db/environments.ts"
 import { getPlatforms, platformsToTargetsAndServices } from "./db/platforms.ts"
 import type { Scenario, Step } from "./db/scenarios.ts"
 import { type Problem, problem } from "./problems.ts"
-import { checkSteps } from "./scenario.ts"
+import { checkSteps, driverOf } from "./scenario.ts"
 import { findAction } from "./vocabulary.ts"
 
 /** An environment the strict check holds a scenario to: the targets it runs and its configured env variable names. */
@@ -41,6 +41,14 @@ export function environmentsToCheck(db: DatabaseSync, names: string[]): { enviro
     value: environment.name,
   })
   return { environments: [environment], notices: [notice] }
+}
+
+/** The environments `e2e save` checks drafts against: the ones that allow drafts, else the default one. */
+export function draftEnvironmentsToCheck(db: DatabaseSync): { environments: CheckedEnvironment[]; notices: Problem[] } {
+  const allowed = Object.entries(getEnvironments(db))
+    .filter(([, environment]) => environment.allowDrafts)
+    .map(([name]) => name)
+  return environmentsToCheck(db, allowed)
 }
 
 /**
@@ -137,7 +145,7 @@ function strings(value: unknown, pointer: string): { pointer: string; text: stri
 
 /** Absolute URLs in the fields a step or its actions read a URL from: `url`, and `value` for an action that reads a URL. */
 function urls(targets: Record<string, TargetConfig>, step: Step, stepIndex: number): { pointer: string; url: string }[] {
-  const driver = step.target === SHELL_TARGET ? SHELL_TARGET : targets[step.target]?.driver
+  const driver = driverOf(targets, step.target)
   const found: { pointer: string; url: string }[] = []
   const look = (item: { action?: string; url?: string; value?: string }, pointer: string) => {
     if (isAbsolute(item.url)) found.push({ pointer: `${pointer}/url`, url: item.url })

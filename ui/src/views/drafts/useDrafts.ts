@@ -61,5 +61,5 @@ export function useDrafts(onScenariosChanged: () => void) {
 
   const discardGroup = (key: string) => act(async () => void (await discardDraftGroup(key)), "Failed to Discard Group")
 
-  return { groups, reload, keep, keepAllPassing, markBug, discard, discardGroup }
+  return { groups, keep, keepAllPassing, markBug, discard, discardGroup }
 }

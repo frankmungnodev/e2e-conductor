@@ -4,7 +4,6 @@ import type { DatabaseSync } from "node:sqlite"
 import type { LoadedConfig } from "./config.ts"
 import { openDatabase } from "./db/connection.ts"
 import { getDraft, getDraftGroup, revisionId, saveDraft, saveDraftGroup, saveRevision } from "./db/drafts.ts"
-import { getEnvironments } from "./db/environments.ts"
 import { getFixtures } from "./db/fixtures.ts"
 import { findProjectDir, resolveDbPath } from "./db/paths.ts"
 import { getScenario, type Scenario } from "./db/scenarios.ts"
@@ -12,7 +11,7 @@ import { color } from "./logger.ts"
 import { type Problem, problem } from "./problems.ts"
 import { scenarioVersion } from "./scenario-version.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
-import { checkStrict, environmentsToCheck } from "./strict-check.ts"
+import { checkStrict, draftEnvironmentsToCheck } from "./strict-check.ts"
 
 export type SaveRequest = {
   /** The folder the command runs in: the project is the nearest one upward with a `.e2e` folder. */
@@ -116,10 +115,7 @@ function save(request: SaveRequest, report: SaveReport): SaveExitCode {
       throw new SaveError(`Group "${group}" is new, so it needs --prompt "<the prompt the drafts came from>".`, 2)
     }
     const files = inputFiles(request, project, group)
-    const allowed = Object.entries(getEnvironments(db))
-      .filter(([, environment]) => environment.allowDrafts)
-      .map(([name]) => name)
-    const { environments, notices } = environmentsToCheck(db, allowed)
+    const { environments, notices } = draftEnvironmentsToCheck(db)
     report.checkedEnvironments = environments.map((environment) => environment.name)
     report.notices = notices
     const config: LoadedConfig = {
@@ -172,7 +168,7 @@ function save(request: SaveRequest, report: SaveReport): SaveExitCode {
       }
       if (!request.check) {
         saveDraftGroup(db, { key: group, prompt: request.prompt?.trim(), agent: request.agent?.trim() })
-        for (const each of planned) if ("write" in each) each.write?.()
+        for (const each of planned) each.write?.()
         db.exec("COMMIT")
       }
       report.results = planned.flatMap((each) => ("result" in each ? [each.result] : []))
@@ -221,16 +217,15 @@ function readScenario(path: string, file: string): { scenario: Scenario } | { pr
   }
   if (!validateScenario(raw)) {
     const errors = validateScenario.errors ?? []
+    const messages = describeErrors(errors)
     return {
-      problems: errors.map((error, index) =>
-        problem("schema", { file, pointer: error.instancePath, message: describeErrors(errors)[index] }),
-      ),
+      problems: errors.map((error, index) => problem("schema", { file, pointer: error.instancePath, message: messages[index] })),
     }
   }
   return { scenario: { ...(raw as Omit<Scenario, "id">), id: basename(path, ".json") } as Scenario }
 }
 
-type Planned = { result: SaveResult; write?: () => void } | { problem: Problem }
+type Planned = { result: SaveResult; write?: () => void } | { problem: Problem; write?: never }
 
 /**
  * What saving the scenario does: a new id is created, an existing draft is updated, an id that is a kept
