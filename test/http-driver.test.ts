@@ -13,6 +13,27 @@ let url = ""
 
 before(async () => {
   server = createServer((req, res) => {
+    if (req.url === "/big") {
+      res.writeHead(200, { "content-type": "application/json" })
+      res.end(JSON.stringify({ access_token: "big-secret", padding: "x".repeat(70 * 1024) }))
+      return
+    }
+    if (req.url === "/form") {
+      res.writeHead(200, { "content-type": "application/x-www-form-urlencoded" })
+      res.end("access_token=form-secret&token_type=bearer")
+      return
+    }
+    if (req.url === "/echo") {
+      let body = ""
+      req.on("data", (chunk) => {
+        body += chunk
+      })
+      req.on("end", () => {
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ method: req.method, tag: req.headers["x-tag"], body: body ? JSON.parse(body) : null }))
+      })
+      return
+    }
     res.writeHead(req.url?.startsWith("/login") ? 200 : 500, { "content-type": "application/json", "set-cookie": "sid=abc" })
     res.end(JSON.stringify({ access_token: "secret-token", user: { name: "Ann" } }))
   })
@@ -76,6 +97,53 @@ describe("HTTP failure evidence", () => {
     const [exchange] = JSON.parse(readFileSync(join(dir, "http-exchanges.json"), "utf8"))
     assert.equal(exchange.response, undefined)
     assert.match(exchange.error, /fetch failed/)
+  })
+
+  it("redacts a response body before cutting it to size", async () => {
+    const dir = tempDir("http-big")
+    const driver = new HttpDriver({ url })
+    await run(driver, { url: "/big" })
+    await driver.endScenario(true, dir)
+
+    const file = readFileSync(join(dir, "http-exchanges.json"), "utf8")
+    const [exchange] = JSON.parse(file)
+    assert.match(exchange.response.body, /chars, cut\)$/)
+    assert.doesNotMatch(file, /big-secret/)
+  })
+
+  it("redacts credentials in a text body, such as a form-encoded token response", async () => {
+    const dir = tempDir("http-form")
+    const driver = new HttpDriver({ url })
+    await run(driver, { url: "/form" })
+    await driver.endScenario(true, dir)
+
+    const [exchange] = JSON.parse(readFileSync(join(dir, "http-exchanges.json"), "utf8"))
+    assert.equal(exchange.response.body, "access_token=[redacted]&token_type=[redacted]")
+  })
+
+  it("sends each action with the step's headers and body, records every exchange, and returns the last result", async () => {
+    const dir = tempDir("http-actions")
+    const driver = new HttpDriver({ url })
+    const result = await run(driver, {
+      url: "/echo",
+      headers: { "X-Tag": "step" },
+      body: { from: "step" },
+      actions: [
+        { action: "http_post" },
+        { action: "http_put", headers: { "X-Tag": "action" }, body: { from: "action" } },
+      ],
+    } as Partial<Step>)
+    await driver.endScenario(true, dir)
+
+    assert.deepEqual(result.data, { method: "PUT", tag: "action", body: { from: "action" } })
+    const exchanges = JSON.parse(readFileSync(join(dir, "http-exchanges.json"), "utf8"))
+    assert.deepEqual(
+      exchanges.map((e: { request: { method: string }; response: { body: unknown } }) => [e.request.method, e.response.body]),
+      [
+        ["POST", { method: "POST", tag: "step", body: { from: "step" } }],
+        ["PUT", { method: "PUT", tag: "action", body: { from: "action" } }],
+      ],
+    )
   })
 
   it("redacts credential fields at any depth, inside arrays too", () => {

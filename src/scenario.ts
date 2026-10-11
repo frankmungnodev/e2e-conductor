@@ -79,9 +79,10 @@ export function checkSteps(config: LoadedConfig, scenario: Scenario): string[] {
  * Loads scenarios from the SQLite database. The first time it opens a database, it imports
  * valid JSON scenarios from the scenarios folder whose ids the database does not have yet.
  * After that the database is the only source: saves and deletes never touch the JSON files.
- * Falls back to reading directly from the filesystem if the database does not exist.
+ * Falls back to reading directly from the filesystem if the database does not exist, or if it
+ * cannot be read unless `throwOnDbError` is set.
  */
-export function getOrSeedScenarios(config: LoadedConfig): Scenario[] {
+export function getOrSeedScenarios(config: LoadedConfig, { throwOnDbError = false } = {}): Scenario[] {
   const dbPath = config.dbPath
   if (existsSync(dbPath)) {
     try {
@@ -105,8 +106,9 @@ export function getOrSeedScenarios(config: LoadedConfig): Scenario[] {
         return getScenarios(db)
       })
       return dbScenarios
-    } catch {
-      // ignore db error, fall back to filesystem
+    } catch (error) {
+      if (throwOnDbError) throw error
+      // otherwise fall back to the filesystem
     }
   }
 
@@ -160,9 +162,10 @@ export function targetsUsed(scenarios: Scenario[]): Set<string> {
  * Loads step presets from the SQLite database. The first time it opens a database, it imports
  * JSON presets from .e2e/presets/*.json whose ids the database does not have yet.
  * After that the database is the only source: saves and deletes never touch the JSON files.
- * Falls back to reading directly from the filesystem if the database does not exist.
+ * Falls back to reading directly from the filesystem if the database does not exist, or if it
+ * cannot be read unless `throwOnDbError` is set.
  */
-export function getOrSeedPresets(config: LoadedConfig): StepPreset[] {
+export function getOrSeedPresets(config: LoadedConfig, { throwOnDbError = false } = {}): StepPreset[] {
   const dbPath = config.dbPath
   const presetsDir = join(config.configDir, "presets")
 
@@ -193,8 +196,9 @@ export function getOrSeedPresets(config: LoadedConfig): StepPreset[] {
         return getStepPresets(db)
       })
       return presets
-    } catch {
-      // fallback to disk
+    } catch (error) {
+      if (throwOnDbError) throw error
+      // otherwise fall back to disk
     }
   }
 

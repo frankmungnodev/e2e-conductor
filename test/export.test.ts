@@ -119,4 +119,11 @@ describe("JSON import and export", () => {
 
     assert.deepEqual(checkExport(config).changed, [file])
   })
+
+  it("fails when the database cannot be read, instead of comparing the files with themselves", () => {
+    const config = project()
+    writeFileSync(config.dbPath, "not a sqlite database")
+
+    assert.throws(() => checkExport(config))
+  })
 })

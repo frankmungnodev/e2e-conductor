@@ -15,6 +15,9 @@ type HttpExchange = {
 
 // Header and field names whose values are credentials. Their values never reach a file.
 const SECRET_NAME = /authorization|cookie|password|passwd|secret|token|api[-_]?key|session/i
+// A `name=value` or `"name": "value"` pair inside text, such as a form-encoded token response.
+// It only starts where a name starts, so a long run of word characters costs linear time, not quadratic.
+const NAMED_PAIR = /(?<![\w.-])("?)([\w.-]+)\1(\s*[=:]\s*)("[^"]*"|[^&\s,;"]*)/g
 // A response body longer than this is cut, so one large download does not bloat the evidence.
 const MAX_BODY_CHARS = 64 * 1024
 // Only the latest exchanges of a long scenario are kept.
@@ -91,10 +94,13 @@ export class HttpDriver implements Driver {
         // not JSON; keep the text
       }
       log(`-> ${response.status} ${text.slice(0, 300)}`)
+      // Redact before cutting, so a cut body never holds a credential the redaction would have caught.
+      const body = redact(data)
+      const shown = typeof body === "string" ? body : JSON.stringify(body)
       exchange.response = {
         status: response.status,
         headers: redact(Object.fromEntries(response.headers)) as Record<string, string>,
-        body: text.length > MAX_BODY_CHARS ? `${text.slice(0, MAX_BODY_CHARS)}… (${text.length} chars, cut)` : redact(data),
+        body: shown.length > MAX_BODY_CHARS ? `${shown.slice(0, MAX_BODY_CHARS)}… (${shown.length} chars, cut)` : body,
       }
       return { data, status: response.status, output: text }
     } catch (error) {
@@ -130,12 +136,22 @@ export class HttpDriver implements Driver {
   }
 }
 
-/** A copy with the value of every header or field named like a credential replaced, at any depth. */
+/**
+ * A copy with the value of every header or field named like a credential replaced, at any depth.
+ * In text, the value of every `name=value` or `"name": "value"` pair named like a credential is replaced.
+ */
 export function redact(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redact)
+  if (typeof value === "string") return redactText(value)
   if (value === null || typeof value !== "object") return value
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).map(([key, field]) => [key, SECRET_NAME.test(key) ? "[redacted]" : redact(field)]),
+  )
+}
+
+function redactText(text: string): string {
+  return text.replace(NAMED_PAIR, (pair, quote: string, name: string, separator: string, value: string) =>
+    SECRET_NAME.test(name) ? `${quote}${name}${quote}${separator}${value.startsWith('"') ? '"[redacted]"' : "[redacted]"}` : pair,
   )
 }
 

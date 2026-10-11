@@ -54,11 +54,13 @@ function planExport(config: LoadedConfig): { scenarios: PlannedFile[]; presets: 
   if (!existsSync(dbPath)) throw new Error(`No database at ${dbPath}`)
 
   // Reading through the loaders runs the one-time JSON import, so the export matches what the GUI shows.
+  // A database error must surface: the loaders' fallback reads the JSON files, and a check would then
+  // compare each file with itself and report no drift.
   const scenariosDir = resolveFromConfig(config, config.scenarios)
   const presetsDir = join(config.configDir, "presets")
   return {
-    scenarios: getOrSeedScenarios(config).map(({ id, ...content }) => ({ file: join(scenariosDir, `${id}.json`), content })),
-    presets: getOrSeedPresets(config).map((preset) => ({ file: join(presetsDir, `${preset.id}.json`), content: preset })),
+    scenarios: getOrSeedScenarios(config, { throwOnDbError: true }).map(({ id, ...content }) => ({ file: join(scenariosDir, `${id}.json`), content })),
+    presets: getOrSeedPresets(config, { throwOnDbError: true }).map((preset) => ({ file: join(presetsDir, `${preset.id}.json`), content: preset })),
   }
 }
 
