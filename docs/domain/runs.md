@@ -119,11 +119,21 @@ Each step's latest 20 **executions** summarize how it has been doing (`src/db/st
 
 When a scenario-iteration fails or is fixed (section 4), each driver it used keeps evidence in its artifacts folder. Every file is best-effort: one that cannot be captured is skipped and never changes the outcome.
 - **Web**: `web-trace.zip`, the Playwright trace of the whole scenario.
-- **Android**: `mobile-failure.png` (the screen), `mobile-logcat.txt` (`adb logcat -d -v threadtime`) and `mobile-ui.xml` (the `uiautomator dump` view hierarchy, written only when the dump succeeds). The driver clears the device log (`adb logcat -c`) before each scenario-iteration's first step (`startScenario` on the `Driver` interface), so the log covers only that scenario-iteration. A device that refuses to clear keeps older lines too.
+- **Android**: `mobile-failure.png` (the screen), `mobile-logcat.txt` (`adb logcat -d -v threadtime -v year -v UTC`, so each line carries the year and a UTC time; Android before 7 rejects those modifiers and gets plain `-v threadtime`) and `mobile-ui.xml` (the `uiautomator dump` view hierarchy, written only when the dump succeeds). The driver clears the device log (`adb logcat -c`) before each scenario-iteration's first step (`startScenario` on the `Driver` interface), so the log covers only that scenario-iteration. A device that refuses to clear keeps older lines too.
 - **HTTP**: `http-exchanges.json`, every request of the scenario-iteration in order (latest 200): step name, start time, duration, method, URL, headers and body, and the response's status, headers and body (cut at 64 KB), or the error of a request that got no response. Values of headers, fields and URL query parameters named like a credential (`authorization`, `cookie`, `password`, `secret`, `token`, `api_key`, `session`, case-insensitive, at any depth) are written as `[redacted]`, and so are the values of `name=value` or `"name": "value"` pairs with such names inside a text body (a form-encoded token response, say). A body is redacted before it is cut, so a cut body never holds a credential. The driver keeps exchanges in memory only until the scenario-iteration ends, and drops them when it passes.
 - **Shell**: nothing.
 
 The files show under **Result Files & Reports** in the GUI (section 7).
+
+### Failure Timeline
+A failed or fixed scenario-iteration's evidence can be read on one clock (`buildFailureTimeline` in `src/failure-timeline.ts`). It is built when asked for, from what is already stored; nothing new is saved.
+- **Step attempts**: every attempt in `step_runs`, automatic and manual, at its `created_at`, with its outcome and the first line of its error.
+- **HTTP**: every exchange in `http-exchanges.json`, at its `startedAt`: method, path, status (or the error of a request that got no response) and step name. Status 400 and up is an error.
+- **Device**: `mobile-logcat.txt` lines at warning level and worse (`W`, `E`, `F`, `A`). Consecutive lines of one thread, tag and level at the same millisecond (a stack trace) make one entry, of at most 30 lines. Only the latest 100 entries show; the count of all of them comes with the timeline. Lines with the year are read as UTC, so they line up with the host clock. Lines without it (logs from older devices or older runs) are read in the host's time zone, in the year nearest the scenario-iteration's start, and the timeline says the times are assumed.
+- **Web**: not on the timeline. Browser detail stays in `web-trace.zip`.
+- **Order**: by time. On a tie, step attempts come first, then requests, then device lines.
+
+**Known limits:** a device clock that drifts from the host clock shifts its lines by the drift. Emulators take the host's clock; a physical device is only as close as its network time.
 
 A run started with **Screenshot Every Step** (`e2e run --screenshots`, or `POST /api/run` with `stepScreenshots: true`) saves the screen after each web and Android step as `step-<n>.png` (`<n>` is the 1-based step position) in the scenario-iteration's artifacts folder. The option is off by default; without it a run saves only the failure evidence it always did.
 - **When**: after the step's last automatic attempt, passed or failed, and before the re-check and any pause, so a failed step shows the screen it failed on. A manual retry during a pause (section 4) retakes it, so the image always shows the step's final attempt.
@@ -262,6 +272,7 @@ The orchestrator provides unified access to both database-backed telemetry and f
 |---|---|---|
 | `/api/runs` | `GET` | Returns execution history sorted by `started_at DESC`, merging SQLite records with filesystem summary metadata. |
 | `/api/runs/:runId` | `GET` | Returns full run metadata, scenario-level artifact listings (each URL carries `?v=<mtime>`, because artifacts are served with a one-hour cache and a manual retry rewrites a step screenshot in place), captured screenshots, the array of all associated `stepRuns`, and `scenarioRuns`: each scenario-iteration's `fingerprint`, `status`, `artifactsDir` and `changedSinceLastPass` (section 5). |
+| `/api/runs/:runId/scenarios/:scenarioId/:iteration/timeline` | `GET` | The scenario-iteration's failure timeline (section 2, Failure Timeline): `startedAt`, `events` (each with `at`, `source` `step`, `http` or `device`, `level`, `title`, `detail` and `durationMs`), `deviceEntries` and `deviceClock` (`exact` or `assumed`). 404 when the run has no such scenario-iteration. |
 | `/api/step-runs` | `GET` | Queries step execution telemetry filtered by `scenarioId`, `stepId`, or `runId`. |
 | `/api/run/hold/retry` | `POST` | Retries an edited step (`{ step }`) on the paused run. 400 for an invalid step or an unprepared target, 409 when the run is not paused. |
 | `/api/run/hold/continue` | `POST` | Continues the paused scenario from the next step. 409 until a retry has passed. |
@@ -287,7 +298,7 @@ In the Web GUI:
 - **Reports & Artifacts View (`ArtifactsView.tsx`)**:
   - **Run History Sidebar**: Displays run timestamp, environment, duration, and status badge.
   - **Run Details View**:
-    - **Results Tab**: each step row shows a thumbnail of its step screenshot (section 2, Step Screenshots) when one exists; clicking it opens the full-size preview. The scenario's `Saved when it failed` list leaves out step screenshots.
+    - **Results Tab**: each step row shows a thumbnail of its step screenshot (section 2, Step Screenshots) when one exists; clicking it opens the full-size preview. The scenario's `Saved when it failed` list leaves out step screenshots. A failed or fixed scenario has a `Show Timeline` button that opens its failure timeline (section 2, Failure Timeline, `FailureTimeline.tsx`): each event's time since the scenario started, a `Step`, `HTTP` or `Device` badge, and its title and detail, errors in red and warnings in yellow.
     - **Screenshots Tab**: Grid of every screenshot in the run: failure screenshots, explicit `screenshot` actions and step screenshots. Below it, **Result Files & Reports** lists each scenario-iteration's folder and files; a scenario-iteration that changed since its last pass (section 5) shows a `Changed Since Last Pass` warning badge, whatever its own outcome.
     - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, failure label, a recovered marker on a passing automatic retry, a `Manual Retry` marker on a retry made while paused, and diagnostic error message or status code.
     - **Run Log Tab**: Full terminal stream and execution log (`run.log`).

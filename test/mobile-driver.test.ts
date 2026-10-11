@@ -66,6 +66,18 @@ exit 0`
     assert.equal(existsSync(join(dir, "calls")), false)
   })
 
+  it("captures the log with the year and UTC times, and falls back to the plain format when adb rejects them", async () => {
+    const dir = tempDir("mobile-old-logcat")
+    // Android before 7: logcat refuses the year and UTC modifiers.
+    const adb = fakeAdb(dir, "adb", `echo "$*" >> ${join(dir, "calls")}
+[ "$3" = "logcat" ] && [ "$8" = "year" ] && exit 1
+[ "$3" = "logcat" ] && echo "10-11 12:00:00.000  1  1 E App: crash" && exit 0
+exit 0`)
+    await new MobileDriver(target, "emulator-5554", adb).endScenario(true, dir)
+    assert.match(readFileSync(join(dir, "calls"), "utf8"), /logcat -d -v threadtime -v year -v UTC\n.*logcat -d -v threadtime\n/)
+    assert.match(readFileSync(join(dir, "mobile-logcat.txt"), "utf8"), /E App: crash/)
+  })
+
   it("writes no view hierarchy when the dump fails, and still keeps the log", async () => {
     const dir = tempDir("mobile-no-dump")
     const adb = fakeAdb(dir, "adb", `[ "$3" = "logcat" ] && echo "I ActivityManager: start" && exit 0\nexit 0`)

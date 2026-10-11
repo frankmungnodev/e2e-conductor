@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import { formatDuration, friendlyPlaceholders } from "../ui/src/format.ts"
 import type { ScenarioReport } from "../ui/src/types.ts"
 import { runHeadline, runWhen, sortScenarioReports, stepNote } from "../ui/src/views/reports/reportFormat.ts"
+import { formatOffset } from "../ui/src/views/reports/timelineFormat.ts"
 
 describe("report wording", () => {
   it("formats durations for reading at a glance", () => {
@@ -43,5 +44,14 @@ describe("report wording", () => {
     assert.equal(stepNote({ recovered: false, fixedByHand: false, attempts: 1 }), undefined)
     assert.equal(stepNote({ recovered: true, fixedByHand: false, attempts: 2 }), "Passed on try 2, after 1 failed try")
     assert.equal(stepNote({ recovered: false, fixedByHand: true, attempts: 3 }), "Passed after you fixed it during the run")
+  })
+})
+
+describe("formatOffset", () => {
+  it("shows time since the scenario started to the millisecond, with minutes past one minute", () => {
+    assert.equal(formatOffset(1042, 1000), "+0.042s")
+    assert.equal(formatOffset(13_300, 1000), "+12.300s")
+    assert.equal(formatOffset(1000 + 125_120, 1000), "+2m 05.120s")
+    assert.equal(formatOffset(500, 1000), "-0.500s")
   })
 })

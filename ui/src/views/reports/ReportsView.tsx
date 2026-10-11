@@ -123,6 +123,7 @@ function Results({ details, onPreview }: { details: RunDetails; onPreview: (url:
       {reports.map((report) => (
         <ScenarioResultCard
           key={`${report.scenarioId}:${report.iteration}`}
+          runId={details.runId}
           report={report}
           showIteration={repeated}
           onPreview={onPreview}

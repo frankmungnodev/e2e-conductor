@@ -23,11 +23,14 @@ import { runRoutes } from "./server/routes/runs.ts"
 import { scenarioRoutes } from "./server/routes/scenarios.ts"
 import { setupRoutes } from "./server/routes/setup.ts"
 import { stepGroupRoutes } from "./server/routes/step-groups.ts"
+import { timelineRoutes } from "./server/routes/timeline.ts"
 import { createServerState } from "./server/state.ts"
 
 const UI_DIST_PATH = resolve(import.meta.dirname, "../ui/dist")
 
 const routes: Route[] = [
+  // Before runRoutes, whose `GET /api/runs/:runId` matches every path under `/api/runs/`.
+  ...timelineRoutes,
   ...runRoutes,
   ...holdRoutes,
   ...environmentRoutes,

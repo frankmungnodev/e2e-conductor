@@ -189,7 +189,11 @@ export class MobileDriver implements Driver {
   async endScenario(failed: boolean, artifactsDir: string) {
     if (!failed) return
     await this.captureScreen(join(artifactsDir, "mobile-failure.png")).catch(() => {})
-    const logcat = runAdb(this.adb, this.device, ["logcat", "-d", "-v", "threadtime"], { allowFailure: true })
+    // The year and UTC times put log lines on the host clock (Reports' failure timeline). Android
+    // before 7 rejects those modifiers, so it gets the plain format.
+    const logcat =
+      runAdb(this.adb, this.device, ["logcat", "-d", "-v", "threadtime", "-v", "year", "-v", "UTC"], { allowFailure: true }) ||
+      runAdb(this.adb, this.device, ["logcat", "-d", "-v", "threadtime"], { allowFailure: true })
     if (logcat) writeFileSync(join(artifactsDir, "mobile-logcat.txt"), logcat)
     const ui = runAdb(this.adb, this.device, ["shell", UI_DUMP], { allowFailure: true })
     if (ui.includes("<hierarchy")) writeFileSync(join(artifactsDir, "mobile-ui.xml"), ui)

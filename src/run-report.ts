@@ -98,13 +98,13 @@ export function buildRunReport({ scenarioRuns, stepRuns, versions, names, files 
 }
 
 /** A step run id is `<runId>:<scenarioId>:<iteration>:<stepIndex>:<attempt>`; run ids hold no colon. */
-function stepIndexOf(id: string): number | undefined {
+export function stepIndexOf(id: string): number | undefined {
   const parts = id.split(":")
   const index = Number(parts.at(-2))
   return parts.length >= 5 && Number.isInteger(index) ? index : undefined
 }
 
-function parseSteps(json: string | undefined): Array<{ name?: string; target?: string }> {
+export function parseSteps(json: string | undefined): Array<{ name?: string; target?: string }> {
   if (!json) return []
   try {
     const steps = (JSON.parse(json) as { steps?: unknown }).steps

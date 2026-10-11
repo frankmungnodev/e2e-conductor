@@ -1,5 +1,6 @@
 import type {
   ConfigMeta,
+  FailureTimeline,
   FlowItem,
   PausedStep,
   PreflightData,
@@ -166,6 +167,14 @@ export async function fetchRuns(): Promise<{ runs: RunHistoryItem[]; latestSumma
 export async function fetchRunDetails(runId: string): Promise<RunDetails> {
   const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}`)
   if (!res.ok) throw new Error("Failed to get run details")
+  return res.json()
+}
+
+export async function fetchFailureTimeline(runId: string, scenarioId: string, iteration: number): Promise<FailureTimeline> {
+  const res = await fetch(
+    `${API_BASE}/api/runs/${encodeURIComponent(runId)}/scenarios/${encodeURIComponent(scenarioId)}/${iteration}/timeline`,
+  )
+  if (!res.ok) throw new Error("Failed to get the timeline")
   return res.json()
 }
 

@@ -1,16 +1,19 @@
-import { ChevronDown, ChevronRight, FileArchive, FileText } from "lucide-react"
+import { ChevronDown, ChevronRight, FileArchive, FileText, ListOrdered } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "../../components/Badge.tsx"
+import { Button } from "../../components/Button.tsx"
 import { failureLabelText } from "../../runResult.ts"
 import type { ReportFile, ScenarioReport, StepReport } from "../../types.ts"
+import { FailureTimeline } from "./FailureTimeline.tsx"
 import { formatDuration, stepNote } from "./reportFormat.ts"
 import { iconStatusOf, StatusIcon } from "./StatusIcon.tsx"
 
-type Props = { report: ScenarioReport; showIteration: boolean; onPreview: (url: string) => void }
+type Props = { runId: string; report: ScenarioReport; showIteration: boolean; onPreview: (url: string) => void }
 
 /** One scenario's result. A failed one opens on its failing step and the error, so no digging is needed. */
-export function ScenarioResultCard({ report, showIteration, onPreview }: Props) {
+export function ScenarioResultCard({ runId, report, showIteration, onPreview }: Props) {
   const [open, setOpen] = useState(report.status !== "PASSED")
+  const [timelineOpen, setTimelineOpen] = useState(false)
   const failedStep = report.steps.find((step) => step.status === "FAILED")
   const passed = report.steps.filter((step) => step.status === "PASSED").length
   const summary =
@@ -66,6 +69,28 @@ export function ScenarioResultCard({ report, showIteration, onPreview }: Props) 
               <StepRow key={step.index} step={step} waiting={report.status === "RUNNING"} onPreview={onPreview} />
             ))}
           </ol>
+          {(report.status === "FAILED" || report.status === "FIXED") && (
+            <div className="flex flex-col gap-2">
+              <Button
+                size="xs"
+                variant="ghost"
+                className="self-start"
+                icon={<ListOrdered className="w-3.5 h-3.5" />}
+                aria-expanded={timelineOpen}
+                onClick={() => setTimelineOpen(!timelineOpen)}
+              >
+                {timelineOpen ? "Hide Timeline" : "Show Timeline"}
+              </Button>
+              {timelineOpen && (
+                <FailureTimeline
+                  runId={runId}
+                  scenarioId={report.scenarioId}
+                  iteration={report.iteration}
+                  hasTrace={evidence.some((file) => file.name.endsWith(".zip"))}
+                />
+              )}
+            </div>
+          )}
           {evidence.length > 0 && <Files files={evidence} onPreview={onPreview} />}
         </div>
       )}

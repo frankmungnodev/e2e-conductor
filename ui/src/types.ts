@@ -480,3 +480,21 @@ export type StepHistory = {
   /** Outcome of each execution, newest first. */
   recent: Array<"PASSED" | "RECOVERED" | "FAILED">
 }
+
+/** Mirrors `TimelineEvent` in src/failure-timeline.ts. */
+export type TimelineEvent = {
+  at: number
+  source: "step" | "http" | "device"
+  level: "error" | "warning" | "info"
+  title: string
+  detail?: string
+  durationMs?: number
+}
+
+/** Mirrors `FailureTimeline` in src/failure-timeline.ts: device log entries are capped at 100, `deviceEntries` counts them all. */
+export type FailureTimeline = {
+  startedAt: number
+  events: TimelineEvent[]
+  deviceEntries: number
+  deviceClock?: "exact" | "assumed"
+}

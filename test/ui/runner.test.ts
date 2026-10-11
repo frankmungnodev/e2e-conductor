@@ -111,8 +111,8 @@ describe("Runner view options and failures", () => {
     )
     await page.goto(`${url}/?tab=runner`)
     await page.getByRole("button", { name: "Run Failing Smoke only" }).click()
-    await eventually(
-      () => api<RunStatus>("/api/run/status"),
+    const done = await eventually(
+      () => api<RunStatus & { lastSummary?: { artifacts?: string } }>("/api/run/status"),
       (s) => !s.isRunning && (s.lastSummary?.failed ?? 0) >= 1,
       20000,
     )
@@ -126,6 +126,20 @@ describe("Runner view options and failures", () => {
     await page.getByRole("heading", { name: "1 scenario passed" }).or(page.getByRole("heading", { name: /failed/ })).waitFor()
     await page.getByText("Failed at step 1: Exit non-zero").waitFor()
     await page.getByText("Assertion Failed", { exact: true }).waitFor()
+
+    // The timeline puts the step's attempt and the scenario's requests on one clock. The seeded
+    // project has no HTTP target, so the test saves the requests file itself.
+    writeFileSync(
+      join(done.lastSummary?.artifacts ?? "", "02-failing", "http-exchanges.json"),
+      JSON.stringify([
+        { step: "Exit non-zero", startedAt: new Date().toISOString(), durationMs: 3, request: { method: "GET", url: "http://api.local/health" }, response: { status: 503 } },
+      ]),
+    )
+    await page.getByRole("button", { name: "Show Timeline" }).click()
+    const timeline = page.getByRole("list", { name: "Failure timeline" })
+    await timeline.getByText("1. Exit non-zero").waitFor()
+    await timeline.getByText("GET /health").waitFor()
+    await timeline.getByText("503 · Exit non-zero").waitFor()
   })
 
   it("marks a step that passed on retry as recovered and still passes the run", async () => {
