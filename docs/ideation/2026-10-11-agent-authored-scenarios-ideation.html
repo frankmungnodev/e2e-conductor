@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideation: Agent-Authored Scenarios</title>
+<style>
+  :root {
+    --bg: #1e1e1e; --panel: #252526; --strip: #1f1f1f; --border: #3c3c3c; --border-soft: #2d2d2d;
+    --fg: #cccccc; --fg-bright: #ffffff; --fg-muted: #9a9a9a;
+    --primary: #007acc; --primary-text: #75beff; --primary-soft: rgba(0,122,204,0.15);
+    --success: #4ec9b0; --success-bg: #142a22; --success-border: #1f503e;
+    --warning: #dcdcaa; --warning-bg: #302611; --warning-border: #59471d;
+    --error: #f14c4c; --error-bg: #321618; --error-border: #632226;
+    --info: #75beff; --info-bg: #162a3f; --info-border: #244970;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--sans); }
+  main { max-width: 900px; margin-inline: auto; padding: 32px 16px 48px; }
+  p, li, dd { max-width: 74ch; }
+  h1 { color: var(--fg-bright); font-size: 1.6rem; line-height: 1.25; margin: 0 0 8px; }
+  h2 { color: var(--fg-bright); font-size: 1.3rem; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { color: var(--fg-bright); font-size: 1.1rem; margin: 0 0 10px; }
+  h4 { color: var(--fg-bright); font-size: 0.95rem; margin: 16px 0 6px; }
+  strong { color: inherit; }
+  a { color: var(--primary-text); }
+  code { font-family: var(--mono); font-size: 0.86em; background: #2b2b2b; padding: 1px 5px; border-radius: 3px; color: #d7ba7d; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary-text); margin-bottom: 4px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0 0; padding: 0; font-size: 13px; color: var(--fg-muted); }
+  .meta dt { display: inline; color: var(--fg-muted); }
+  .meta dd { display: inline; margin: 0 0 0 4px; color: var(--fg); }
+  .meta div { white-space: nowrap; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 20px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 1.4rem; color: var(--fg-bright); }
+  .stat span { font-size: 12px; color: var(--fg-muted); }
+  .callout { background: var(--info-bg); border: 1px solid var(--info-border); border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
+  .callout .eyebrow { color: var(--info); }
+  .callout p { margin: 6px 0; color: #d6e8f7; }
+  .jump { columns: 2; column-gap: 24px; padding-left: 20px; font-size: 14px; }
+  @media (max-width: 640px) { .jump { columns: 1; } }
+  article.idea { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin: 18px 0; }
+  .idea-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); background: #2b2b2b; color: var(--fg); }
+  .chip.id { background: var(--primary-soft); border-color: var(--info-border); color: var(--primary-text); font-family: var(--mono); }
+  .chip.hi { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
+  .chip.mid { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning); }
+  .chip.lo { background: var(--error-bg); border-color: var(--error-border); color: #ff9b9b; }
+  dl.fields { margin: 0; }
+  dl.fields dt { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-muted); margin-top: 12px; }
+  dl.fields dd { margin: 3px 0 0; }
+  dl.fields dd ul { margin: 4px 0; padding-left: 20px; }
+  figure { margin: 14px 0 4px; }
+  figure svg { width: 100%; height: auto; display: block; background: #1a1a1a; border: 1px solid var(--border-soft); border-radius: 6px; }
+  figcaption { font-size: 12px; color: var(--fg-muted); margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); }
+  th { color: var(--fg-bright); font-weight: 600; background: var(--strip); }
+  td:first-child { font-family: var(--mono); color: var(--fg-muted); white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+  ul.sources { padding-left: 20px; font-size: 14px; }
+  footer.composition-signal { margin-top: 48px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--fg-muted); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="eyebrow">Ideation</div>
+  <h1>Ideation: Coding Agents Write the Scenarios, You Run Them</h1>
+  <dl class="meta">
+    <div><dt>Date</dt><dd><time datetime="2026-10-11">2026-10-11</time></dd></div>
+    <div><dt>Topic</dt><dd><code>agent-authored-scenarios</code></dd></div>
+    <div><dt>Mode</dt><dd>repo-grounded</dd></div>
+  </dl>
+  <dl class="meta">
+    <div style="white-space:normal"><dt>Focus</dt><dd>A coding agent takes a plain-language request for a test and writes the scenarios, steps and actions. The person runs them from the UI. A CLI path comes after the UI path works.</dd></div>
+  </dl>
+</header>
+
+<div class="stats">
+  <div class="stat"><b>47</b><span>raw ideas from 6 frames</span></div>
+  <div class="stat"><b>22</b><span>after dedupe, plus 3 combinations</span></div>
+  <div class="stat"><b>6</b><span>survivors</span></div>
+  <div class="stat"><b>5</b><span>axes, all covered</span></div>
+</div>
+
+<section id="grounding-context">
+<h2>Grounding Context</h2>
+<h3>Codebase Context</h3>
+<ul>
+  <li>Scenarios live only in SQLite (<code>scenarios</code>, <code>scenario_steps</code> with an <code>actions</code> JSON column, <code>step_presets</code>, <code>step_groups</code>). JSON files are written by <code>e2e export</code> and read back only by an explicit <code>e2e import</code> (<code>docs/domain/scenarios.md:133-138</code>).</li>
+  <li>An agent today has two ways in: <code>POST /api/scenarios</code>, or a hand-written JSON file plus <code>e2e import</code>. No MCP server, no agent-facing docs, and <code>AGENTS.md</code> holds only rules for developing this repo.</li>
+  <li><code>POST /api/scenarios</code> saves the scenario before it reports validity: it calls <code>saveScenario</code>, then returns <code>{ ok: true, isValid, errors }</code> (<code>src/server/routes/scenarios.ts:57-63</code>). An agent that reads <code>ok: true</code> has stored an invalid scenario.</li>
+  <li>Validation has two layers that disagree. <code>checkSteps</code> rejects <code>run</code>, <code>flow</code> and <code>params</code> (<code>src/scenario.ts:24-28</code>), while <code>schema/v1/scenario.schema.json:92-99</code> still declares them valid. Unknown actions fail only at run time (<code>src/drivers/web.ts:387</code>). Errors are plain strings; there is no <code>--json</code> output.</li>
+  <li>The action vocabulary lives in per-driver <code>switch</code> statements with aliases (<code>tap</code>, <code>tapon</code>, <code>click</code> are one action, <code>src/drivers/mobile.ts:81-83</code>) and in prose in <code>docs/domain/scenarios.md</code>. Valid target and fixture names come from the project config, so no static doc can list them.</li>
+  <li>The runner already captures what an agent would need to see the app, but only on failure: <code>mobile-ui.xml</code> (uiautomator dump), <code>mobile-logcat.txt</code>, <code>http-exchanges.json</code>, and a Playwright trace that is thrown away when a scenario passes (<code>src/drivers/web.ts:402</code>).</li>
+  <li>Each failed step attempt is labeled <code>Environment down</code>, <code>Assertion failed</code> or <code>Step error</code> (<code>src/assertions.ts</code>). <code>--strict</code> fails a run that passed only on retries; <code>--repeat</code> exists. A run with a scenario fixed during Pause on Failure ends <code>FAILED</code>, "so a green run always means nobody stepped in" (<code>docs/domain/runs.md:224</code>).</li>
+  <li>Scenarios have no source, author or review-status column. Scenario versions are fingerprints of what runs, with name, description and ids left out (<code>src/scenario-version.ts</code>).</li>
+  <li>The environment comes from <code>E2E_ENV</code> when set (<code>src/config.ts:159</code>), which any agent shell can set. The consumer app (zomilabu) dev build reports to production Firebase, so the project rule is never to test against production.</li>
+  <li>Real usage is low so far (as of 2026-10-03), so ideas that need lots of run history start with little data.</li>
+</ul>
+<h3>External Context</h3>
+<ul>
+  <li><strong>Playwright Test Agents</strong> (v1.56 and later): a planner explores the live app and writes a plan, a generator writes the tests, and a healer replays failures and patches locators. The healer marks a test <code>test.fixme</code> when it judges the product broken. <code>npx playwright init-agents --loop=claude|codex|vscode|opencode</code> writes agent definitions into the repo.</li>
+  <li><strong>Maestro MCP</strong>: the agent reads the live view hierarchy and screenshots, writes flow YAML, runs it on an emulator and fixes it until it passes. No AI runs at test time.</li>
+  <li>The tools that work have settled on one pattern: AI writes the test, the test runs deterministically, and AI comes back only to repair a failure. Tools that call a model at run time (Midscene, appium-mcp) cost more per run and give less repeatable results.</li>
+  <li><strong>QA Wolf</strong> has a person review every AI-written test before it ships. Most products in this space are cloud services or tied to one framework. A local, web-plus-mobile orchestrator with a run UI over agent-written scenarios has little direct competition.</li>
+</ul>
+</section>
+
+<section id="topic-axes">
+<h2>Topic Axes</h2>
+<ol>
+  <li>Authoring vocabulary: what an agent must know to write a valid scenario</li>
+  <li>Write path: how an agent's scenario lands in the project</li>
+  <li>Validate and self-correct loop: the feedback an agent gets before and after a run</li>
+  <li>Seeing the real app: live ground truth for selectors, texts and API shapes</li>
+  <li>Human review and run: how the person checks and runs agent output in the UI</li>
+</ol>
+</section>
+
+<section id="ranked-ideas">
+<h2>Ranked Ideas</h2>
+<ul class="jump">
+  <li><a href="#idea-1">1. Agent kit generated from one action registry</a></li>
+  <li><a href="#idea-2">2. A strict door for agents, with errors that carry the fix</a></li>
+  <li><a href="#idea-3">3. Agent scenarios arrive as drafts with a plain-language readback</a></li>
+  <li><a href="#idea-4">4. Probe the dev app by target name</a></li>
+  <li><a href="#idea-5">5. The tool checks the agent's "done"</a></li>
+  <li><a href="#idea-6">6. Repair packet with label-gated healing</a></li>
+</ul>
+
+<div class="callout">
+  <div class="eyebrow">How they fit</div>
+  <p>Ideas 1, 2 and 3 together are the smallest version of the requested flow. The agent reads the kit, checks its scenario through the strict door until it is clean, and saves it as a draft. The person opens the draft in the UI and approves and runs it. Ideas 4 to 6 raise the share of agent scenarios that pass on the first run, and handle the ones that don't.</p>
+</div>
+
+<article class="idea" id="idea-1">
+  <div class="idea-head"><span class="chip id">1</span><h3>Agent kit generated from one action registry</h3></div>
+  <div class="chips"><span class="chip">Authoring vocabulary</span><span class="chip hi">Confidence 85%</span><span class="chip mid">Complexity Medium</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>Define the action vocabulary once, as data: per driver, its actions and aliases, required and allowed fields, assertion operators, placeholder namespaces (<code>${ctx.*}</code>, <code>${env.*}</code>, <code>${run.*}</code>) and removed fields. Generate the JSON Schema, the <code>checkSteps</code> allow-lists, the drivers' unknown-action check and the docs from it. Then serve a project-specific copy, as <code>GET /api/vocab</code> and a generated section for the consumer repo's <code>AGENTS.md</code> (or a skill file). It lists that project's real target names, fixture names and env variable names as enums, its presets and step groups, two or three example scenarios, the invariants (targets by name, no production), and how to validate and save. Aliases keep working at run time but are flagged as non-canonical.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> the schema and the checker already disagree. <code>src/scenario.ts:24-28</code> rejects <code>run</code>/<code>flow</code>/<code>params</code>, and <code>schema/v1/scenario.schema.json:92-99</code> still allows them. An agent that reads the schema is told invalid fields are valid.</li>
+      <li><code>direct:</code> <code>src/drivers/web.ts:387</code> throws "unknown web action" only at run time; <code>src/drivers/mobile.ts:81-83</code> accepts three spellings of one action.</li>
+      <li><code>direct:</code> valid targets and fixtures come from the project config (<code>src/scenario.ts:46-49</code>), so they cannot be in generic docs.</li>
+      <li><code>external:</code> <code>playwright init-agents</code> writes agent definitions into the user's repo. ASD-STE100 uses one approved word per meaning for readers who act on text against real hardware.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>Every later step depends on this: an agent can't validate, heal or be reviewed well if it starts from a vocabulary that is spread over four places and already contradicts itself. Project-specific enums turn the most likely agent mistake, an invented target name or a raw URL, into an editor-time error in any tool that reads JSON Schema.</dd>
+    <dt>Downsides</dt>
+    <dd>Refactors validation across <code>src/scenario.ts</code>, <code>src/schema.ts</code>, the schema file and three drivers. Removing <code>run</code>/<code>flow</code>/<code>params</code> from the schema is a tightening, so the schema versioning rule (<code>schema/README.md</code>) may call for a v2. Whether agents get the kit as a file, an endpoint or an MCP tool is still open.</dd>
+  </dl>
+  <figure>
+    <svg viewBox="0 0 760 210" role="img" aria-labelledby="f1t">
+      <title id="f1t">Today four hand-kept copies of the vocabulary; proposed: one registry feeding all of them</title>
+      <text x="20" y="26" fill="#9a9a9a" font-size="13">Today</text>
+      <g font-size="12" fill="#cccccc">
+        <rect x="20" y="40" width="150" height="34" rx="5" fill="#252526" stroke="#3c3c3c"/><text x="34" y="62">JSON Schema</text>
+        <rect x="20" y="82" width="150" height="34" rx="5" fill="#252526" stroke="#3c3c3c"/><text x="34" y="104">checkSteps lists</text>
+        <rect x="20" y="124" width="150" height="34" rx="5" fill="#252526" stroke="#3c3c3c"/><text x="34" y="146">driver switches</text>
+        <rect x="20" y="166" width="150" height="34" rx="5" fill="#252526" stroke="#3c3c3c"/><text x="34" y="188">prose docs</text>
+      </g>
+      <text x="190" y="110" fill="#f14c4c" font-size="12">already disagree</text>
+      <line x1="320" y1="20" x2="320" y2="200" stroke="#3c3c3c"/>
+      <text x="345" y="26" fill="#9a9a9a" font-size="13">Proposed</text>
+      <rect x="345" y="100" width="130" height="40" rx="6" fill="rgba(0,122,204,0.15)" stroke="#244970"/>
+      <text x="360" y="125" fill="#75beff" font-size="13">action registry</text>
+      <g stroke="#75beff" stroke-width="1.2" fill="none">
+        <line x1="475" y1="120" x2="560" y2="52"/><line x1="475" y1="120" x2="560" y2="92"/>
+        <line x1="475" y1="120" x2="560" y2="132"/><line x1="475" y1="120" x2="560" y2="178"/>
+      </g>
+      <g font-size="12" fill="#cccccc">
+        <rect x="560" y="36" width="185" height="30" rx="5" fill="#252526" stroke="#3c3c3c"/><text x="572" y="56">schema + checkSteps</text>
+        <rect x="560" y="76" width="185" height="30" rx="5" fill="#252526" stroke="#3c3c3c"/><text x="572" y="96">driver dispatch check</text>
+        <rect x="560" y="116" width="185" height="30" rx="5" fill="#252526" stroke="#3c3c3c"/><text x="572" y="136">docs</text>
+        <rect x="560" y="162" width="185" height="30" rx="5" fill="#142a22" stroke="#1f503e"/><text x="572" y="182" fill="#4ec9b0">project agent kit</text>
+      </g>
+    </svg>
+    <figcaption>One source, so a new action is runnable, checked, documented and visible to agents at the same time.</figcaption>
+  </figure>
+</article>
+
+<article class="idea" id="idea-2">
+  <div class="idea-head"><span class="chip id">2</span><h3>A strict door for agents, with errors that carry the fix</h3></div>
+  <div class="chips"><span class="chip">Write path</span><span class="chip hi">Confidence 85%</span><span class="chip hi">Complexity Low-Medium</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>Add <code>POST /api/scenarios/validate</code>, which writes nothing. It runs the schema, <code>checkSteps</code>, target and fixture lookup against the live config, and a check that each <code>${ctx.*}</code> is extracted before it is used. Agent writes use a strict mode that refuses anything invalid, while the builder keeps its lenient 600 ms auto-save for half-typed steps. Errors come back as objects: <code>{ code, path: "/steps/3/actions/0/action", value, allowed, hint, fix }</code>. <code>fix</code> is a JSON Patch when the repair is known: replace a removed field with <code>actions</code>, use the nearest real action for an alias that doesn't exist, use the nearest configured target for an unknown one. The UI and, later, <code>e2e check --json</code> show the same objects.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>src/server/routes/scenarios.ts:57-63</code> calls <code>saveScenario</code>, then returns <code>ok: true, isValid, errors</code>. Invalid agent output is stored today.</li>
+      <li><code>direct:</code> errors are strings built as <code>steps[${index}] "${step.name}"</code> (<code>src/scenario.ts:52-66</code>), and <code>loadScenarios</code> throws one "Invalid scenarios" blob (<code>src/scenario.ts:131-152</code>). <code>REMOVED_FIELDS</code> already stores the remedy text.</li>
+      <li><code>direct:</code> the CLI import already refuses invalid files (<code>src/cli.ts:153</code>), and the hold route already validates a single step (<code>src/server/routes/hold.ts</code>). The strict path exists for files and for retries, not for HTTP saves.</li>
+      <li><code>external:</code> compiler fix-it suggestions (clang, rustc <code>help:</code>); Maestro MCP's write, run, fix loop.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>Checking its own work is where an agent spends its retries. Without writing anything, it can check a candidate twenty times and leave no rows behind. With a patch attached, most fixes take no extra round trip. The same diagnostics let the builder highlight the bad step for a person.</dd>
+    <dt>Downsides</dt>
+    <dd>Two save behaviors (lenient for the builder, strict for agents) need a clear rule for which caller gets which. Fix suggestions need a curated list of error codes, which grows over time.</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-3">
+  <div class="idea-head"><span class="chip id">3</span><h3>Agent scenarios arrive as drafts with a plain-language readback</h3></div>
+  <div class="chips"><span class="chip">Human review and run</span><span class="chip mid">Confidence 70%</span><span class="chip mid">Complexity Medium</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>A scenario an agent writes is saved as a <strong>Draft</strong>, with its source (agent name) and the prompt that produced it. The UI shows drafts in their own group, each with a review card. The card shows the original prompt next to a readback the code builds from the steps, not the agent's own summary ("Open the app fresh on Pixel. Tap 'Sign in'. Type the test email into 'Email'. Check that 'Welcome' appears."). It also lists the targets and fixtures the draft touches. One button, <strong>Approve and Run</strong>, runs it headed with Pause on Failure. An agent's revision of an approved scenario lands as a draft next to the live one, so a bad rewrite never replaces a working scenario. Once the step screenshots from the verification run (idea 5) exist, the card can show them per step.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> the scenario row has no source or review column, and no provenance concept exists (<code>src/db/scenarios.ts:168</code>).</li>
+      <li><code>direct:</code> <code>docs/domain/runs.md:224</code>: a run with a fixed scenario ends <code>FAILED</code> "so a green run always means nobody stepped in". The project already protects what green means. A draft state protects it from tests nobody has looked at.</li>
+      <li><code>direct:</code> <code>DESIGN.md</code> forbids runtime internals such as <code>ctx.</code> and <code>json_match</code> in UI labels. The JSON tab shows exactly those, so it is a poor review surface.</li>
+      <li><code>direct:</code> versions are already fingerprinted (<code>src/scenario-version.ts</code>), so a draft can be one more version row with a pointer.</li>
+      <li><code>external:</code> QA Wolf human review of every AI test; ICAO readback, where the listener compares what was said with what was meant.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>The requested flow puts the UI at the point where the person takes over agent output. Without a draft marker, agent output looks the same as vetted scenarios and runs with one click, including against an environment that reports to production. A readback built from the steps shows what will actually run, so a wrong target or a missing check stands out next to the prompt.</dd>
+    <dt>Downsides</dt>
+    <dd>Schema change (a status, source and prompt on scenarios, or a draft version table) plus a new UI surface. The fresh-context review rated the full proposal and diff model as heavy. A cheaper first cut is a <code>draft</code> flag, the stored prompt and the readback, with no diff view. Domain docs (<code>scenarios.md</code>, <code>runs.md</code>) must change in the same commit.</dd>
+  </dl>
+  <figure>
+    <svg viewBox="0 0 760 120" role="img" aria-labelledby="f3t">
+      <title id="f3t">Agent writes a draft; person reviews readback; approve and run promotes it</title>
+      <g font-size="12">
+        <rect x="10" y="40" width="130" height="40" rx="20" fill="#252526" stroke="#3c3c3c"/><text x="30" y="65" fill="#cccccc">agent prompt</text>
+        <rect x="190" y="40" width="130" height="40" rx="5" fill="#302611" stroke="#59471d"/><text x="232" y="65" fill="#dcdcaa">Draft</text>
+        <rect x="370" y="40" width="150" height="40" rx="5" fill="#252526" stroke="#3c3c3c"/><text x="384" y="65" fill="#cccccc">review card</text>
+        <rect x="570" y="40" width="170" height="40" rx="5" fill="#142a22" stroke="#1f503e"/><text x="586" y="65" fill="#4ec9b0">approved scenario</text>
+      </g>
+      <g stroke="#9a9a9a" stroke-width="1.2" fill="none">
+        <line x1="140" y1="60" x2="186" y2="60"/><line x1="320" y1="60" x2="366" y2="60"/><line x1="520" y1="60" x2="566" y2="60"/>
+      </g>
+      <g font-size="11" fill="#9a9a9a">
+        <text x="144" y="34">strict save</text>
+        <text x="325" y="34">readback</text>
+        <text x="505" y="100">Approve and Run</text>
+      </g>
+    </svg>
+    <figcaption>The draft is a separate state: an agent's write never makes a scenario runnable as trusted by itself.</figcaption>
+  </figure>
+</article>
+
+<article class="idea" id="idea-4">
+  <div class="idea-head"><span class="chip id">4</span><h3>Probe the dev app by target name</h3></div>
+  <div class="chips"><span class="chip">Seeing the real app</span><span class="chip mid">Confidence 70%</span><span class="chip mid">Complexity Medium</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>Add a probe endpoint per target, restricted to environments that allow agents. Web returns an accessibility snapshot with candidate selectors. Android returns the uiautomator tree reduced to selectors the mobile driver accepts, ranked <code>id=</code> first, then <code>text=</code>, then relative <code>below</code>/<code>above</code>, with how many elements each one matches. HTTP returns a redacted recent exchange for the endpoint. The output is already in the scenario's selector grammar, so the agent copies a selector instead of guessing it. It can also name an element ("the button labelled Sign in") and get the most stable selector for it back.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>mobile-ui.xml</code> is written only on failure (<code>src/drivers/mobile.ts:189-206</code>), and the web trace is kept only on failure (<code>src/drivers/web.ts:402</code>). The capture code exists but runs only after something breaks.</li>
+      <li><code>direct:</code> the mobile selector grammar is <code>id=</code>, <code>text=</code> or a bare full-match regex (<code>src/drivers/mobile.ts:213-219</code>), and <code>src/drivers/adb-flow.ts</code> already parses <code>resource-id</code> and <code>content-desc</code> and supports relative selectors.</li>
+      <li><code>external:</code> Maestro MCP reads the live hierarchy before writing flows; the Playwright planner explores the live app first.</li>
+      <li><code>reasoned:</code> a full-match text regex is easy for an agent to get wrong (case, punctuation, trailing space). Code that reads the dump and picks resource ids first produces the selector a careful person would pick, every time.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>A guessed selector is the most common reason an agent-written e2e step fails on its first run. This turns the agent from guessing into reading, using machinery the runner already has.</dd>
+    <dt>Downsides</dt>
+    <dd>Needs a running app or device at authoring time. Android probing inherits the device quirks the driver already works around (uiautomator hangs, Transsion keyboards). Must be blocked on production environments (see idea 5).</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-5">
+  <div class="idea-head"><span class="chip id">5</span><h3>The tool checks the agent's "done"</h3></div>
+  <div class="chips"><span class="chip">Validate and self-correct loop</span><span class="chip hi">Confidence 75%</span><span class="chip hi">Complexity Low</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>An agent finishes when the tool, not the agent, says the scenario passed cleanly: N repeats under <code>--strict</code> with zero recovered steps, on an environment marked <code>agent_runs: allowed</code>. The agent hands over the run id, and the draft card shows "Verified 3/3 strict". Agent-started runs and probes are refused on any environment without the flag, whatever <code>E2E_ENV</code> says. The validator also rejects raw URLs, ports and device serials in steps.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>src/run-result.ts</code> already turns "passed only on retries" into a failure under strict, and <code>src/runner.ts</code> counts recovered steps; <code>--repeat</code> exists (<code>src/cli.ts</code>).</li>
+      <li><code>direct:</code> <code>src/config.ts:159</code> picks the environment from <code>process.env.E2E_ENV</code>, which any agent shell can set.</li>
+      <li><code>direct:</code> domain invariant: steps name targets, never raw URLs, ports or serials (<code>docs/domain/README.md</code>). Project rule: the zomilabu dev app reports to production Firebase.</li>
+      <li><code>reasoned:</code> an agent told to "run it to check" runs against whatever environment resolves, and a single green that needed a retry is a likely flake. Both guards have to live in the tool, because a line in a prompt is not enforcement.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>Flaky scenarios get caught before the person ever sees them, using the project's own definition of a clean pass. The one environment flag also makes every other agent feature (probe, verification runs, repair) safe to turn on.</dd>
+    <dt>Downsides</dt>
+    <dd>Repeat runs on Android are slow (minutes per scenario). The CLI run path for agents arrives before the UI path the user prefers, though <code>POST /api/run</code> could take the same options. Needs an <code>environments.md</code> update.</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-6">
+  <div class="idea-head"><span class="chip id">6</span><h3>Repair packet with label-gated healing</h3></div>
+  <div class="chips"><span class="chip">Validate and self-correct loop</span><span class="chip mid">Confidence 60%</span><span class="chip mid">Complexity Medium-High</span></div>
+  <dl class="fields">
+    <dt>Description</dt>
+    <dd>For a failed step, one endpoint returns everything an agent needs to fix it: the step as stored, its failure label, the nearby failure-timeline entries (requests, device log lines), artifact paths, and a short list of computed candidate elements from <code>mobile-ui.xml</code> or the DOM that best match the missing selector. The label decides what the agent may change. On <code>Step error</code> it may change selectors, waits and timeouts. On <code>Assertion failed</code>, the assertions and extractions are locked, and any patch that changes them is marked "changes what this test checks" for the person to decide. On <code>Environment down</code> it changes nothing. The fix comes back as a draft (idea 3). Reports offers "Ask agent to repair" only on <code>Step error</code>.</dd>
+    <dt>Basis</dt>
+    <dd><ul>
+      <li><code>direct:</code> <code>src/assertions.ts:7-19</code> separates "Assertion failed" (the step ran, the result was wrong) from "Step error", labelling "by what happened, not by who is to blame"; the label is stored per attempt (<code>step_runs.failure_label</code>).</li>
+      <li><code>direct:</code> the failure timeline "is built when asked for, from what is already stored" (<code>docs/domain/runs.md:129</code>); <code>summary.json</code> already carries <code>failures[].label</code>.</li>
+      <li><code>external:</code> Playwright's healer patches locators but marks a test <code>test.fixme</code> when the product is broken. Here the same rule is enforced by code, not left to the agent.</li>
+      <li><code>reasoned:</code> the usual way an AI healer goes wrong is turning a red test green by weakening its check until it matches the bug. This project already records which kind of failure happened, so the server can tell a locator fix from a loosened check.</li>
+    </ul></dd>
+    <dt>Rationale</dt>
+    <dd>Turns a red row into a proposed fix without letting the agent hide a real regression. The person reviews only the patches that change what is being tested.</dd>
+    <dt>Downsides</dt>
+    <dd>Has the most moving parts of the six, and is most useful once ideas 2-4 exist. Candidate matching for web needs the DOM snapshot that is currently discarded on pass. With low real usage, few failures exist yet to tune it on.</dd>
+  </dl>
+</article>
+</section>
+
+<section id="rejection-summary">
+<h2>Rejection Summary</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>#</th><th>Idea</th><th>Reason Rejected</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Base-version write guard and live scenario-change event</td><td>Sound, but it only matters once an agent and a person edit the same scenario at once. Drafts (idea 3) avoid most of that. Better as a follow-up.</td></tr>
+    <tr><td>2</td><td>Watched scenario folder as the agent's front door</td><td>Conflicts with SQLite as the source of truth: a watched import is an implicit "file wins" that can silently overwrite a builder draft. Strict HTTP plus a kit covers the same need.</td></tr>
+    <tr><td>3</td><td>"Describe a test" box in the UI runs the coding agent headless</td><td>Spawning <code>claude -p</code> / <code>codex exec</code> from the server is a large security and operations surface. The most literal reading of the request, but it belongs in brainstorming once ideas 1-3 exist.</td></tr>
+    <tr><td>4</td><td>Live authoring through the hold (step-hold mode)</td><td>The hold exists only after a final-attempt failure, and a fixed scenario makes the run <code>FAILED</code>. Extending it changes run semantics. Idea 4 gives the agent the live screen with less risk.</td></tr>
+    <tr><td>5</td><td>Assertions first, steps filled from a recorded pass</td><td>No recording mechanism exists, so the cost is large and the basis is weak.</td></tr>
+    <tr><td>6</td><td>Screen atlas harvested from passing runs</td><td>Usage is low, so there is little to harvest, and traces are discarded on pass. Revisit when run volume grows.</td></tr>
+    <tr><td>7</td><td>Style sheet learned from Pause on Failure fixes</td><td>Needs a history of corrections that doesn't exist yet. Revisit after idea 6.</td></tr>
+    <tr><td>8</td><td>Per-step intent sentence written by the agent</td><td>Agent-written prose can be wrong about what the step does. A readback the code builds from the steps (idea 3) is more trustworthy.</td></tr>
+    <tr><td>9</td><td>Review only the delta against presets and step groups</td><td>Useful only at high agent volume. Below the bar for now.</td></tr>
+    <tr><td>10</td><td>Watch-me-build combination (live hold plus selector resolving plus gated healing)</td><td>Depends on rejected idea 4. Its useful parts are in survivors 4 and 6.</td></tr>
+    <tr><td>11</td><td>Filmstrip review of the agent's verification run</td><td>Merged into idea 3 as a later addition to the review card.</td></tr>
+    <tr><td>12</td><td>The agent never writes a selector (resolve described elements)</td><td>Merged into idea 4.</td></tr>
+    <tr><td>13</td><td>Generated agent kit, structured diagnostics, environment guard, N strict greens</td><td>Each merged into a survivor (ideas 1, 2 and 5). Listed so the merge is visible.</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<section id="sources">
+<h2>Sources</h2>
+<ul class="sources">
+  <li><a href="https://github.com/frankmungnodev/e2e-orchestrator/blob/development/src/server/routes/scenarios.ts">src/server/routes/scenarios.ts</a>: save before validity</li>
+  <li><a href="https://github.com/frankmungnodev/e2e-orchestrator/blob/development/src/scenario.ts">src/scenario.ts</a>: checkSteps, REMOVED_FIELDS, string errors</li>
+  <li><a href="https://github.com/frankmungnodev/e2e-orchestrator/blob/development/schema/v1/scenario.schema.json">schema/v1/scenario.schema.json</a>: run, flow, params still declared</li>
+  <li><a href="https://github.com/frankmungnodev/e2e-orchestrator/blob/development/src/assertions.ts">src/assertions.ts</a>: failure label classes</li>
+  <li><a href="https://github.com/frankmungnodev/e2e-orchestrator/blob/development/docs/domain/runs.md">docs/domain/runs.md</a>: fixed during run, failure timeline, artifacts</li>
+  <li><a href="https://github.com/frankmungnodev/e2e-orchestrator/blob/development/src/config.ts">src/config.ts</a>: E2E_ENV selection</li>
+  <li><a href="https://playwright.dev/docs/test-agents">playwright.dev/docs/test-agents</a>: planner, generator, healer, init-agents</li>
+  <li><a href="https://maestro.dev/mcp">maestro.dev/mcp</a>: Maestro MCP</li>
+  <li><a href="https://maestro.dev/blog/mobile-ui-testing-with-coding-agents">maestro.dev/blog/mobile-ui-testing-with-coding-agents</a>: Maestro with coding agents</li>
+  <li><a href="https://www.ranger.net/post/ranger-vs-qa-wolf">ranger.net: Ranger vs QA Wolf</a>: human review model (vendor comparison)</li>
+</ul>
+</section>
+
+<footer class="composition-signal">Composed <time datetime="2026-10-11T05:26Z">2026-10-11T05:26Z</time> by ce-ideate from the user prompt about agent-authored scenarios.</footer>
+</main>
+</body>
+</html>
