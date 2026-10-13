@@ -34,7 +34,7 @@ function project(): string {
 }
 
 const read = (dir: string, path: string) => readFileSync(join(dir, path), "utf8")
-const kit = (dir: string) => read(dir, ".e2e/agent/kit.md")
+const kit = (dir: string) => read(dir, "e2e-suite/agent/kit.md")
 const blocks = (text: string) => text.split("<!-- e2e-kit:start -->").length - 1
 
 describe("e2e kit", () => {
@@ -50,7 +50,7 @@ describe("e2e kit", () => {
   it("writes env variable names but no env or fixture command values", () => {
     const dir = project()
     writeAgentKit(dir)
-    for (const file of [".e2e/agent/kit.md", ".e2e/agent/vocabulary.json"]) {
+    for (const file of ["e2e-suite/agent/kit.md", "e2e-suite/agent/vocabulary.json"]) {
       assert.ok(!read(dir, file).includes(ENV_SECRET), `${file} has no env value`)
       assert.ok(!read(dir, file).includes(FIXTURE_SECRET), `${file} has no fixture command`)
     }
@@ -87,7 +87,7 @@ describe("e2e kit", () => {
     assert.equal(existsSync(join(dir, "CLAUDE.md")), false)
     assert.deepEqual(report.instructionFiles, [])
     assert.match(renderKitReport(report, dir), /No AGENTS\.md or CLAUDE\.md in \., so none was written/)
-    assert.ok(existsSync(join(dir, ".e2e/agent/kit.md")))
+    assert.ok(existsSync(join(dir, "e2e-suite/agent/kit.md")))
   })
 
   it("appends the block once to an AGENTS.md without markers, and a second run does not duplicate it", () => {
@@ -97,7 +97,7 @@ describe("e2e kit", () => {
     const first = read(dir, "AGENTS.md")
     assert.equal(blocks(first), 1)
     assert.ok(first.startsWith("# Agents\n\n<!-- e2e-kit:start -->"))
-    assert.ok(first.includes(".e2e/agent/kit.md"))
+    assert.ok(first.includes("e2e-suite/agent/kit.md"))
 
     assert.equal(writeAgentKit(dir).instructionFiles[0].outcome, "unchanged")
     assert.equal(read(dir, "AGENTS.md"), first)
@@ -139,14 +139,14 @@ describe("e2e kit", () => {
       assert.throws(() => writeAgentKit(dir), /AGENTS\.md has unmatched/)
 
       assert.equal(read(dir, "AGENTS.md"), text)
-      assert.equal(existsSync(join(dir, ".e2e/agent/kit.md")), false)
+      assert.equal(existsSync(join(dir, "e2e-suite/agent/kit.md")), false)
     })
   }
 
   it("lists every action and problem code of the vocabulary in vocabulary.json, without no-effect fields", () => {
     const dir = project()
     writeAgentKit(dir)
-    const vocabulary = JSON.parse(read(dir, ".e2e/agent/vocabulary.json"))
+    const vocabulary = JSON.parse(read(dir, "e2e-suite/agent/vocabulary.json"))
     for (const [driver, specs] of Object.entries(ACTIONS)) {
       const listed = vocabulary.drivers[driver].actions
       assert.deepEqual(

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { type LoadedConfig, resolveFromConfig } from "./config.ts"
+import { SUITE_PRESETS } from "./project-layout.ts"
 import { getOrSeedPresets, getOrSeedScenarios } from "./scenario.ts"
 import { sortKeys } from "./scenario-version.ts"
 
@@ -19,7 +20,7 @@ type PlannedFile = { file: string; content: unknown }
 
 /**
  * Writes every kept scenario and step preset in SQLite to JSON files: scenarios to
- * `<scenarios folder>/<id>.json`, presets to `<config folder>/presets/<id>.json`. Existing files with
+ * `<scenarios folder>/<id>.json`, presets to `<config folder>/e2e-suite/presets/<id>.json`. Existing files with
  * the same id are overwritten. Files for ids no longer in the database are left alone. Drafts and draft
  * revisions are never written: they live only in SQLite until the person keeps them.
  */
@@ -45,7 +46,7 @@ export function checkExport(config: LoadedConfig): ExportDrift {
   }
   drift.stale.push(
     ...staleFiles(resolveFromConfig(config, config.scenarios), scenarios),
-    ...staleFiles(join(config.configDir, "presets"), presets),
+    ...staleFiles(join(config.configDir, SUITE_PRESETS), presets),
   )
   return drift
 }
@@ -58,7 +59,7 @@ function planExport(config: LoadedConfig): { scenarios: PlannedFile[]; presets: 
   // A database error must surface: the loaders' fallback reads the JSON files, and a check would then
   // compare each file with itself and report no drift.
   const scenariosDir = resolveFromConfig(config, config.scenarios)
-  const presetsDir = join(config.configDir, "presets")
+  const presetsDir = join(config.configDir, SUITE_PRESETS)
   return {
     scenarios: getOrSeedScenarios(config, { throwOnDbError: true, keptOnly: true }).map(({ id, ...content }) => ({ file: join(scenariosDir, `${id}.json`), content })),
     presets: getOrSeedPresets(config, { throwOnDbError: true }).map((preset) => ({ file: join(presetsDir, `${preset.id}.json`), content: preset })),

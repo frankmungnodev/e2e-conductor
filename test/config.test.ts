@@ -46,6 +46,16 @@ describe("loadConfig", () => {
     assert.equal(config.targets.api.driver, "http")
   })
 
+  it("reads scenarios from e2e-suite/scenarios when the environment names no folder", async () => {
+    const projectDir = join(dir, "proj-default-scenarios")
+    const db = openDatabase(join(projectDir, ".e2e", "e2e.db"))
+    saveEnvironment(db, "main", { description: "Development" })
+    db.close()
+
+    const config = await loadConfig(projectDir)
+    assert.equal(resolveFromConfig(config, config.scenarios), join(projectDir, "e2e-suite", "scenarios"))
+  })
+
   it("reads scenarios from a chosen database outside the project, and keeps the project folder", async () => {
     const projectDir = join(dir, "proj-chosen-db")
     const defaultDb = openDatabase(join(projectDir, ".e2e", "e2e.db"))

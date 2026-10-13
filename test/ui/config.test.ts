@@ -98,7 +98,7 @@ describe("Config view database tab", () => {
 
   it("exports scenarios and presets to JSON files", async () => {
     const { url, page, projectDir } = await startUiSession("config-export")
-    const presetFile = join(projectDir, "presets", "print-marker.json")
+    const presetFile = join(projectDir, "e2e-suite", "presets", "print-marker.json")
     assert.equal(existsSync(presetFile), false)
 
     await page.goto(`${url}/?tab=config&sub=database`)

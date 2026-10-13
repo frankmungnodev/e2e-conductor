@@ -20,9 +20,9 @@ Commands:
   list    List scenarios and validate them
   export  Write scenarios and step presets from SQLite to JSON files
   import  Save scenario JSON files into SQLite, replacing changed ones
-  init    Initialize SQLite configuration and starter scenario under .e2e
+  init    Initialize SQLite configuration under .e2e and a starter scenario under e2e-suite
   save    Check agent-written scenario files and store them as drafts (all or nothing)
-  kit     Write the agent kit (.e2e/agent/) and its block in the root AGENTS.md and CLAUDE.md
+  kit     Write the agent kit (e2e-suite/agent/) and its block in the root AGENTS.md and CLAUDE.md
   ui      Start the web GUI dashboard
 
 Options:

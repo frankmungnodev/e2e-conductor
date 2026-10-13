@@ -4,6 +4,7 @@ import type { DatabaseSync } from "node:sqlite"
 import { saveEnvironment } from "./db/environments.ts"
 import { resolveProjectDir } from "./db/paths.ts"
 import { savePlatform } from "./db/platforms.ts"
+import { SUITE_SCENARIOS } from "./project-layout.ts"
 import { scenarioSchemaRef } from "./schema.ts"
 
 export type ComponentType = "api" | "web" | "android"
@@ -144,7 +145,7 @@ export function saveWizardComponentsToDb(
     dev: {
       description: "Local development baseline",
       url: "http://localhost:5173",
-      scenarios: ".e2e/scenarios",
+      scenarios: SUITE_SCENARIOS,
       flows: ".e2e/flows",
       results: ".e2e/results",
       env: { APP_ENV: "dev" },
@@ -158,7 +159,7 @@ export function saveWizardComponentsToDb(
       {
         description: envData.description,
         url: envData.url,
-        scenarios: envData.scenarios || ".e2e/scenarios",
+        scenarios: envData.scenarios || SUITE_SCENARIOS,
         flows: envData.flows || ".e2e/flows",
         results: envData.results || ".e2e/results",
         env: envData.env,
@@ -195,7 +196,7 @@ export function saveWizardComponentsToDb(
 }
 
 /**
- * Scaffolds starter folders and files under .e2e for newly configured components.
+ * Scaffolds starter files under e2e-suite for newly configured components.
  */
 export function scaffoldWizardFiles(
   projectDir: string,
@@ -248,14 +249,14 @@ export function scaffoldWizardFiles(
     }
   }
 
-  // Write smoke scenario under .e2e/scenarios/smoke.json
+  // Write smoke scenario under e2e-suite/scenarios/smoke.json
   const smokeScenario = {
-    $schema: scenarioSchemaRef(join(rootDir, ".e2e", "scenarios")),
+    $schema: scenarioSchemaRef(join(rootDir, SUITE_SCENARIOS)),
     name: "Full Stack Smoke Journey",
     steps: smokeScenarioSteps.length > 0 ? smokeScenarioSteps : [{ name: "initial placeholder", target: "shell", command: "echo ok" }],
   }
 
-  writeFile(".e2e/scenarios/smoke.json", `${JSON.stringify(smokeScenario, null, 2)}\n`)
+  writeFile(`${SUITE_SCENARIOS}/smoke.json`, `${JSON.stringify(smokeScenario, null, 2)}\n`)
 
   return { created, skipped }
 }

@@ -6,6 +6,7 @@ import { type Assert, getScenarios, type Scenario, type Step, saveScenario } fro
 import { getSetting, setSetting } from "./db/settings.ts"
 import { getStepPresets, type StepPreset, saveStepPreset } from "./db/step-presets.ts"
 import { formatProblem, type Problem, problem } from "./problems.ts"
+import { SUITE_PRESETS } from "./project-layout.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 import {
   ACTIONS,
@@ -218,14 +219,14 @@ export function targetsUsed(scenarios: Scenario[]): Set<string> {
 
 /**
  * Loads step presets from the SQLite database. The first time it opens a database, it imports
- * JSON presets from .e2e/presets/*.json whose ids the database does not have yet.
+ * JSON presets from e2e-suite/presets/*.json whose ids the database does not have yet.
  * After that the database is the only source: saves and deletes never touch the JSON files.
  * Falls back to reading directly from the filesystem if the database does not exist, or if it
  * cannot be read unless `throwOnDbError` is set.
  */
 export function getOrSeedPresets(config: LoadedConfig, { throwOnDbError = false } = {}): StepPreset[] {
   const dbPath = config.dbPath
-  const presetsDir = join(config.configDir, "presets")
+  const presetsDir = join(config.configDir, SUITE_PRESETS)
 
   if (existsSync(dbPath)) {
     try {

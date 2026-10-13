@@ -17,13 +17,13 @@ import { tempDir } from "./temp-dir.ts"
 function project(): LoadedConfig {
   const dir = tempDir("export")
   mkdirSync(join(dir, "scenarios"))
-  mkdirSync(join(dir, "presets"))
+  mkdirSync(join(dir, "e2e-suite", "presets"), { recursive: true })
   writeFileSync(
     join(dir, "scenarios", "smoke.json"),
     JSON.stringify({ name: "Smoke", steps: [{ name: "echo", target: "shell", command: "echo hi" }] }),
   )
   writeFileSync(
-    join(dir, "presets", "preset-echo.json"),
+    join(dir, "e2e-suite", "presets", "preset-echo.json"),
     JSON.stringify({ id: "preset-echo", name: "Echo", target: "shell", step: { name: "Echo", target: "shell", command: "echo" } }),
   )
   const config: LoadedConfig = {
@@ -54,6 +54,19 @@ describe("JSON import and export", () => {
     assert.ok(existsSync(join(config.configDir, "scenarios", "smoke.json")))
   })
 
+  it("imports presets from e2e-suite/presets and ignores a presets folder at the project root", () => {
+    const config = project()
+    mkdirSync(join(config.configDir, "presets"))
+    writeFileSync(
+      join(config.configDir, "presets", "preset-old.json"),
+      JSON.stringify({ id: "preset-old", name: "Old", target: "shell", step: { name: "Old", target: "shell", command: "true" } }),
+    )
+    assert.deepEqual(
+      getOrSeedPresets(config).map((p) => p.id),
+      ["preset-echo"],
+    )
+  })
+
   it("imports preset files once, so a deleted preset stays deleted", () => {
     const config = project()
     assert.deepEqual(
@@ -75,7 +88,7 @@ describe("JSON import and export", () => {
 
     const createdFile = join(config.configDir, "scenarios", "created.json")
     assert.deepEqual(result.scenarios, [createdFile, join(config.configDir, "scenarios", "smoke.json")])
-    assert.deepEqual(result.presets, [join(config.configDir, "presets", "preset-echo.json")])
+    assert.deepEqual(result.presets, [join(config.configDir, "e2e-suite", "presets", "preset-echo.json")])
     const written = JSON.parse(readFileSync(createdFile, "utf8"))
     assert.equal(written.id, undefined)
     assert.equal(written.name, "Created")
@@ -107,7 +120,7 @@ describe("JSON import and export", () => {
     assert.deepEqual(drift, {
       missing: [join(scenariosDir, "created.json")],
       changed: [join(scenariosDir, "smoke.json")],
-      stale: [join(config.configDir, "presets", "preset-echo.json")],
+      stale: [join(config.configDir, "e2e-suite", "presets", "preset-echo.json")],
     })
     assert.equal(existsSync(join(scenariosDir, "created.json")), false)
   })

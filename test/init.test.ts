@@ -29,19 +29,20 @@ describe("initProject", () => {
     assert.ok(config.activeEnvironment)
   })
 
-  it("writes a sqlite db and smoke scenario under .e2e that load and validate", async () => {
+  it("writes a sqlite db under .e2e and a smoke scenario under e2e-suite that load and validate", async () => {
     const dir = project()
     const { created, skipped } = initProject(dir)
-    assert.deepEqual(created, [join(dir, ".e2e/e2e.db"), join(dir, ".e2e/scenarios/smoke.json")])
+    assert.deepEqual(created, [join(dir, ".e2e/e2e.db"), join(dir, "e2e-suite/scenarios/smoke.json")])
     assert.deepEqual(skipped, [])
 
     const config = await loadConfig(dir)
+    assert.equal(config.scenarios, "e2e-suite/scenarios")
     assert.deepEqual(
       loadScenarios(config).map((scenario) => scenario.id),
       ["smoke"],
     )
-    const smoke = JSON.parse(readFileSync(join(dir, ".e2e/scenarios/smoke.json"), "utf8"))
-    assert.ok(readFileSync(resolve(dir, ".e2e/scenarios", smoke.$schema), "utf8").includes("urn:e2e-orchestrator:scenario:v1"))
+    const smoke = JSON.parse(readFileSync(join(dir, "e2e-suite/scenarios/smoke.json"), "utf8"))
+    assert.ok(readFileSync(resolve(dir, "e2e-suite/scenarios", smoke.$schema), "utf8").includes("urn:e2e-orchestrator:scenario:v1"))
   })
 
   it("seeds a database that exists but has no environment yet, keeping its scenarios", async () => {
@@ -72,7 +73,7 @@ describe("initProject", () => {
     writeFileSync(join(dir, ".e2e/e2e.db"), "custom-db")
     const { created, skipped } = initProject(dir)
     assert.deepEqual(skipped, [join(dir, ".e2e/e2e.db")])
-    assert.deepEqual(created, [join(dir, ".e2e/scenarios/smoke.json")])
+    assert.deepEqual(created, [join(dir, "e2e-suite/scenarios/smoke.json")])
     assert.equal(readFileSync(join(dir, ".e2e/e2e.db"), "utf8"), "custom-db")
   })
 })

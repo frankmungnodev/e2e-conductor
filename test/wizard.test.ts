@@ -86,7 +86,7 @@ describe("wizard config generator", () => {
     assert.ok(loaded.environments?.staging)
   })
 
-  it("scaffolds starter files under .e2e and generates a smoke scenario in run order", () => {
+  it("scaffolds starter files under e2e-suite and generates a smoke scenario in run order", () => {
     const dir = mockProject()
 
     const components: WizardComponent[] = [
@@ -116,10 +116,10 @@ describe("wizard config generator", () => {
     ]
 
     const res = scaffoldWizardFiles(dir, components)
-    assert.deepEqual(res.created, [".e2e/scenarios/smoke.json"], "steps are actions, with no module or flow files")
+    assert.deepEqual(res.created, ["e2e-suite/scenarios/smoke.json"], "steps are actions, with no module or flow files")
 
     // Verify smoke scenario steps follow the run order
-    const smokeContent = JSON.parse(readFileSync(join(dir, ".e2e/scenarios/smoke.json"), "utf8"))
+    const smokeContent = JSON.parse(readFileSync(join(dir, "e2e-suite/scenarios/smoke.json"), "utf8"))
     assert.equal(smokeContent.steps.length, 3)
     assert.equal(smokeContent.steps[0].target, "core_api")
     assert.equal(smokeContent.steps[1].target, "admin_web")
@@ -127,7 +127,7 @@ describe("wizard config generator", () => {
     assert.equal(smokeContent.steps[1].actions[0].action, "navigate")
     assert.equal(smokeContent.steps[2].launch, "fresh")
     assert.ok(validateScenario(smokeContent), "the starter scenario passes the schema")
-    const schema = readFileSync(join(dir, ".e2e/scenarios", String(smokeContent.$schema)), "utf8")
+    const schema = readFileSync(join(dir, "e2e-suite/scenarios", String(smokeContent.$schema)), "utf8")
     assert.ok(schema.includes("urn:e2e-orchestrator:scenario:v1"), "$schema resolves to the installed package")
 
     // Running again should skip existing files

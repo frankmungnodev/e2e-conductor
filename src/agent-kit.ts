@@ -7,6 +7,7 @@ import { findProjectDir, resolveDbPath } from "./db/paths.ts"
 import { getStepGroups } from "./db/step-groups.ts"
 import { getStepPresets } from "./db/step-presets.ts"
 import { color } from "./logger.ts"
+import { SUITE_AGENT } from "./project-layout.ts"
 import { draftEnvironmentsToCheck } from "./strict-check.ts"
 
 /** The root instruction files that get the kit block, when they exist. The kit never creates them. */
@@ -31,7 +32,7 @@ export type KitReport = {
 
 /**
  * Writes the agent kit for the nearest project from `cwd` upward, as `e2e save` finds it:
- * `.e2e/agent/kit.md`, `.e2e/agent/vocabulary.json`, and the marked block in the root `AGENTS.md`
+ * `e2e-suite/agent/kit.md`, `e2e-suite/agent/vocabulary.json`, and the marked block in the root `AGENTS.md`
  * and `CLAUDE.md` that exist. Only the block between the markers is rewritten; the files are written in
  * place, so a symlinked `CLAUDE.md` stays a symlink and its target gets one block.
  */
@@ -51,7 +52,7 @@ export function writeAgentKit(cwd: string): KitReport {
   const block = renderInstructionBlock()
   const planned = instructionFiles(project).map((file) => ({ ...file, ...withBlock(readFileSync(file.path, "utf8"), block, file.names[0]) }))
 
-  const agentDir = join(project, ".e2e", "agent")
+  const agentDir = join(project, SUITE_AGENT)
   mkdirSync(agentDir, { recursive: true })
   const kitPath = join(agentDir, "kit.md")
   const vocabularyPath = join(agentDir, "vocabulary.json")

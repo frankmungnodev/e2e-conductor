@@ -4,6 +4,7 @@ import type { Scenario, Step } from "./db/scenarios.ts"
 import type { StepGroup } from "./db/step-groups.ts"
 import type { StepPreset } from "./db/step-presets.ts"
 import type { Problem } from "./problems.ts"
+import { SUITE_AGENT } from "./project-layout.ts"
 import type { CheckedEnvironment } from "./strict-check.ts"
 import {
   ACTIONS,
@@ -33,8 +34,8 @@ export type KitFacts = {
 export const KIT_START = "<!-- e2e-kit:start -->"
 export const KIT_END = "<!-- e2e-kit:end -->"
 
-const KIT_PATH = ".e2e/agent/kit.md"
-const VOCABULARY_PATH = ".e2e/agent/vocabulary.json"
+const KIT_PATH = `${SUITE_AGENT}/kit.md`
+const VOCABULARY_PATH = `${SUITE_AGENT}/vocabulary.json`
 const DRAFTS_FOLDER = ".e2e/drafts/<group>/"
 const CHECK = 'e2e save --group <group> --prompt "<the person\'s request, word for word>" --agent <your name> --check --json'
 const SAVE = 'e2e save --group <group> --prompt "<the same request>" --agent <your name> --json'

@@ -9,6 +9,7 @@ import { resolveDbPath, resolveProjectDir } from "./db/paths.ts"
 import { savePlatform } from "./db/platforms.ts"
 import { getScenario, saveScenario } from "./db/scenarios.ts"
 import { color } from "./logger.ts"
+import { SUITE_SCENARIOS } from "./project-layout.ts"
 import { scenarioSchemaRef } from "./schema.ts"
 import {
   detectWorkspace,
@@ -40,7 +41,7 @@ const SMOKE = {
 }
 
 /**
- * Write a starter SQLite database and smoke scenario under .e2e.
+ * Write a starter SQLite database under .e2e and a smoke scenario under e2e-suite.
  * Never overwrites: a database that already has an environment, or a file that exists, is skipped.
  */
 /** `chosenDbPath` (the `--db` option) is the database to seed; otherwise the project's default. */
@@ -65,7 +66,7 @@ export function initProject(
       "dev",
       {
         description: "Local development baseline",
-        scenarios: ".e2e/scenarios",
+        scenarios: SUITE_SCENARIOS,
         flows: ".e2e/flows",
         results: ".e2e/results",
         env: { APP_ENV: "dev" },
@@ -87,7 +88,7 @@ export function initProject(
     created.push(dbPath)
   }
 
-  const smokePath = join(rootDir, ".e2e", "scenarios", "smoke.json")
+  const smokePath = join(rootDir, SUITE_SCENARIOS, "smoke.json")
   if (existsSync(smokePath)) {
     skipped.push(smokePath)
   } else {

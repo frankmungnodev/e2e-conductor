@@ -9,6 +9,7 @@ import { findProjectDir, resolveDbPath } from "./db/paths.ts"
 import { getScenario, type Scenario } from "./db/scenarios.ts"
 import { color } from "./logger.ts"
 import { type Problem, problem } from "./problems.ts"
+import { SUITE_SCENARIOS } from "./project-layout.ts"
 import { scenarioVersion } from "./scenario-version.ts"
 import { describeErrors, validateScenario } from "./schema.ts"
 import { checkStrict, draftEnvironmentsToCheck } from "./strict-check.ts"
@@ -131,7 +132,7 @@ function save(request: SaveRequest, report: SaveReport): SaveExitCode {
       configDir: project,
       dbPath,
       env: {},
-      scenarios: ".e2e/scenarios",
+      scenarios: SUITE_SCENARIOS,
       results: ".e2e/results",
       services: {},
       targets: {},

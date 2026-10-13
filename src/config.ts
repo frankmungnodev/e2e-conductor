@@ -7,6 +7,7 @@ import { getActiveEnvironment, getDefaultEnvironment, getEnvironments } from "./
 import { getFixtures } from "./db/fixtures.ts"
 import { checkDbStatus, resolveDbPath, resolveProjectDir } from "./db/paths.ts"
 import { getPlatforms, platformsToTargetsAndServices } from "./db/platforms.ts"
+import { SUITE_SCENARIOS } from "./project-layout.ts"
 
 /** A shell command. `cwd` is relative to the config file. */
 export type Command = { cwd?: string; cmd: string }
@@ -172,7 +173,7 @@ export async function loadConfig(configDirOrDbPath?: string, envName?: string, c
     throw new Error(`Target name "${SHELL_TARGET}" is reserved`)
   }
 
-  let scenarios = ".e2e/scenarios"
+  let scenarios = SUITE_SCENARIOS
   let results = ".e2e/results"
   const env: Record<string, string> = {}
 
@@ -268,7 +269,7 @@ export function starterConfig(configDir = process.cwd(), chosenDbPath?: string):
     activeEnvironment,
     environments,
     env: {},
-    scenarios: ".e2e/scenarios",
+    scenarios: SUITE_SCENARIOS,
     results: ".e2e/results",
     services,
     targets,
