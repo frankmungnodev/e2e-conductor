@@ -221,7 +221,7 @@ export function EnvironmentsTab({
               <Input
                 value={envScenarios}
                 onChange={(e) => setEnvScenarios(e.target.value)}
-                placeholder="e.g. e2e/scenarios"
+                placeholder="e.g. e2e-suite/scenarios"
                 mono
               />
             </FormField>

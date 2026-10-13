@@ -23,7 +23,7 @@ export function useEnvironmentProfile(
   // Sync profile form when selected environment changes
   useEffect(() => {
     setEnvDescription(selectedEnvData.description || "")
-    setEnvScenarios(selectedEnvData.scenarios || config?.scenariosPath || ".e2e/scenarios")
+    setEnvScenarios(selectedEnvData.scenarios || config?.scenariosPath || "e2e-suite/scenarios")
     setEnvFlows(selectedEnvData.flows || ".e2e/flows")
     setEnvResults(selectedEnvData.results || config?.resultsPath || ".e2e/results")
     setEnvRows(

@@ -7,6 +7,7 @@ import { eventually, FIXTURE_NAME, PRESET_NAME, SHELL_OUTPUT, SHELL_SCENARIO_ID,
 
 type ConfigSummary = {
   activeEnvironment?: string
+  environments: Record<string, { scenarios?: string }>
   fixtures: string[]
   fixturesMap: Record<string, { cmd: string; cwd?: string }>
 }
@@ -27,6 +28,20 @@ describe("Config view", () => {
       (cfg) => cfg.activeEnvironment === "staging",
     )
     await page.getByRole("heading", { name: "Staging Profile" }).waitFor()
+  })
+
+  it("adds an environment whose scenarios folder defaults to e2e-suite/scenarios", async () => {
+    const { url, page, api } = await startUiSession("config-env-add")
+    await page.goto(`${url}/?tab=config&sub=environments`)
+    await page.getByRole("button", { name: "Add Profile" }).click()
+    const dialog = dialogTitled(page, "Add Environment")
+    assert.equal(await dialog.getByRole("textbox", { name: "e.g. e2e-suite/scenarios" }).inputValue(), "e2e-suite/scenarios")
+    await dialog.getByRole("textbox", { name: "e.g. staging, local, qa" }).fill("qa")
+    await dialog.getByRole("button", { name: "Save Environment" }).click()
+    await eventually(
+      () => api<ConfigSummary>("/api/config"),
+      (cfg) => cfg.environments.qa?.scenarios === "e2e-suite/scenarios",
+    )
   })
 
   it("test-runs an existing fixture and adds a new one", async () => {

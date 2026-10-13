@@ -43,7 +43,7 @@ export function EnvironmentModal({
     initialData?.description || (isInitialSetup ? "Local development baseline" : ""),
   )
   const [scenarios, setScenarios] = useState(
-    initialData?.scenarios || ".e2e/scenarios",
+    initialData?.scenarios || "e2e-suite/scenarios",
   )
   const [flows, setFlows] = useState(initialData?.flows || ".e2e/flows")
   const [results, setResults] = useState(initialData?.results || ".e2e/results")
@@ -57,14 +57,14 @@ export function EnvironmentModal({
     if (initialEnvName) {
       setName(initialEnvName)
       setDescription(initialData?.description || "")
-      setScenarios(initialData?.scenarios || ".e2e/scenarios")
+      setScenarios(initialData?.scenarios || "e2e-suite/scenarios")
       setFlows(initialData?.flows || ".e2e/flows")
       setResults(initialData?.results || ".e2e/results")
       setEnvRows(recordToEnvRows(initialData?.env))
     } else {
       setName(isInitialSetup ? "dev" : "")
       setDescription(isInitialSetup ? "Local development baseline" : "")
-      setScenarios(".e2e/scenarios")
+      setScenarios("e2e-suite/scenarios")
       setFlows(".e2e/flows")
       setResults(".e2e/results")
       setEnvRows(recordToEnvRows(isInitialSetup ? { APP_ENV: "dev" } : {}))
@@ -227,7 +227,7 @@ export function EnvironmentModal({
             <Input
               value={scenarios}
               onChange={(e) => setScenarios(e.target.value)}
-              placeholder="e.g. .e2e/scenarios"
+              placeholder="e.g. e2e-suite/scenarios"
               mono
             />
           </FormField>
