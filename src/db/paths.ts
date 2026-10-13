@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
+import { LOCAL_DIR, SUITE_DIR } from "../project-layout.ts"
 import { withDb } from "./connection.ts"
 
 export type DbStatus = {
@@ -13,8 +14,6 @@ export type DbStatus = {
 
 const POINTER_FILE = ".e2e-db"
 
-const DEFAULT_DB_DIR = ".e2e"
-
 const DEFAULT_DB_FILENAME = "e2e.db"
 
 /** Resolves the root project directory from a directory path or database file path. */
@@ -23,7 +22,7 @@ export function resolveProjectDir(targetPath: string = process.cwd()): string {
   if (rootDir.endsWith(".db") || rootDir.endsWith(".sqlite")) {
     rootDir = dirname(rootDir)
   }
-  if (basename(rootDir) === ".e2e") {
+  if (basename(rootDir) === LOCAL_DIR) {
     rootDir = dirname(rootDir)
   }
   return rootDir
@@ -42,20 +41,21 @@ export function resolveCliPaths(
   const db = options.db?.trim() ? resolve(cwd, options.db.trim()) : undefined
   const dbIsFile = db !== undefined && (db.endsWith(".db") || db.endsWith(".sqlite"))
   const named = options.dir?.trim() || options.config?.trim()
-  const dbNamesProject = db !== undefined && (!dbIsFile || basename(dirname(db)) === DEFAULT_DB_DIR)
+  const dbNamesProject = db !== undefined && (!dbIsFile || basename(dirname(db)) === LOCAL_DIR)
   const projectPath = named ? resolve(cwd, named) : dbNamesProject && db ? db : cwd
   const dbPath = dbIsFile ? db : db ? resolveDbPath(resolveProjectDir(db)) : undefined
   return { projectPath, dbPath }
 }
 
 /**
- * The nearest folder, from `start` upward, that holds a `.e2e` folder: the project `e2e save` works in,
- * so an agent can run it from anywhere in the repo. Undefined when no folder up to the root has one.
+ * The nearest folder, from `start` upward, that holds a `.e2e` or `e2e-suite` folder: the project `e2e save`
+ * works in, so an agent can run it from anywhere in the repo, including a fresh clone that has no `.e2e` yet.
+ * Undefined when no folder up to the root has either.
  */
 export function findProjectDir(start: string): string | undefined {
   let dir = resolve(start)
   while (true) {
-    if (statSync(join(dir, DEFAULT_DB_DIR), { throwIfNoEntry: false })?.isDirectory()) return dir
+    if ([LOCAL_DIR, SUITE_DIR].some((folder) => statSync(join(dir, folder), { throwIfNoEntry: false })?.isDirectory())) return dir
     const parent = dirname(dir)
     if (parent === dir) return undefined
     dir = parent
@@ -89,7 +89,7 @@ export function resolveDbPath(configDir: string, customPath?: string): string {
     }
   }
 
-  return resolve(configDir, DEFAULT_DB_DIR, DEFAULT_DB_FILENAME)
+  return resolve(configDir, LOCAL_DIR, DEFAULT_DB_FILENAME)
 }
 
 export function writeDbPointer(configDir: string, dbPath: string): void {

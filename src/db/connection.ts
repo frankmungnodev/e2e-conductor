@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs"
-import { dirname } from "node:path"
+import { basename, dirname } from "node:path"
 import { DatabaseSync } from "node:sqlite"
+import { ignoreLocalDir, LOCAL_DIR } from "../project-layout.ts"
 
 export function safeJsonParse<T>(val: string | null | undefined, fallback?: T): T | undefined {
   if (!val) return fallback
@@ -25,6 +26,7 @@ export function openDatabase(dbPath: string): DatabaseSync {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
   }
+  if (basename(dir) === LOCAL_DIR) ignoreLocalDir(dir)
 
   // A save's write transaction and a running batch's history writes wait for each other instead of
   // failing at once: the runner's history writes are best-effort, so a busy error would lose a pass.

@@ -14,7 +14,7 @@ import { describeErrors, validateScenario } from "./schema.ts"
 import { checkStrict, draftEnvironmentsToCheck } from "./strict-check.ts"
 
 export type SaveRequest = {
-  /** The folder the command runs in: the project is the nearest one upward with a `.e2e` folder. */
+  /** The folder the command runs in: the project is the nearest one upward with a `.e2e` or `e2e-suite` folder. */
   cwd: string
   /** Scenario files or folders of them; none means `.e2e/drafts/<group>/*.json`. */
   inputs: string[]
@@ -103,7 +103,7 @@ export function saveAgentDrafts(request: SaveRequest): { exitCode: SaveExitCode;
 function save(request: SaveRequest, report: SaveReport): SaveExitCode {
   const project = findProjectDir(request.cwd)
   if (!project) {
-    throw new SaveError(`No .e2e folder in ${request.cwd} or any folder above it. Run "e2e init" in the project first.`, 3)
+    throw new SaveError(`No .e2e or e2e-suite folder in ${request.cwd} or any folder above it. Run "e2e init" in the project first.`, 3)
   }
   report.project = project
   const dbPath = resolveDbPath(project)

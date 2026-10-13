@@ -37,7 +37,7 @@ export type KitReport = {
  */
 export function writeAgentKit(cwd: string): KitReport {
   const project = findProjectDir(cwd)
-  if (!project) throw new Error(`No .e2e folder in ${cwd} or any folder above it. Run "e2e init" in the project first.`)
+  if (!project) throw new Error(`No .e2e or e2e-suite folder in ${cwd} or any folder above it. Run "e2e init" in the project first.`)
   const dbPath = resolveDbPath(project)
   if (!existsSync(dbPath)) throw new Error(`No database at ${dbPath}. Run "e2e init" or "e2e ui" in ${project} first.`)
 

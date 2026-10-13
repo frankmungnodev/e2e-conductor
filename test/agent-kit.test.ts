@@ -179,9 +179,9 @@ describe("e2e kit", () => {
     })
   })
 
-  it("fails when no folder from the current one upward has .e2e", () => {
+  it("fails when no folder from the current one upward has .e2e or e2e-suite", () => {
     const dir = tempDir("agent-kit-none")
     mkdirSync(join(dir, "sub"))
-    assert.throws(() => writeAgentKit(join(dir, "sub")), /No \.e2e folder/)
+    assert.throws(() => writeAgentKit(join(dir, "sub")), /No \.e2e or e2e-suite folder/)
   })
 })
