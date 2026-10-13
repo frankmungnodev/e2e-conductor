@@ -179,7 +179,7 @@ async function main() {
     const { scenarios, presets } = exportToJson(config)
     for (const file of [...scenarios, ...presets]) console.log(`${color.green("wrote")} ${relative(process.cwd(), file)}`)
     console.log(color.dim(`${scenarios.length} scenarios, ${presets.length} presets`))
-    warnHiddenSuite(hiddenSuitePaths(config.configDir, [...scenarios, ...presets]))
+    warnHiddenSuite(hiddenSuitePaths(config.configDir))
     return
   }
 

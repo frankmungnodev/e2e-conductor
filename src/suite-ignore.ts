@@ -7,16 +7,16 @@ import { SUITE_DIR } from "./project-layout.ts"
 export type HiddenPath = { path: string; source: string; line: number; pattern: string }
 
 /**
- * The suite folder, every file in it, and `extraPaths` (absolute) that a git ignore rule hides, asked of
- * git itself so root and nested `.gitignore` files, `.git/info/exclude` and the global excludes file all
- * count. Tracked files are checked too (`--no-index`): a rule that matches them still hides new ones.
+ * The suite folder, every file in it, and `extraPaths` (absolute; only those inside the suite count) that a
+ * git ignore rule hides, asked of git itself so root and nested `.gitignore` files, `.git/info/exclude` and
+ * the global excludes file all count. Tracked files are checked too (`--no-index`): a rule that matches them still hides new ones.
  * Empty outside a git repository or when `git` is not installed.
  */
 export function hiddenSuitePaths(projectDir: string, extraPaths: string[] = []): HiddenPath[] {
   const suiteDir = join(projectDir, SUITE_DIR)
   // The trailing slash marks the folder as one, so a folder-only rule (`e2e-suite/`) matches before it exists.
-  const candidates = [`${SUITE_DIR}/`, ...suiteFiles(suiteDir), ...extraPaths].map((path) =>
-    path.endsWith("/") ? path : relative(projectDir, path),
+  const candidates = [`${SUITE_DIR}/`, ...[...suiteFiles(suiteDir), ...extraPaths].map((path) => relative(projectDir, path))].filter(
+    (path) => path.startsWith(`${SUITE_DIR}/`),
   )
   const result = spawnSync("git", ["-C", projectDir, "check-ignore", "-v", "-z", "--no-index", "--stdin"], {
     input: `${[...new Set(candidates)].join("\0")}\0`,

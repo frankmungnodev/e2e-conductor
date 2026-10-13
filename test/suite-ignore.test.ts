@@ -55,6 +55,11 @@ describe("hiddenSuitePaths", () => {
     )
   })
 
+  it("leaves out extra paths outside the suite folder, such as a custom scenarios folder", () => {
+    const dir = repo("custom\n")
+    assert.deepEqual(hiddenSuitePaths(dir, [join(dir, "custom", "smoke.json")]), [])
+  })
+
   it("reports a rule in .git/info/exclude with that file as its source", () => {
     const dir = repo()
     writeFileSync(join(dir, ".git", "info", "exclude"), "e2e-suite\n")
