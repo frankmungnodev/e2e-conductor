@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, it } from "node:test"
@@ -101,7 +102,24 @@ describe("JSON import and export", () => {
     const file = join(config.configDir, "scenarios", "smoke.json")
     writeFileSync(file, JSON.stringify(JSON.parse(readFileSync(file, "utf8"))))
 
-    assert.deepEqual(checkExport(config), { missing: [], changed: [], stale: [] })
+    assert.deepEqual(checkExport(config), { missing: [], changed: [], stale: [], ignored: [] })
+  })
+
+  it("reports suite files a git ignore rule hides, even when nothing has drifted", () => {
+    const config = project()
+    exportToJson(config)
+    assert.equal(spawnSync("git", ["init", "-q", config.configDir]).status, 0)
+    writeFileSync(join(config.configDir, ".gitignore"), "e2e-suite\n")
+    const drift = checkExport(config)
+    assert.deepEqual([drift.missing, drift.changed, drift.stale], [[], [], []])
+    assert.ok(drift.ignored.some(({ path }) => path === join(config.configDir, "e2e-suite", "presets", "preset-echo.json")))
+    assert.ok(drift.ignored.every(({ pattern }) => pattern === "e2e-suite"))
+  })
+
+  it("reports no ignored files outside a git repository", () => {
+    const config = project()
+    exportToJson(config)
+    assert.deepEqual(checkExport(config).ignored, [])
   })
 
   it("reports missing, changed and stale files without writing any", () => {
@@ -121,6 +139,7 @@ describe("JSON import and export", () => {
       missing: [join(scenariosDir, "created.json")],
       changed: [join(scenariosDir, "smoke.json")],
       stale: [join(config.configDir, "e2e-suite", "presets", "preset-echo.json")],
+      ignored: [],
     })
     assert.equal(existsSync(join(scenariosDir, "created.json")), false)
   })
@@ -152,7 +171,7 @@ describe("JSON import and export", () => {
       saveRevision(db, "smoke", { ...smoke, steps: [{ name: "pwd", target: "shell", command: "pwd" }] }, "login")
     })
 
-    assert.deepEqual(checkExport(config), { missing: [], changed: [], stale: [] })
+    assert.deepEqual(checkExport(config), { missing: [], changed: [], stale: [], ignored: [] })
     const { scenarios } = exportToJson(config)
     assert.deepEqual(scenarios, [join(config.configDir, "scenarios", "smoke.json")])
     assert.equal(existsSync(join(config.configDir, "scenarios", "checkout.json")), false)

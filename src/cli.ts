@@ -11,6 +11,7 @@ import { color } from "./logger.ts"
 import { run } from "./runner.ts"
 import { loadScenarios } from "./scenario.ts"
 import { startServer } from "./server.ts"
+import { describeHiddenSuite, type HiddenPath, hiddenSuitePaths } from "./suite-ignore.ts"
 
 const HELP = `Usage: e2e <command> [options]
 
@@ -104,7 +105,9 @@ async function main() {
   }
   // kit, like save, uses the nearest project upward and the environments save checks drafts against.
   if (command === "kit") {
-    console.log(renderKitReport(writeAgentKit(process.cwd()), process.cwd()))
+    const report = writeAgentKit(process.cwd())
+    console.log(renderKitReport(report, process.cwd()))
+    warnHiddenSuite(hiddenSuitePaths(report.project))
     return
   }
   if (values.env) process.env.E2E_ENV = values.env
@@ -119,6 +122,7 @@ async function main() {
     for (const file of created) console.log(`${color.green("created")} ${file}`)
     for (const file of skipped) console.log(`${color.yellow("skipped")} ${file} ${color.dim("(exists)")}`)
     if (created.length > 0) console.log(`\nNext: verify your setup in .e2e/e2e.db, then run: e2e check`)
+    warnHiddenSuite(hiddenSuitePaths(resolveProjectDir(projectPath)))
     return
   }
 
@@ -154,17 +158,20 @@ async function main() {
   }
 
   if (command === "export" && values.check) {
-    const { missing, changed, stale } = checkExport(config)
+    const { missing, changed, stale, ignored } = checkExport(config)
     for (const file of missing) console.log(`${color.red("missing")} ${relative(process.cwd(), file)}`)
     for (const file of changed) console.log(`${color.red("changed")} ${relative(process.cwd(), file)}`)
     for (const file of stale) console.log(`${color.yellow("stale")}   ${relative(process.cwd(), file)} ${color.dim("(no longer in SQLite)")}`)
+    for (const rule of describeHiddenSuite(ignored)) console.log(`${color.red("ignored")} ${rule}`)
     const drift = missing.length + changed.length + stale.length
-    if (drift === 0) {
+    if (drift + ignored.length === 0) {
       console.log(`${color.green("✓")} JSON files match SQLite`)
       return
     }
-    console.log(color.dim(`${missing.length} missing, ${changed.length} changed, ${stale.length} stale`))
-    console.log(`Run "e2e export" to write missing and changed files${stale.length > 0 ? ", and delete stale files by hand" : ""}.`)
+    if (drift > 0) {
+      console.log(color.dim(`${missing.length} missing, ${changed.length} changed, ${stale.length} stale`))
+      console.log(`Run "e2e export" to write missing and changed files${stale.length > 0 ? ", and delete stale files by hand" : ""}.`)
+    }
     process.exit(1)
   }
 
@@ -172,6 +179,7 @@ async function main() {
     const { scenarios, presets } = exportToJson(config)
     for (const file of [...scenarios, ...presets]) console.log(`${color.green("wrote")} ${relative(process.cwd(), file)}`)
     console.log(color.dim(`${scenarios.length} scenarios, ${presets.length} presets`))
+    warnHiddenSuite(hiddenSuitePaths(config.configDir, [...scenarios, ...presets]))
     return
   }
 
@@ -206,6 +214,11 @@ async function main() {
     checkOnly: command === "check",
   })
   process.exit(summary.status === "PASSED" ? 0 : 1)
+}
+
+/** Warns once per git ignore rule that hides the shared suite, so a team notices before a push. */
+function warnHiddenSuite(hidden: HiddenPath[]): void {
+  for (const rule of describeHiddenSuite(hidden)) console.log(`${color.yellow("warning")} ${rule}`)
 }
 
 // A step module that leaves a promise unawaited (e.g. a waitForResponse whose click threw) must

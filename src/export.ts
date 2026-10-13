@@ -4,6 +4,7 @@ import { type LoadedConfig, resolveFromConfig } from "./config.ts"
 import { SUITE_PRESETS } from "./project-layout.ts"
 import { getOrSeedPresets, getOrSeedScenarios } from "./scenario.ts"
 import { sortKeys } from "./scenario-version.ts"
+import { type HiddenPath, hiddenSuitePaths } from "./suite-ignore.ts"
 
 export type ExportResult = { scenarios: string[]; presets: string[] }
 
@@ -14,6 +15,8 @@ export type ExportDrift = {
   changed: string[]
   /** A file for an id SQLite no longer has. An export leaves it in place, so it must be deleted by hand. */
   stale: string[]
+  /** A suite file, or a file an export would write, that a git ignore rule hides, so it never reaches git. */
+  ignored: HiddenPath[]
 }
 
 type PlannedFile = { file: string; content: unknown }
@@ -36,10 +39,11 @@ export function exportToJson(config: LoadedConfig): ExportResult {
 /**
  * Compares the JSON files with what an export would write, without writing anything. Whitespace and
  * key order are ignored; everything else, including a step name or a missing step id, is a change.
+ * Also lists the suite paths a git ignore rule hides, since those files never reach git.
  */
 export function checkExport(config: LoadedConfig): ExportDrift {
   const { scenarios, presets } = planExport(config)
-  const drift: ExportDrift = { missing: [], changed: [], stale: [] }
+  const drift: ExportDrift = { missing: [], changed: [], stale: [], ignored: [] }
   for (const { file, content } of [...scenarios, ...presets]) {
     if (!existsSync(file)) drift.missing.push(file)
     else if (!sameJson(readFileSync(file, "utf8"), content)) drift.changed.push(file)
@@ -47,6 +51,10 @@ export function checkExport(config: LoadedConfig): ExportDrift {
   drift.stale.push(
     ...staleFiles(resolveFromConfig(config, config.scenarios), scenarios),
     ...staleFiles(join(config.configDir, SUITE_PRESETS), presets),
+  )
+  drift.ignored = hiddenSuitePaths(
+    config.configDir,
+    [...scenarios, ...presets].map(({ file }) => file),
   )
   return drift
 }
