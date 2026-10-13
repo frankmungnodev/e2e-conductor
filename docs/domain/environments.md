@@ -61,7 +61,7 @@ Scenarios reference these variables via `${env.VARIABLE_NAME}`. Fixtures inherit
 
 | Resource | Default Directory | Environment Override | Resolved Via |
 |---|---|---|---|
-| **Scenarios** | `.e2e/scenarios` | `env.scenarios` | `resolveFromConfig(config, config.scenarios)` |
+| **Scenarios** | `e2e-suite/scenarios` | `env.scenarios` | `resolveFromConfig(config, config.scenarios)` |
 | **Mobile Flows** | `.e2e/flows` | `env.flows` | Relative to `configDir` |
 | **Run Results** | `.e2e/results` | `env.results` | `resolveFromConfig(config, config.results)` |
 

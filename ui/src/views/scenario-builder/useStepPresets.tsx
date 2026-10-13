@@ -25,7 +25,7 @@ export function useStepPresets(confirm: ReturnType<typeof useConfirmDialog>["con
     )
   }, [stepPresets, presetSearch])
 
-  // Load presets from SQLite & .e2e/presets/
+  // Load presets from SQLite & e2e-suite/presets/
   const loadPresets = async () => {
     try {
       const data = await fetchStepPresets()

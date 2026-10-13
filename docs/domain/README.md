@@ -14,6 +14,19 @@ The orchestrator decouples **test declarations** (scenarios and steps) from **ta
 
 ---
 
+## Project Layout: Shared Suite and Local State
+
+A project keeps its files in two folders at its root, split by who owns them (`src/project-layout.ts`):
+
+- **`e2e-suite/` (tracked in git)**: what the team shares and reviews in pull requests. `scenarios/<id>.json` and `presets/<id>.json` (written by an export), `agent/` (written by `e2e kit`), and `fixtures/` for fixture scripts, by convention only: nothing scaffolds it.
+- **`.e2e/` (ignored by git)**: what belongs to one machine. The database `e2e.db`, run results, agent draft files in `drafts/<group>/`, env files and snapshots that fixtures write, and the legacy `flows/` and `modules/` folders. Opening a database in a folder named `.e2e` writes `.e2e/.gitignore` with `*` when the file is missing (`openDatabase` in `src/db/connection.ts`), so git ignores the folder and that file without any rule in the project's own `.gitignore`. A `.gitignore` the person already has there is kept. A `--db` file outside a `.e2e` folder gets no `.gitignore`.
+
+A project is the nearest folder upward that holds either folder (`findProjectDir` in `src/db/paths.ts`), so a fresh clone with only `e2e-suite/` works before any database exists. Older locations (`.e2e/scenarios/`, `.e2e/agent/`, a `presets/` folder at the project root) are not read.
+
+When a git ignore rule hides `e2e-suite/` or a file in it, `e2e init`, `e2e export` and `e2e kit` warn once per rule, and `e2e export --check` fails (`scenarios.md`, section 4). Secrets belong in `.e2e/` env files, never in `e2e-suite/fixtures/` scripts, which are committed.
+
+---
+
 ## Relational Data Model
 
 All configuration and execution entities live in SQLite (`src/db/`, one module per entity; schema in `src/db/connection.ts`). Relationships:

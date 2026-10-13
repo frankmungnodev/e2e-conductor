@@ -99,3 +99,4 @@ Test authors can test fixtures in isolation via the Web GUI or API:
 - **Idempotence**: Fixtures must safely run repeatedly without failing if previous runs aborted mid-stream.
 - **Preflight Validation**: `validateScenario()` in `src/scenario.ts` validates that all fixtures listed in `setup` exist in the configuration before any run starts.
 - **Fail-Fast**: Fixture failures are fatal to the scenario run.
+- **Script Location**: Keep fixture scripts in `e2e-suite/fixtures/`, which git tracks, so a teammate's clone has them. Secrets and machine-local values go in env files under `.e2e/`, which git ignores, never inside the scripts (`README.md`, Project Layout).
