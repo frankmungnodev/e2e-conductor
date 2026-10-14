@@ -11,6 +11,7 @@ export const LOCAL_DIR = ".e2e"
 export const SUITE_SCENARIOS = `${SUITE_DIR}/scenarios`
 export const SUITE_PRESETS = `${SUITE_DIR}/presets`
 export const SUITE_AGENT = `${SUITE_DIR}/agent`
+export const SUITE_FIXTURES = `${SUITE_DIR}/fixtures`
 
 /**
  * Writes `.gitignore` with `*` into a local state folder that has none, so git ignores the folder and

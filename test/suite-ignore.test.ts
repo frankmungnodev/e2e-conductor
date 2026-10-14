@@ -31,10 +31,7 @@ describe("hiddenSuitePaths", () => {
     const dir = tempDir("suite-ignore-empty")
     assert.equal(spawnSync("git", ["init", "-q", dir]).status, 0)
     writeFileSync(join(dir, ".gitignore"), "e2e-suite/\n")
-    assert.deepEqual(
-      hiddenSuitePaths(dir).map(({ pattern }) => pattern),
-      ["e2e-suite/"],
-    )
+    assert.deepEqual(new Set(hiddenSuitePaths(dir).map(({ pattern }) => pattern)), new Set(["e2e-suite/"]))
   })
 
   it("reports scenario files a pattern hides while the folder stays visible", () => {
@@ -63,12 +60,38 @@ describe("hiddenSuitePaths", () => {
   it("reports a rule in .git/info/exclude with that file as its source", () => {
     const dir = repo()
     writeFileSync(join(dir, ".git", "info", "exclude"), "e2e-suite\n")
-    assert.ok(hiddenSuitePaths(dir).every(({ source }) => source === ".git/info/exclude"))
-    assert.ok(hiddenSuitePaths(dir).length > 0)
+    assert.deepEqual(
+      new Set(hiddenSuitePaths(dir).map(({ source, line, pattern }) => `${source}:${line}:${pattern}`)),
+      new Set([".git/info/exclude:1:e2e-suite"]),
+    )
   })
 
   it("reports nothing when no rule matches, including a rule for the local .e2e folder", () => {
     assert.deepEqual(hiddenSuitePaths(repo(".e2e\nnode_modules\n")), [])
+  })
+
+  it("ignores junk a project already keeps out of git, such as .DS_Store and node_modules in the suite", () => {
+    const dir = repo(".DS_Store\nnode_modules\n")
+    writeFileSync(join(dir, "e2e-suite", ".DS_Store"), "")
+    writeFileSync(join(dir, "e2e-suite", "scenarios", ".DS_Store"), "")
+    mkdirSync(join(dir, "e2e-suite", "fixtures", "node_modules", "pkg"), { recursive: true })
+    writeFileSync(join(dir, "e2e-suite", "fixtures", "node_modules", "pkg", "index.js"), "")
+    assert.deepEqual(hiddenSuitePaths(dir), [])
+  })
+
+  it("still reports a rule that hides fixture scripts", () => {
+    const dir = repo("*.sh\n")
+    mkdirSync(join(dir, "e2e-suite", "fixtures"))
+    writeFileSync(join(dir, "e2e-suite", "fixtures", "reset-db.sh"), "")
+    assert.deepEqual(
+      hiddenSuitePaths(dir).map(({ path, pattern }) => [path, pattern]),
+      [[join(dir, "e2e-suite", "fixtures", "reset-db.sh"), "*.sh"]],
+    )
+  })
+
+  it("reports nothing when a negated rule re-includes the suite", () => {
+    assert.deepEqual(hiddenSuitePaths(repo("*.json\n!e2e-suite/**/*.json\n")), [])
+    assert.deepEqual(hiddenSuitePaths(repo("*\n!*/\n!e2e-suite/**\n")), [])
   })
 
   it("reports nothing outside a git repository", () => {

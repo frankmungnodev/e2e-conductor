@@ -23,7 +23,7 @@ A project keeps its files in two folders at its root, split by who owns them (`s
 
 A project is the nearest folder upward that holds either folder (`findProjectDir` in `src/db/paths.ts`), so a fresh clone with only `e2e-suite/` works before any database exists. Older locations (`.e2e/scenarios/`, `.e2e/agent/`, a `presets/` folder at the project root) are not read.
 
-When a git ignore rule hides `e2e-suite/` or a file in it, `e2e init`, `e2e export` and `e2e kit` warn once per rule, and `e2e export --check` fails (`scenarios.md`, section 4). Secrets belong in `.e2e/` env files, never in `e2e-suite/fixtures/` scripts, which are committed.
+When a git ignore rule hides `e2e-suite/`, one of its folders (`scenarios/`, `presets/`, `agent/`, `fixtures/`) or a file directly in one, `e2e init`, `e2e export` and `e2e kit` warn once per rule, and `e2e export --check` fails (`scenarios.md`, section 4). Dotfiles and nested folders are not checked, so a rule that keeps `.DS_Store` or a fixture's `node_modules` out of git does not count, and a negated rule (`!e2e-suite/**`) hides nothing. Secrets belong in `.e2e/` env files, never in `e2e-suite/fixtures/` scripts, which are committed.
 
 ---
 
