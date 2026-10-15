@@ -9,7 +9,7 @@ Before a run, e2e-conductor checks that the services each scenario needs are up 
 ## Requirements
 
 - Node.js 22.13 or later (the tool uses the built-in `node:sqlite`)
-- For web steps: a Playwright browser. Install it once with `npx playwright install chromium`
+- For web steps: nothing to install. The first run that uses a web target downloads Chromium for Playwright (about 150 MB, once per machine). Without network access at run time, install it ahead with `npx playwright@<version> install chromium`, using the Playwright version e2e-conductor depends on; a failed download prints the exact command
 - For Android steps: `adb` on your `PATH` and a connected device or emulator
 
 ## Install

@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS platforms (
 - **Modules (not run)**: `modules` is still stored, but no step runs a TypeScript module any more. A step with `run` or `params` fails validation (`scenarios.md`, section 2).
 - **Service Dependency**: Must link to a backing HTTP service for its base URL.
 - **Options**: `headless` (toggle browser UI) and `slowMo` (delay per action for visual debugging).
+- **Browser**: the project gets the `playwright` package with e2e-conductor, but no package manager downloads its browser. When a run uses a web target, preflight checks for the Chromium that package launches and, when it is missing, downloads it once with that package's own CLI (`ensureBrowser` in `src/browser-install.ts`), so the version always matches. A failed download stops the run with `npx playwright@<version> install chromium`. A launch that still finds no browser reports that command in one line instead of Playwright's banner, which names `pnpm exec playwright install`, a command that fails when `playwright` is not the project's own dependency.
 
 ### Android (`type: "android"`)
 - **Driver**: `"mobile"` (`MobileTarget` in `src/config.ts`) powered by ADB and UIAutomator.

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { DatabaseSync } from "node:sqlite"
 import type { FailureLabel } from "./assertions.ts"
+import { ensureBrowser } from "./browser-install.ts"
 import { type LoadedConfig, resolveFromConfig, type ServiceConfig, SHELL_TARGET, serviceOf, servicesNeeded } from "./config.ts"
 import { openDatabase } from "./db/connection.ts"
 import { saveRun } from "./db/runs.ts"
@@ -234,6 +235,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
       } else if (target.driver === "http") {
         drivers.set(name, new HttpDriver(serviceOf(config, target.service)))
       } else if (target.driver === "web") {
+        if (![...drivers.values()].some((driver) => driver instanceof WebDriver)) await ensureBrowser(out)
         const service = serviceOf(config, target.service)
         drivers.set(name, new WebDriver(target, service))
       } else if (target.driver === "mobile") {

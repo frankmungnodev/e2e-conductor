@@ -18,6 +18,7 @@ All notable changes to this project are listed here. The project follows [Semant
 
 ### Fixed
 
+- Web steps failed with Playwright's "Executable doesn't exist" banner on a machine without its browser, and the banner named `pnpm exec playwright install`, which does not work when `playwright` comes only from e2e-conductor. Preflight now downloads Chromium once when a run uses a web target, with e2e-conductor's own Playwright, so the version matches. If the download fails, the run stops with the exact `npx playwright@<version> install chromium` command.
 - The header showed `v0.2.0` whatever the installed version. It now shows the package version.
 - The header's scenario count included drafts. It now counts kept scenarios only.
 - A failing draft batch turned the header to "Last Run Failed". The header now reports only runs that are not draft runs.

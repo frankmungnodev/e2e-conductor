@@ -1,6 +1,7 @@
 import { join } from "node:path"
 import { type Browser, type BrowserContext, chromium, errors, type Page } from "playwright"
 import { AssertionFailure, prefixError } from "../assertions.ts"
+import { missingBrowserError } from "../browser-install.ts"
 import type { Logger, ServiceConfig, WebTarget } from "../config.ts"
 import type { Driver, StepResult, StepRun } from "./types.ts"
 
@@ -17,10 +18,14 @@ export class WebDriver implements Driver {
   /** One browser per run; one context (cookies, trace) per scenario. */
   private async openPage(env: Record<string, string>): Promise<Page> {
     if (this.page) return this.page
-    this.browser ??= await chromium.launch({
-      headless: env.E2E_HEADLESS === "1" || (this.target.headless ?? false),
-      slowMo: Number(env.E2E_SLOWMO ?? this.target.slowMo ?? 0),
-    })
+    this.browser ??= await chromium
+      .launch({
+        headless: env.E2E_HEADLESS === "1" || (this.target.headless ?? false),
+        slowMo: Number(env.E2E_SLOWMO ?? this.target.slowMo ?? 0),
+      })
+      .catch((error) => {
+        throw missingBrowserError(error) ?? error
+      })
     this.context = await this.browser.newContext({ baseURL: this.service.url })
     await this.context.tracing.start({ screenshots: true, snapshots: true })
     this.page = await this.context.newPage()
