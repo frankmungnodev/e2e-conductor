@@ -36,6 +36,7 @@
     "bin",
     "src",
     "schema",
+    "CHANGELOG.md",
     "ui/dist"
   ],
   "scripts": {

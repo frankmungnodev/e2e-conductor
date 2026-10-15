@@ -1,0 +1,29 @@
+# Changelog
+
+All notable changes to this project are listed here. The project follows [Semantic Versioning](https://semver.org/). Before 1.0.0, a minor version can contain breaking changes.
+
+## [0.4.0] - 2026-10-15
+
+### Breaking changes
+
+- The command is now `e2e-conductor`, not `e2e`. A different npm package is named `e2e`, so `npx e2e` without a local install ran that package instead of this one.
+
+### Upgrading from 0.3.0
+
+1. Replace `e2e` with `e2e-conductor` in your scripts, CI and package.json `scripts`.
+2. Run `npx e2e-conductor kit` to update the agent kit in `e2e-suite/agent/` and the block in `AGENTS.md` and `CLAUDE.md`. The old block is replaced in place.
+
+## [0.3.0] - 2026-10-15
+
+First release on npm.
+
+- Run one JSON scenario across HTTP APIs, web apps (Playwright) and Android apps (adb). Steps name targets, and the active environment decides where each target points.
+- Web dashboard (`e2e ui`) to set up environments and platforms, build scenarios and read reports.
+- Preflight checks for services and devices, with `--start` to start services that are down.
+- Failure evidence: web traces, HTTP requests and responses, Android screenshots, device logs and view hierarchies, lined up on one timeline in Reports.
+- Step run history and flaky step marks in the builder, `--repeat` to find flaky steps and `--strict` to fail on recovered steps.
+- Agent-written scenarios: `e2e kit` writes the agent kit, `e2e save` stores agent files as drafts, and the Drafts tab reviews, runs and keeps them.
+- `e2e export` and `e2e import` move scenarios between SQLite and JSON files in `e2e-suite/`; `export --check` catches drift.
+
+[0.4.0]: https://github.com/frankmungnodev/e2e-conductor/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/frankmungnodev/e2e-conductor/releases/tag/v0.3.0
