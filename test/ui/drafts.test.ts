@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 import { describe, it } from "node:test"
 import type { Page } from "playwright"
 import {
@@ -111,6 +112,10 @@ describe("Drafts view", () => {
     seedDrafts(projectDir)
     await page.goto(`${url}/?tab=runner`)
     await page.getByRole("button", { name: `Run ${SHELL_SCENARIO_NAME} only` }).waitFor()
+    // The header counts the one kept scenario, not the drafts, and names the package version.
+    const { version } = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }
+    await page.getByRole("banner").getByText("1 scenario", { exact: true }).waitFor()
+    await page.getByRole("banner").getByText(`v${version}`, { exact: true }).waitFor()
     assert.equal(await page.getByText(PASSING_DRAFT_NAME).count(), 0)
     assert.equal(await page.getByText(FAILING_DRAFT_NAME).count(), 0)
 

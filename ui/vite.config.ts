@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
@@ -39,8 +40,12 @@ function devBackendPlugin(): Plugin {
   }
 }
 
+/** The package version, so the header badge always names the version that is running. */
+const { version } = JSON.parse(readFileSync(resolve(import.meta.dirname, "../package.json"), "utf8")) as { version: string }
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), devBackendPlugin()],
+  define: { __APP_VERSION__: JSON.stringify(version) },
   root: resolve(import.meta.dirname),
   base: "./",
   build: {

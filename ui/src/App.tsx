@@ -23,7 +23,7 @@ import { finishToast } from "./runResult.ts"
 import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, ScenarioItem } from "./types.ts"
 import { ConfigView } from "./views/config/ConfigView.tsx"
 import { DraftsView } from "./views/drafts/DraftsView.tsx"
-import { scenarioDraft } from "./views/drafts/draftHelpers.ts"
+import { keptScenarios, scenarioDraft } from "./views/drafts/draftHelpers.ts"
 import { ReportsView } from "./views/reports/ReportsView.tsx"
 import { RunnerView } from "./views/runner/RunnerView.tsx"
 import { ScenarioBuilder } from "./views/scenario-builder/ScenarioBuilder.tsx"
@@ -274,7 +274,7 @@ function AppContent() {
         onTabChange={setActiveTab}
         isRunning={isRunning}
         lastSummaryStatus={lastSummary?.status}
-        scenariosCount={scenarios.length}
+        scenariosCount={keptScenarios(scenarios).length}
         isConnected={isConnected}
       />
 
