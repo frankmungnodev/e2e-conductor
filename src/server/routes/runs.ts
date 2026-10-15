@@ -132,6 +132,7 @@ export const runRoutes: Route[] = [
         try {
           const summary = await run(environmentConfig ?? state.config, runOptions)
           state.lastSummary = summary
+          if (!summary.drafts) state.lastSuiteSummary = summary
         } catch (err) {
           const errorMsg = (err as Error).message
           const total = Math.max(1, ((runOptions.drafts ?? runOptions.scenarios)?.length || 1) * (runOptions.repeat || 1))
@@ -153,6 +154,7 @@ export const runRoutes: Route[] = [
               fixed: 0,
               recovered: 0,
               notRun: [],
+              ...(runOptions.drafts ? { drafts: true as const } : {}),
             },
           })
         } finally {
@@ -193,6 +195,7 @@ export const runRoutes: Route[] = [
             }
           : null,
         lastSummary: state.lastSummary,
+        lastSuiteSummary: state.lastSuiteSummary,
       })
     },
   },

@@ -69,6 +69,8 @@ describe("Drafts view", () => {
     await page.waitForURL(/tab=runner/)
     const batch = await finished(api, (s) => s.lastSummary?.failed === 1)
     assert.equal(batch.lastSummary?.passed, 2)
+    // A failing draft batch is not a suite run, so the header's last-run status stays off.
+    assert.equal(await page.getByRole("banner").getByText("Last Run Failed").count(), 0)
 
     // Keep all passing moves the two passing drafts out of the Drafts tab.
     await page.getByRole("button", { name: "Drafts", exact: true }).click()

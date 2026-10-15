@@ -266,3 +266,41 @@ describe("scenario and environment routes for drafts", () => {
     })
   })
 })
+
+describe("run status for draft runs", () => {
+  const waitIdle = async (url: string) => {
+    const deadline = Date.now() + 10000
+    for (;;) {
+      const status = (await (await send(url, "GET", "/api/run/status")).json()) as any
+      if (!status.isRunning) return status
+      if (Date.now() > deadline) throw new Error("run did not finish")
+      await new Promise((resolveWait) => setTimeout(resolveWait, 20))
+    }
+  }
+
+  it("keeps the last suite run's summary when a draft batch fails after it (AE4)", async () => {
+    const dir = draftProject([shell("suite")], [shell("broken", "exit 1")], ["dev"])
+    await withServer(dir, async (url) => {
+      assert.equal((await send(url, "POST", "/api/run", {})).status, 200)
+      const afterSuite = await waitIdle(url)
+      assert.equal(afterSuite.lastSuiteSummary.status, "PASSED")
+      assert.equal(afterSuite.lastSuiteSummary.drafts, undefined)
+
+      assert.equal((await send(url, "POST", "/api/run", { drafts: ["broken"] })).status, 200)
+      const afterDrafts = await waitIdle(url)
+      assert.equal(afterDrafts.lastSummary.status, "FAILED")
+      assert.equal(afterDrafts.lastSummary.drafts, true)
+      assert.equal(afterDrafts.lastSuiteSummary.status, "PASSED")
+    })
+  })
+
+  it("has no suite summary when only a draft batch has run", async () => {
+    const dir = draftProject([shell("suite")], [shell("broken", "exit 1")], ["dev"])
+    await withServer(dir, async (url) => {
+      assert.equal((await send(url, "POST", "/api/run", { drafts: ["broken"] })).status, 200)
+      const status = await waitIdle(url)
+      assert.equal(status.lastSummary.drafts, true)
+      assert.equal(status.lastSuiteSummary, null)
+    })
+  })
+})

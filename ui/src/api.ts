@@ -129,6 +129,8 @@ export async function fetchRunStatus(): Promise<{
   isRunning: boolean
   currentRun?: any
   lastSummary?: RunSummary
+  /** The last run that was not a draft run, for the header's last-run status. */
+  lastSuiteSummary?: RunSummary | null
 }> {
   const res = await fetch(`${API_BASE}/api/run/status`)
   if (!res.ok) throw new Error("Failed to get run status")

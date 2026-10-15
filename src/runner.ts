@@ -114,6 +114,8 @@ export type Summary = {
   notRun: NotRun[]
   /** Set when the run was started with --strict. */
   strict?: boolean
+  /** Set when the run was a draft run. The header's last-run status ignores these. */
+  drafts?: true
 }
 
 
@@ -158,6 +160,7 @@ export async function run(config: LoadedConfig, options: RunOptions): Promise<Su
     artifacts: artifactsRoot,
     recovered: 0,
     notRun: [],
+    ...(options.drafts ? { drafts: true as const } : {}),
   }
   // What preflight prepared, kept so a final failure can re-check the whole run's environment.
   const serviceNames = new Set<string>()

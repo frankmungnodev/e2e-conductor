@@ -24,6 +24,7 @@ import type { ConfigMeta, FlowItem, PreflightData, RunEvent, RunSummary, Scenari
 import { ConfigView } from "./views/config/ConfigView.tsx"
 import { DraftsView } from "./views/drafts/DraftsView.tsx"
 import { keptScenarios, scenarioDraft } from "./views/drafts/draftHelpers.ts"
+import type { DraftAwareSummary } from "./views/drafts/draftTypes.ts"
 import { ReportsView } from "./views/reports/ReportsView.tsx"
 import { RunnerView } from "./views/runner/RunnerView.tsx"
 import { ScenarioBuilder } from "./views/scenario-builder/ScenarioBuilder.tsx"
@@ -51,6 +52,8 @@ function AppContent() {
   const [isRunning, setIsRunning] = useState(false)
   const [currentRunId, setCurrentRunId] = useState<string | undefined>()
   const [lastSummary, setLastSummary] = useState<RunSummary | undefined>()
+  // The header reports the kept suite, so draft runs never change this one.
+  const [lastSuiteSummary, setLastSuiteSummary] = useState<RunSummary | undefined>()
   const [events, setEvents] = useState<RunEvent[]>([])
   const [logs, setLogs] = useState<Array<{ text: string; level: "info" | "detail" }>>([])
 
@@ -102,6 +105,9 @@ function AppContent() {
       if (status.lastSummary) {
         setLastSummary(status.lastSummary)
       }
+      if (status.lastSuiteSummary) {
+        setLastSuiteSummary(status.lastSuiteSummary)
+      }
       setIsConnected(true)
     } catch (_e) {
       // ignore
@@ -129,6 +135,7 @@ function AppContent() {
         } else if (event.type === "finish") {
           setIsRunning(false)
           setLastSummary(event.summary)
+          if (!(event.summary as DraftAwareSummary).drafts) setLastSuiteSummary(event.summary)
           fetchScenarios().then(setScenarios).catch(() => {})
           const toast = finishToast(event.summary)
           if (toast.tone === "success") toastSuccess(toast.message, toast.title)
@@ -273,7 +280,7 @@ function AppContent() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isRunning={isRunning}
-        lastSummaryStatus={lastSummary?.status}
+        lastSummaryStatus={lastSuiteSummary?.status}
         scenariosCount={keptScenarios(scenarios).length}
         isConnected={isConnected}
       />

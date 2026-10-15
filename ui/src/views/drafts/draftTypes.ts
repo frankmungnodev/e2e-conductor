@@ -1,5 +1,5 @@
 // Draft types for the UI. They live here, not in `ui/src/types.ts`, because that file is at its line budget.
-import type { ConfigMeta, EnvironmentMeta, ScenarioItem } from "../../types.ts"
+import type { ConfigMeta, EnvironmentMeta, RunSummary, ScenarioItem } from "../../types.ts"
 
 export type DraftState = "draft" | "bug_found"
 
@@ -36,6 +36,9 @@ export type DraftGroup = {
   createdAt: number
   drafts: DraftItem[]
 }
+
+/** A run summary, marked `drafts` when it came from a draft run. Lives here because `ui/src/types.ts` is at its budget. */
+export type DraftAwareSummary = RunSummary & { drafts?: true }
 
 /** The draft state `GET /api/scenarios` sends next to a draft, outside `raw`. */
 export type ScenarioDraft = { state: DraftState; group: string; revisionOf?: string }

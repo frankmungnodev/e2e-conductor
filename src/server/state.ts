@@ -22,6 +22,8 @@ export type ServerState = {
   sseClients: Set<ServerResponse>
   activeRun: ActiveRun | null
   lastSummary: Summary | null
+  /** The last run that was not a draft run: what the header's last-run status reports. */
+  lastSuiteSummary: Summary | null
   lastEvent: RunEvent | null
   broadcast: (event: RunEvent) => void
 }
@@ -32,6 +34,7 @@ export function createServerState(config: LoadedConfig): ServerState {
     sseClients: new Set<ServerResponse>(),
     activeRun: null,
     lastSummary: null,
+    lastSuiteSummary: null,
     lastEvent: null,
     broadcast: (event: RunEvent) => {
       state.lastEvent = event
