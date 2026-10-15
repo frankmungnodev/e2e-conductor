@@ -5,6 +5,7 @@ import { describe, it } from "node:test"
 import { loadConfig } from "../src/config.ts"
 import { openDatabase } from "../src/db/connection.ts"
 import { getDraft, revisionId, saveDraft, saveRevision } from "../src/db/drafts.ts"
+import { saveFixture } from "../src/db/fixtures.ts"
 import { saveRun } from "../src/db/runs.ts"
 import { saveScenarioRun } from "../src/db/scenario-runs.ts"
 import { getScenario, type Scenario, saveScenario } from "../src/db/scenarios.ts"
@@ -129,6 +130,26 @@ describe("GET /api/drafts failure reasons", () => {
       const { flaky } = await draftsById(url)
       assert.equal(flaky.lastRun.failure.step, 2)
       assert.match(flaky.lastRun.failure.message, /4/)
+    })
+  })
+
+  it("names the fixture when a draft fails in setup, and keeps that row out of the step report", async () => {
+    const withSetup: Scenario = { ...shell("seeded"), setup: ["broken-seed"] }
+    const dir = draftProject([], [withSetup], ["dev"])
+    withDb(dir, (db) => saveFixture(db, "broken-seed", { cmd: "exit 5" }))
+    await withServer(dir, async (url) => {
+      await runDrafts(url, ["seeded"])
+      const { seeded } = await draftsById(url)
+      assert.equal(seeded.lastRun.status, "FAILED")
+      assert.match(seeded.lastRun.failure.message, /^setup broken-seed: /)
+      assert.equal(seeded.lastRun.failure.step, undefined)
+      const run = (await (await send(url, "GET", `/api/runs/${seeded.lastRun.runId}`)).json()) as any
+      const { steps } = run.report.find((each: any) => each.scenarioId === "seeded")
+      assert.deepEqual(
+        steps.map((step: any) => step.status),
+        ["NOT_RUN"],
+        "the setup row is not a step",
+      )
     })
   })
 

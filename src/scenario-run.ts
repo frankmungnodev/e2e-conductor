@@ -268,6 +268,20 @@ export async function runScenario(
         outcome.failure = { step: `setup: ${name}`, error: (error as Error).message, label }
         outcome.down = down
         outcome.setupFailed = true
+        // Kept so the Drafts tab can say why the run failed. With no step id and no step position in
+        // its id, step history and the step report leave this row out.
+        record({
+          id: `${runId}:${scenario.id}:${run.iteration}:setup-${name}:1`,
+          runId,
+          scenarioId: scenario.id,
+          iteration: run.iteration,
+          attempt: 1,
+          status: "FAILED",
+          durationMs: Date.now() - began,
+          errorMessage: `setup ${name}: ${stripAnsi(outcome.failure.error).trim()}`,
+          failureLabel: label,
+          createdAt: began,
+        })
         out.line(`  ${color.red("✗")} setup ${name}  ${color.red(label)}\n      ${color.red(outcome.failure.error)}`)
         return outcome
       }

@@ -186,12 +186,13 @@ describe("e2e-conductor kit", () => {
     ["the end marker before the start marker", `# Agents\n\n${NEW_END}\nMy own notes.\n${NEW_START}\n`],
     ["only an old start marker", `# Agents\n\n${OLD_START}\nMy own notes.\n`],
     ["two old blocks", `${OLD_START}\nA\n${OLD_END}\nNotes.\n${OLD_START}\nB\n${OLD_END}\n`],
+    ["an old block and a current block that overlap", `${OLD_START}\nA\n${NEW_START}\nB\n${OLD_END}\nC\n${NEW_END}\n`],
   ]) {
     it(`fails on an AGENTS.md with ${label} and writes nothing`, () => {
       const dir = project()
       writeFileSync(join(dir, "AGENTS.md"), text)
 
-      assert.throws(() => writeAgentKit(dir), /AGENTS\.md has unmatched/)
+      assert.throws(() => writeAgentKit(dir), /AGENTS\.md has (unmatched|a .* that overlap)/)
 
       assert.equal(read(dir, "AGENTS.md"), text)
       assert.equal(existsSync(join(dir, "e2e-suite/agent/kit.md")), false)
