@@ -13,6 +13,7 @@ import { run } from "./runner.ts"
 import { loadScenarios } from "./scenario.ts"
 import { startServer } from "./server.ts"
 import { describeHiddenSuite, type HiddenPath, hiddenSuitePaths } from "./suite-ignore.ts"
+import { renderUninstallReport, uninstall } from "./uninstall.ts"
 
 const HELP = `Usage: e2e-conductor <command> [options]
 
@@ -28,6 +29,8 @@ Commands:
   save    Check agent-written scenario files and store them as drafts (all or nothing)
   kit     Write the agent kit (e2e-suite/agent/) and its block in the root AGENTS.md and CLAUDE.md
   ui      Start the web GUI dashboard
+  uninstall
+          Remove .e2e/, e2e-suite/ and the kit block in AGENTS.md and CLAUDE.md (reports only without --yes)
 
 Options:
   -d, --dir <path>        Project directory (default: .)
@@ -55,6 +58,8 @@ Options:
       --start-cmd <cmd>   With platform add: the command that starts the app (used by --start)
       --app-id <id>       With platform add: the Android package name
       --needs <names>     With platform add: comma-separated platforms this one depends on
+  -y, --yes               With uninstall: remove for real
+      --keep-suite        With uninstall: keep e2e-suite/ (scenarios, presets, fixtures)
       --port <n>          Port for web UI (default: 4173)
       --host <addr>       Host address for web UI (default: 127.0.0.1)
       --no-open           Do not automatically open the browser on UI launch
@@ -89,6 +94,8 @@ async function main() {
       "start-cmd": { type: "string" },
       "app-id": { type: "string" },
       needs: { type: "string" },
+      yes: { type: "boolean", short: "y", default: false },
+      "keep-suite": { type: "boolean", default: false },
       port: { type: "string", default: "4173" },
       host: { type: "string", default: "127.0.0.1" },
       open: { type: "boolean", default: true },
@@ -98,7 +105,7 @@ async function main() {
   })
 
   const command = positionals[0] ?? "run"
-  if (values.help || !["run", "check", "list", "export", "import", "init", "ui", "save", "kit", "platform"].includes(command)) {
+  if (values.help || !["run", "check", "list", "export", "import", "init", "ui", "save", "kit", "platform", "uninstall"].includes(command)) {
     console.log(HELP)
     process.exit(values.help ? 0 : 2)
   }
@@ -116,6 +123,12 @@ async function main() {
     console.log(renderSaveReport(report, cwd, values.json))
     // Not process.exit: a long --json document to a pipe could be cut off.
     process.exitCode = exitCode
+    return
+  }
+  // uninstall, like save and kit, uses the nearest project upward.
+  if (command === "uninstall") {
+    const report = uninstall({ cwd: process.cwd(), yes: values.yes, keepSuite: values["keep-suite"] })
+    console.log(renderUninstallReport(report, process.cwd()))
     return
   }
   // platform add, like save and kit, uses the nearest project upward.

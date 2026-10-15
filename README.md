@@ -47,6 +47,7 @@ The command is now `e2e-conductor`, not `e2e`. A different npm package is named 
 | `e2e-conductor save` | Check scenario files written by a coding agent and store them as drafts |
 | `e2e-conductor kit` | Write the agent kit to `e2e-suite/agent/` and its block in `AGENTS.md` and `CLAUDE.md` |
 | `e2e-conductor ui` | Start the web dashboard (default `http://127.0.0.1:4173`) |
+| `e2e-conductor uninstall` | Remove `.e2e/`, `e2e-suite/` and the kit block in `AGENTS.md` and `CLAUDE.md` (reports only without `--yes`) |
 
 Common options: `-e, --env <name>` picks the environment, `-s, --scenario <text>` filters scenarios by file name, `-r, --repeat <n>` repeats each scenario to find flaky steps, `--start` starts services that are down, and `--headless` hides the browser. Run `e2e-conductor --help` for the full list.
 
@@ -54,6 +55,17 @@ Common options: `-e, --env <name>` picks the environment, `-s, --scenario <text>
 
 - `e2e-suite/` is tracked in git: scenarios, step presets, the agent kit, and fixture scripts. This is what your team reviews.
 - `.e2e/` stays on one machine and is ignored by git: the SQLite database, run results and artifacts, agent drafts, and env files. Environments and platforms live in the database, so keep secrets in `.e2e/` env files, never in `e2e-suite/`.
+
+## Uninstall
+
+```bash
+npx e2e-conductor uninstall              # list what would be removed
+npx e2e-conductor uninstall --yes        # remove .e2e/, e2e-suite/ and the kit block in AGENTS.md and CLAUDE.md
+npx e2e-conductor uninstall --yes --keep-suite  # the same, but keep your scenarios in e2e-suite/
+npm uninstall e2e-conductor              # then remove the package (the command prints the one for your package manager)
+```
+
+`.e2e/` is not in git, so its database, environments, platforms and run history cannot be recovered once removed.
 
 ## Scenario schema
 

@@ -79,7 +79,7 @@ export function writeAgentKit(cwd: string): KitReport {
 }
 
 /** The root instruction files that exist, one entry per real file, with every root name that resolves to it. */
-function instructionFiles(project: string): { path: string; names: string[] }[] {
+export function instructionFiles(project: string): { path: string; names: string[] }[] {
   const byPath = new Map<string, string[]>()
   for (const name of INSTRUCTION_FILES) {
     const path = join(project, name)
@@ -111,6 +111,24 @@ function withBlock(text: string, block: string, name: string): { text: string; o
   ].sort((a, b) => b.from - a.from)
   const next = edits.reduce((acc, edit) => `${acc.slice(0, edit.from)}${edit.with}${acc.slice(edit.to)}`, text)
   return { text: next, outcome: next === text ? "unchanged" : "updated" }
+}
+
+/**
+ * `text` without the kit block, current or 0.4.0, and without the blank line `e2e-conductor kit` put
+ * before it. Undefined when the file has no block. Throws on unmatched markers, like the kit.
+ */
+export function withoutBlock(text: string, name: string): string | undefined {
+  const spans = [blockSpan(text, KIT_START, KIT_END, name), blockSpan(text, LEGACY_KIT_START, LEGACY_KIT_END, name)]
+    .filter((span) => span !== undefined)
+    .sort((a, b) => b.from - a.from)
+  if (spans.length === 0) return undefined
+  return spans.reduce((acc, span) => {
+    const before = acc.slice(0, span.from).replace(/\n+$/, "")
+    const after = acc.slice(span.to).replace(/^\n+/, "")
+    if (before && after) return `${before}\n\n${after}`
+    const rest = before || after
+    return rest ? `${rest.replace(/\n*$/, "")}\n` : ""
+  }, text)
 }
 
 /** Where the one block between `start` and `end` sits in `text`, or undefined when there are no such markers. */

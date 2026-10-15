@@ -23,6 +23,8 @@ A project keeps its files in two folders at its root, split by who owns them (`s
 
 A project is the nearest folder upward that holds either folder (`findProjectDir` in `src/db/paths.ts`), so a fresh clone with only `e2e-suite/` is found before any database exists. Commands that need the database, such as `e2e-conductor save` and `e2e-conductor kit`, then exit with a hint to run `e2e-conductor init` or `e2e-conductor ui`, since environments and platforms are not in git. Older locations (`.e2e/scenarios/`, `.e2e/agent/`, a `presets/` folder at the project root) are not read.
 
+`e2e-conductor uninstall` (`src/uninstall.ts`) undoes a project's setup: it deletes `.e2e/`, `e2e-suite/` unless `--keep-suite` is given, and the kit block (current or 0.4.0 markers) in the root `AGENTS.md` and `CLAUDE.md`, leaving the rest of those files as they were. It finds the project upward like `save` and `kit`, prints the project folder first, and only lists what it would remove unless `--yes` is given. Unmatched kit markers stop it before anything is removed. It never runs the package manager; it prints the remove command for the project's lockfile.
+
 When a git ignore rule hides `e2e-suite/`, one of its folders (`scenarios/`, `presets/`, `agent/`, `fixtures/`) or a file directly in one, `e2e-conductor init`, `e2e-conductor export` and `e2e-conductor kit` warn once per rule, and `e2e-conductor export --check` fails (`scenarios.md`, section 4). Dotfiles and nested folders are not checked, so a rule that keeps `.DS_Store` or a fixture's `node_modules` out of git does not count, and a negated rule (`!e2e-suite/**`) hides nothing. Secrets belong in `.e2e/` env files, never in `e2e-suite/fixtures/` scripts, which are committed.
 
 ---

@@ -6,6 +6,7 @@ All notable changes to this project are listed here. The project follows [Semant
 
 ### Added
 
+- `e2e-conductor uninstall` removes what e2e-conductor wrote into a project: `.e2e/`, `e2e-suite/` (kept with `--keep-suite`) and the kit block in `AGENTS.md` and `CLAUDE.md`, leaving the rest of those files unchanged. Without `--yes` it only lists what it would remove. It prints the command that removes the package, and does not run it.
 - `e2e-conductor platform add <name> --type api|web|android --url <url>` (or `--app-id` for Android) adds a platform to every environment and refreshes the agent kit. It never changes an existing platform. The agent kit tells agents to use it, after confirming the URL with the person, when a scenario needs a target the project does not have.
 
 ### Changed
