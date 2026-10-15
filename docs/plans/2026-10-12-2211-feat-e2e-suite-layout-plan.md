@@ -59,7 +59,7 @@ The rule people write by instinct, `.e2e` in the root `.gitignore`, hides the wh
 
 **Fresh clones**
 
-- R7. In a clone that has `e2e-suite/` but no `.e2e/`, every command, including an agent's `e2e save` run from a subfolder, finds the project and loads the suite from the shared files.
+- R7. In a clone that has `e2e-suite/` but no `.e2e/`, every command, including an agent's `e2e save` run from a subfolder, finds the project. Commands that need a database (`e2e save`, `e2e kit`) stop with a hint to run `e2e init` or `e2e ui`, since environments and platforms are not in git.
 - R8. The tool does not detect, move or read the old layout (`.e2e/scenarios/`, `.e2e/agent/`, root `presets/`).
 
 **Docs**
@@ -71,7 +71,7 @@ The rule people write by instinct, `.e2e` in the root `.gitignore`, hides the wh
 - AE1. **Covers R1, R2, R3.** Given a git repo with no gitignore rules for the tool, when a person runs `e2e init`, adds a scenario and runs `e2e export`, then `git status` lists files under `e2e-suite/` and nothing under `.e2e/`.
 - AE2. **Covers R4, R5.** Given a root `.gitignore` with the line `e2e-suite`, when a person runs `e2e export`, then it prints a warning naming `.gitignore` and the `e2e-suite` rule, and `e2e export --check` exits 1 even when no file has drifted.
 - AE3. **Covers R3.** Given a project whose `.e2e/.gitignore` was deleted, when any command that writes to `.e2e/` runs, then the file is back and `.e2e/` is ignored again.
-- AE4. **Covers R7.** Given a fresh clone with `e2e-suite/scenarios/` and no `.e2e/`, when an agent runs `e2e save` from a subfolder, then the command finds the project root and creates `.e2e/` with its database there.
+- AE4. **Covers R7.** Given a fresh clone with `e2e-suite/scenarios/` and no `.e2e/`, when an agent runs `e2e save` from a subfolder, then the command finds the project root and exits 3 with the hint to run `e2e init` or `e2e ui` there. An empty database would have no targets, so creating one would only turn this into an `unknown target` failure on every file.
 - AE5. **Covers R6.** Given a folder that is not a git repository, when a person runs `e2e export --check` with no drift, then it exits 0 and prints no ignore warning.
 
 ### Scope Boundaries
@@ -96,7 +96,7 @@ The rule people write by instinct, `.e2e` in the root `.gitignore`, hides the wh
 - `src/agent-kit-text.ts`: kit paths `.e2e/agent/kit.md` and `.e2e/agent/vocabulary.json`.
 - `src/config.ts`: default `scenarios` `.e2e/scenarios` and `results` `.e2e/results`.
 
-Product Contract preservation: Product Contract unchanged; its three Deferred-to-Planning questions are answered by KTD1, KTD5 and U2.
+Product Contract preservation: changed: R7 and AE4 (fresh-clone `e2e save` stops with the setup hint instead of creating an empty database; decided by the user after code review). Its three Deferred-to-Planning questions are answered by KTD1, KTD5 and U2.
 
 ---
 
@@ -169,7 +169,7 @@ U1 first: it holds the names every other unit imports. U2 and U3 depend on U1 an
 - Covers AE3. Opening a database in a fresh `.e2e/` folder creates `.e2e/.gitignore` with content `*`.
 - Opening a database when `.e2e/.gitignore` already exists with other content leaves the file unchanged.
 - Opening a database at a `--db` path in a folder not named `.e2e` writes no `.gitignore`.
-- Covers AE4. `findProjectDir` from a nested subfolder returns the root when the root holds only `e2e-suite/`.
+- Covers AE4. `findProjectDir` from a nested subfolder returns the root when the root holds only `e2e-suite/`, and `e2e save` from there exits 3 naming that root and the setup hint.
 - `findProjectDir` still returns the root when it holds only `.e2e/`, and returns undefined when neither folder exists up to the filesystem root.
 - Integration: in a temp git repo, after a database opens in `.e2e/`, `git status --porcelain` lists nothing under `.e2e/`.
 

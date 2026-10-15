@@ -295,6 +295,18 @@ describe("e2e save", () => {
     assert.match(report.error ?? "", /No database at .*e2e init/)
   })
 
+  it("in a fresh clone with only e2e-suite, finds the project from a subfolder and exits 3 with the setup hint", () => {
+    const dir = tempDir("agent-save-clone")
+    mkdirSync(join(dir, "e2e-suite", "scenarios"), { recursive: true })
+    mkdirSync(join(dir, "app", "src"), { recursive: true })
+
+    const { exitCode, report } = save(join(dir, "app", "src"))
+
+    assert.equal(exitCode, 3)
+    assert.match(report.error ?? "", /No database at .*e2e init/)
+    assert.equal(report.project, dir)
+  })
+
   it("saves a file with step and action ids copied from an export under new ids", () => {
     const dir = project()
     keep(dir, {
