@@ -45,7 +45,7 @@ const SAVE = 'e2e-conductor save --group <group> --prompt "<the same request>" -
 
 /** The person-only actions, all in the e2e UI. */
 const PERSON_ONLY: Array<{ name: string; note: string }> = [
-  { name: "Run batch", note: "runs every draft of a group" },
+  { name: "Run and Run All", note: "run a group's drafts, or every draft" },
   { name: "Keep and Keep all passing", note: "a draft needs a pass on its current content first" },
   { name: "Bug found", note: "sets a failing draft aside as a real app bug; you cannot change it after that" },
   { name: "Discard", note: "a draft or a whole group" },

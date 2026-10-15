@@ -322,7 +322,7 @@ In the Web GUI:
     - **Screenshots Tab**: Grid of every screenshot in the run: failure screenshots, explicit `screenshot` actions and step screenshots. Below it, **Result Files & Reports** lists each scenario-iteration's folder and files; a scenario-iteration that changed since its last pass (section 5) shows a `Changed Since Last Pass` warning badge, whatever its own outcome.
     - **Step Runs Tab**: Tabular breakdown of every step attempt, including step identifier, scenario, retry attempt, duration in milliseconds, status badge, failure label, a recovered marker on a passing automatic retry, a `Manual Retry` marker on a retry made while paused, and diagnostic error message or status code.
     - **Run Log Tab**: Full terminal stream and execution log (`run.log`).
-- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Fixed`, `Fixed By Retry`, `Fixed During Run`, `Manual Retry`, `Retry Passed`, `Environment Down`, `Assertion Failed`, `Step Error`, `Changed Since Last Pass`, `Flaky`, `Draft`, `Bug Found`, `Not Yet Passed`, `Fixed, Run Again`).
+- **Badge Convention**: All run and step status badges are formatted in Title Case (`Passed`, `Failed`, `Running`, `Cancelled`, `Not Run`, `Recovered`, `Fixed`, `Fixed By Retry`, `Fixed During Run`, `Manual Retry`, `Retry Passed`, `Environment Down`, `Assertion Failed`, `Step Error`, `Changed Since Last Pass`, `Flaky`, `Bug Found`, `Fixed, Run Again`, `Changed, Run Again`).
 
 ---
 

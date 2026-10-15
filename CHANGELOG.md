@@ -2,6 +2,24 @@
 
 All notable changes to this project are listed here. The project follows [Semantic Versioning](https://semver.org/). Before 1.0.0, a minor version can contain breaking changes.
 
+## [Unreleased]
+
+### Changed
+
+- The Drafts tab is a compact list. Each draft is one line with its status, targets and step count; click it to read its steps. A failed draft shows the failing step and message on its line. Run controls appear once, at the top, and Edit in Builder and Discard moved into a menu on each draft. With no drafts, the tab shows short steps to the first one.
+- The agent kit block in `AGENTS.md` and `CLAUDE.md` now sits between `<!-- e2e-conductor-kit:start -->` and `<!-- e2e-conductor-kit:end -->`.
+- `GET /api/drafts` adds `lastRun.failure` (step, name and message) for a draft whose last run failed, and `GET /api/run/status` adds `lastSuiteSummary`.
+
+### Fixed
+
+- The header showed `v0.2.0` whatever the installed version. It now shows the package version.
+- The header's scenario count included drafts. It now counts kept scenarios only.
+- A failing draft batch turned the header to "Last Run Failed". The header now reports only runs that are not draft runs.
+
+### Upgrading from 0.4.0
+
+Run `npx e2e-conductor kit` once. It replaces the block between the old `e2e-kit:` markers with one between the new markers, in place. If a file already has both, the old block is removed.
+
 ## [0.4.0] - 2026-10-15
 
 ### Breaking changes
