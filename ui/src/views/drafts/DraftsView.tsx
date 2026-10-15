@@ -1,8 +1,9 @@
-import { Inbox } from "lucide-react"
+import { useState } from "react"
 import { useConfirmDialog } from "../../components/ConfirmModal.tsx"
-import { EmptyState } from "../../components/EmptyState.tsx"
 import type { ConfigMeta, ScenarioItem } from "../../types.ts"
 import { DraftGroupCard } from "./DraftGroupCard.tsx"
+import { DraftsEmptyCard } from "./DraftsEmptyCard.tsx"
+import { DraftsRunBar } from "./DraftsRunBar.tsx"
 import { defaultDraftEnvironment, draftEnvironments } from "./draftHelpers.ts"
 import { useDrafts } from "./useDrafts.ts"
 
@@ -31,61 +32,72 @@ export function DraftsView({
   const drafts = useDrafts(onScenariosChanged)
   const { confirm, ConfirmDialog } = useConfirmDialog()
   const environments = draftEnvironments(config)
-  const defaultEnvironment = defaultDraftEnvironment(config)
+  const [chosen, setChosen] = useState<string | undefined>(undefined)
+  const [pauseOnFailure, setPauseOnFailure] = useState(false)
+  const environment = chosen && environments.includes(chosen) ? chosen : defaultDraftEnvironment(config)
+  const run = (ids: string[]) => {
+    if (environment) onRunBatch(ids, environment, pauseOnFailure)
+  }
+  const allIds = drafts.groups?.flatMap((group) => group.drafts.map((draft) => draft.id)) ?? []
 
   return (
     <div className="h-full overflow-y-auto bg-editor">
       <div className="flex flex-col gap-3 max-w-5xl px-6 py-4">
         <div className="flex flex-col gap-0.5">
           <h2 className="text-sm font-bold text-fg-bright">Drafts</h2>
-          <p className="text-xs text-fg-muted">
-            Scenarios a coding agent saved, grouped by the prompt that produced them. Run a batch, keep the drafts
-            that pass, and mark the ones that fail on an app bug.
-          </p>
+          {allIds.length > 0 && (
+            <p className="text-xs text-fg-muted">Scenarios a coding agent saved, grouped by the request that produced them.</p>
+          )}
         </div>
 
         {drafts.groups === null ? (
           <p className="text-xs text-fg-muted">Loading…</p>
         ) : drafts.groups.length === 0 ? (
-          <EmptyState
-            icon={<Inbox className="w-6 h-6" />}
-            title="No Drafts"
-            description="Run `e2e-conductor kit` in your project, then ask your coding agent to write scenarios and save them with `e2e-conductor save`. They show up here, grouped by the prompt you gave it."
-            bordered
-          />
+          <DraftsEmptyCard hasDraftEnvironment={environment !== undefined} onOpenEnvironments={onOpenEnvironments} />
         ) : (
-          drafts.groups.map((group) => (
-            <DraftGroupCard
-              key={group.key}
-              group={group}
-              scenarios={scenarios}
+          <>
+            <DraftsRunBar
               environments={environments}
-              defaultEnvironment={defaultEnvironment}
+              environment={environment}
+              onEnvironmentChange={setChosen}
+              pauseOnFailure={pauseOnFailure}
+              onPauseOnFailureChange={setPauseOnFailure}
               isRunning={isRunning}
-              onRunBatch={onRunBatch}
+              draftCount={allIds.length}
+              onRunAll={() => run(allIds)}
               onOpenEnvironments={onOpenEnvironments}
-              onKeep={(draft) => void drafts.keep(draft.id, draft.name)}
-              onKeepAllPassing={() => void drafts.keepAllPassing(group.key)}
-              onMarkBug={(draft) => void drafts.markBug(draft.id)}
-              onEdit={(draft) => onEditInBuilder(draft.id)}
-              onDiscard={(draft) =>
-                confirm({
-                  title: "Discard Draft",
-                  message: `Discard "${draft.name}"? Its scenario is deleted, and an agent can save it again later.`,
-                  confirmText: "Discard",
-                  onConfirm: () => drafts.discard(draft.id),
-                })
-              }
-              onDiscardGroup={() =>
-                confirm({
-                  title: "Discard Group",
-                  message: `Discard all ${group.drafts.length} drafts saved for "${group.prompt}"? Kept scenarios are not touched.`,
-                  confirmText: "Discard Group",
-                  onConfirm: () => drafts.discardGroup(group.key),
-                })
-              }
             />
-          ))
+            {drafts.groups.map((group) => (
+              <DraftGroupCard
+                key={group.key}
+                group={group}
+                scenarios={scenarios}
+                canRun={environment !== undefined}
+                isRunning={isRunning}
+                onRun={run}
+                onKeep={(draft) => void drafts.keep(draft.id, draft.name)}
+                onKeepAllPassing={() => void drafts.keepAllPassing(group.key)}
+                onMarkBug={(draft) => void drafts.markBug(draft.id)}
+                onEdit={(draft) => onEditInBuilder(draft.id)}
+                onDiscard={(draft) =>
+                  confirm({
+                    title: "Discard Draft",
+                    message: `Discard "${draft.name}"? Its scenario is deleted, and an agent can save it again later.`,
+                    confirmText: "Discard",
+                    onConfirm: () => drafts.discard(draft.id),
+                  })
+                }
+                onDiscardGroup={() =>
+                  confirm({
+                    title: "Discard Group",
+                    message: `Discard all ${group.drafts.length} drafts saved for "${group.prompt}"? Kept scenarios are not touched.`,
+                    confirmText: "Discard Group",
+                    onConfirm: () => drafts.discardGroup(group.key),
+                  })
+                }
+              />
+            ))}
+          </>
         )}
       </div>
       <ConfirmDialog />

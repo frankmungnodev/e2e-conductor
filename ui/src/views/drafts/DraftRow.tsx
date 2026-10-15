@@ -1,7 +1,9 @@
-import { Bug, Check, PencilLine, Trash2 } from "lucide-react"
+import { Bug, Check, ChevronRight, PencilLine, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { Badge } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
-import { canMarkBugFound, passBadge, stateBadge } from "./draftHelpers.ts"
+import { Menu } from "../../components/Menu.tsx"
+import { canMarkBugFound, failureText, rowStatus, stepCountLabel } from "./draftHelpers.ts"
 import type { DraftItem, Readback } from "./draftTypes.ts"
 
 type DraftRowProps = {
@@ -15,26 +17,33 @@ type DraftRowProps = {
   onDiscard: () => void
 }
 
-/** One draft: its state, whether its current content passed, its actions, and its readback. */
+/** One draft on one line: its status, what it uses and why it failed. Click the line to read its steps. */
 export function DraftRow({ draft, revisionLabel, isRunning, onKeep, onMarkBug, onEdit, onDiscard }: DraftRowProps) {
-  const state = stateBadge(draft.state)
-  const pass = passBadge(draft)
+  const [expanded, setExpanded] = useState(false)
+  const status = rowStatus(draft)
+  const failure = failureText(draft)
   return (
-    <article aria-label={draft.name} className="flex flex-col gap-2 px-3 py-2.5 border-t border-border first:border-t-0">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-0.5 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-semibold text-fg-bright truncate">{draft.name}</span>
-            <Badge variant={state.variant} size="xs">
-              {state.label}
-            </Badge>
-            <Badge variant={pass.variant} size="xs">
-              {pass.label}
-            </Badge>
-          </div>
-          {revisionLabel && <span className="text-xs text-fg-muted">{revisionLabel}</span>}
-          {draft.description && <span className="text-xs text-fg-muted">{draft.description}</span>}
-        </div>
+    <article aria-label={draft.name} className="flex flex-col border-t border-border first:border-t-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-hover/40">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+          className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-border-focus rounded-xs"
+        >
+          <ChevronRight className={`w-3 h-3 shrink-0 text-fg-muted transition-transform ${expanded ? "rotate-90" : ""}`} />
+          <span className="text-xs font-semibold text-fg-bright truncate">{draft.name}</span>
+          <Badge variant={status.variant} size="xs" dot>
+            {status.label}
+          </Badge>
+          {draft.readback.targets.map((target) => (
+            <span key={target} className="text-xs font-mono text-fg-muted px-1 border border-border rounded-xs">
+              {target}
+            </span>
+          ))}
+          <span className="text-xs text-fg-subtle shrink-0">{stepCountLabel(draft.readback)}</span>
+          {revisionLabel && <span className="text-xs text-fg-muted truncate">{revisionLabel}</span>}
+        </button>
         <div className="flex items-center gap-1 shrink-0">
           {draft.passed && (
             <Button size="xs" variant="primary" onClick={onKeep} disabled={isRunning} icon={<Check className="w-3 h-3" />}>
@@ -46,29 +55,26 @@ export function DraftRow({ draft, revisionLabel, isRunning, onKeep, onMarkBug, o
               Mark Bug Found
             </Button>
           )}
-          <Button size="xs" variant="ghost" onClick={onEdit} icon={<PencilLine className="w-3 h-3" />}>
-            Edit in Builder
-          </Button>
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={onDiscard}
-            className="text-error hover:text-error hover:bg-error-bg"
-            icon={<Trash2 className="w-3 h-3" />}
-          >
-            Discard
-          </Button>
+          <Menu
+            label={`More actions for ${draft.name}`}
+            items={[
+              { label: "Edit in Builder", icon: <PencilLine className="w-3 h-3" />, onSelect: onEdit },
+              { label: "Discard", icon: <Trash2 className="w-3 h-3" />, onSelect: onDiscard, danger: true },
+            ]}
+          />
         </div>
       </div>
-      <ReadbackView readback={draft.readback} />
+      {failure && <p className="px-3 pb-1.5 pl-8 text-xs text-error wrap-break-word">Last run: {failure}</p>}
+      {expanded && <ReadbackView description={draft.description} readback={draft.readback} />}
     </article>
   )
 }
 
 /** The draft's steps as plain sentences, then what it uses, with shell commands and full URLs verbatim. */
-function ReadbackView({ readback }: { readback: Readback }) {
+function ReadbackView({ description, readback }: { description?: string; readback: Readback }) {
   return (
-    <div className="flex flex-col gap-2 pl-3 border-l border-border-light">
+    <div className="flex flex-col gap-2 ml-8 mr-3 mb-2.5 pl-3 border-l border-border-light">
+      {description && <p className="text-xs text-fg-muted">{description}</p>}
       {readback.notes.length > 0 && (
         <ul className="flex flex-col gap-0.5">
           {readback.notes.map((note) => (
@@ -96,7 +102,6 @@ function ReadbackView({ readback }: { readback: Readback }) {
           </li>
         ))}
       </ol>
-      <ReadbackList label="Targets" values={readback.targets} />
       <ReadbackList label="Fixtures" values={readback.fixtures} />
       <ReadbackList label="Shell Commands" values={readback.commands} verbatim />
       <ReadbackList label="Full URLs" values={readback.urls} verbatim />

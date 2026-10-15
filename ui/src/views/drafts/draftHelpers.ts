@@ -4,7 +4,7 @@ import type {
   DraftAwareScenario,
   DraftGroup,
   DraftItem,
-  DraftState,
+  Readback,
   ScenarioDraft,
 } from "./draftTypes.ts"
 
@@ -36,15 +36,42 @@ export function defaultDraftEnvironment(config: ConfigMeta | undefined): string 
   return active && marked.includes(active) ? active : marked[0]
 }
 
-export function stateBadge(state: DraftState): BadgeSpec {
-  return state === "bug_found" ? { label: "Bug Found", variant: "danger" } : { label: "Draft", variant: "info" }
+/** The one status a draft row shows: Bug Found, then whether its current content passed, then its last run. */
+export function rowStatus(draft: DraftItem): BadgeSpec {
+  if (draft.state === "bug_found") return { label: "Bug Found", variant: "danger" }
+  if (draft.passed) return { label: "Passed", variant: "success" }
+  switch (draft.lastRun?.status) {
+    case undefined:
+      return { label: "Not Run", variant: "neutral" }
+    case "FAILED":
+      return { label: "Failed", variant: "danger" }
+    case "FIXED":
+      return { label: "Fixed, Run Again", variant: "warning" }
+    // A pass on older content: the draft changed since.
+    case "PASSED":
+      return { label: "Changed, Run Again", variant: "warning" }
+    case "RUNNING":
+      return { label: "Running", variant: "info" }
+    case "CANCELLED":
+      return { label: "Cancelled", variant: "neutral" }
+  }
 }
 
-/** Whether the draft's current content passed. A pass that needed a fix during the run does not count. */
-export function passBadge(draft: DraftItem): BadgeSpec {
-  if (draft.passed) return { label: "Passed", variant: "success" }
-  if (draft.lastRun?.status === "FIXED") return { label: "Fixed, Run Again", variant: "warning" }
-  return { label: "Not Yet Passed", variant: "neutral" }
+/** Why the last run failed, e.g. "Step 2, Check exit: exit code: expected 0, got 1", or undefined. */
+export function failureText(draft: DraftItem): string | undefined {
+  const failure = draft.lastRun?.status === "FAILED" ? draft.lastRun.failure : undefined
+  if (!failure) return undefined
+  if (failure.step === undefined) return failure.message
+  return `Step ${failure.step}${failure.name ? `, ${failure.name}` : ""}: ${failure.message}`
+}
+
+export function stepCountLabel(readback: Readback): string {
+  return `${readback.steps.length} step${readback.steps.length === 1 ? "" : "s"}`
+}
+
+/** A prompt on one line, for a group heading that must not grow into a paragraph. */
+export function promptLine(prompt: string): string {
+  return prompt.replace(/\s+/g, " ").trim()
 }
 
 /** The drafts Keep all passing would keep. */
