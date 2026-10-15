@@ -21,12 +21,12 @@ npm install --save-dev e2e-conductor
 ## Quick start
 
 ```bash
-npx e2e init -i  # asks about your services, then creates .e2e/ and e2e-suite/scenarios/smoke.json
-npx e2e check    # check that services are up and devices are connected
+npx e2e init     # local database in .e2e/ and a starter scenario in e2e-suite/scenarios/smoke.json
+npx e2e ui       # open the web dashboard to set up environments and platforms, and build scenarios
 npx e2e run      # run every scenario against the active environment
 ```
 
-`e2e init` without `-i` writes a default setup with one `api` service at `http://localhost:3000`.
+`e2e init -i` asks about your services step by step instead of writing a default setup with one `api` service at `http://localhost:3000`. `e2e check` confirms that services are up and devices are connected without running anything.
 
 ## Commands
 
@@ -40,10 +40,9 @@ npx e2e run      # run every scenario against the active environment
 | `e2e init` | Create the local database and a starter scenario |
 | `e2e save` | Check scenario files written by a coding agent and store them as drafts |
 | `e2e kit` | Write the agent kit to `e2e-suite/agent/` and its block in `AGENTS.md` and `CLAUDE.md` |
+| `e2e ui` | Start the web dashboard (default `http://127.0.0.1:4173`) |
 
 Common options: `-e, --env <name>` picks the environment, `-s, --scenario <text>` filters scenarios by file name, `-r, --repeat <n>` repeats each scenario to find flaky steps, `--start` starts services that are down, and `--headless` hides the browser. Run `e2e --help` for the full list.
-
-The npm package ships the command line only. The web dashboard (`e2e ui`) is not included: to use it, clone the repository, run `pnpm install` and `pnpm run build:ui`, then start it with `node bin/e2e.mjs ui -d <your project>`.
 
 ## Project layout
 

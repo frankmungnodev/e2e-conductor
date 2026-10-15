@@ -35,7 +35,8 @@
   "files": [
     "bin",
     "src",
-    "schema"
+    "schema",
+    "ui/dist"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p ui/tsconfig.json",
@@ -48,7 +49,8 @@
     "lint": "biome lint",
     "check": "pnpm run typecheck && pnpm run check:boundary && pnpm run check:size && pnpm run check:tailwind && pnpm test",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
-    "check:tailwind": "node scripts/check-tailwind.mjs"
+    "check:tailwind": "node scripts/check-tailwind.mjs",
+    "prepublishOnly": "pnpm run build:ui"
   },
   "dependencies": {
     "ajv": "^8.20.0",

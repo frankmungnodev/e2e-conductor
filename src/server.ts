@@ -183,10 +183,8 @@ export function startServer(
     <div class="badge">Backend API Active</div>
     <h1>⚡ e2e-conductor UI Server</h1>
     <p>The backend server is running and ready at <code>http://${host}:${port}</code>.</p>
-    <p>To serve the full graphical interface, build the UI bundle using:</p>
-    <p><code>pnpm run build:ui</code></p>
-    <p>Or start the Vite development server with hot-module reloading:</p>
-    <p><code>pnpm run dev:ui</code></p>
+    <p>This install has no dashboard build. The npm package includes one, so reinstall <code>e2e-conductor</code> if you installed it from npm.</p>
+    <p>In a clone of the repository, build the dashboard with <code>pnpm run build:ui</code>, or start the Vite dev server with <code>pnpm run dev:ui</code>.</p>
   </div>
 </body>
 </html>`
