@@ -64,7 +64,13 @@ export function NoDraftEnvironment({ onOpenEnvironments }: { onOpenEnvironments:
         <span className="text-xs font-semibold text-warning">No environment allows draft runs yet</span>
         <span className="text-xs text-fg-muted">Turn on Allow Draft Runs for an environment to run drafts on it.</span>
       </div>
-      <Button size="xs" variant="secondary" onClick={onOpenEnvironments} icon={<Settings2 className="w-3 h-3" />}>
+      <Button
+        size="xs"
+        variant="secondary"
+        className="shrink-0 whitespace-nowrap"
+        onClick={onOpenEnvironments}
+        icon={<Settings2 className="w-3 h-3" />}
+      >
         Open Environments
       </Button>
     </div>

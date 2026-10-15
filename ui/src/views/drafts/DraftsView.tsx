@@ -39,10 +39,11 @@ export function DraftsView({
     if (environment) onRunBatch(ids, environment, pauseOnFailure)
   }
   const allIds = drafts.groups?.flatMap((group) => group.drafts.map((draft) => draft.id)) ?? []
+  const isEmpty = drafts.groups?.length === 0
 
   return (
     <div className="h-full overflow-y-auto bg-editor">
-      <div className="flex flex-col gap-3 max-w-5xl px-6 py-4">
+      <div className={`flex flex-col gap-3 min-h-full px-6 py-4 ${isEmpty ? "" : "max-w-5xl"}`}>
         <div className="flex flex-col gap-0.5">
           <h2 className="text-sm font-bold text-fg-bright">Drafts</h2>
           {allIds.length > 0 && (
