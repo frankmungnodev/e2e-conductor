@@ -4,6 +4,7 @@ import { useUrlTab } from "../../components/Tabs.tsx"
 import { getTargetBadgeVariant, getTargetDriver, type StepDriver } from "../../targetDriver.ts"
 import type { ConfigMeta, FlowItem, ScenarioItem } from "../../types.ts"
 import { AddStepModal } from "./AddStepModal.tsx"
+import { builderScenarios } from "./builderScenarios.ts"
 import { NoScenarioState } from "./NoScenarioState.tsx"
 import { SavePresetModal } from "./SavePresetModal.tsx"
 import { ScenarioListPanel } from "./ScenarioListPanel.tsx"
@@ -79,7 +80,7 @@ export function ScenarioBuilder({
     closeAddStep()
   }
 
-  const filteredScenarios = scenarios.filter(
+  const filteredScenarios = builderScenarios(scenarios, draft.selectedScenarioId).filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.id.toLowerCase().includes(searchQuery.toLowerCase()),

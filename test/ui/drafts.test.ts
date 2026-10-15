@@ -165,6 +165,18 @@ describe("Drafts view", () => {
     await draftRow(page, PASSING_DRAFT_NAME).getByRole("button", { name: `More actions for ${PASSING_DRAFT_NAME}` }).click()
     await page.getByRole("menuitem", { name: "Edit in Builder" }).click()
     await page.waitForURL(/tab=scenarios/)
+    // The open draft shows in the list, marked, while the other draft stays in the Drafts tab.
+    await page.getByText(PASSING_DRAFT_NAME).first().waitFor()
+    await page.getByText("Draft", { exact: true }).first().waitFor()
+  })
+
+  it("leaves drafts out of the Scenarios list", async () => {
+    const { url, page, projectDir } = await startUiSession("drafts-builder-list")
+    seedDrafts(projectDir)
+    await page.goto(`${url}/?tab=scenarios`)
+    await page.getByText(SHELL_SCENARIO_NAME).first().waitFor()
+    assert.equal(await page.getByText(PASSING_DRAFT_NAME).count(), 0)
+    assert.equal(await page.getByText(FAILING_DRAFT_NAME).count(), 0)
   })
 
   it("leaves drafts out of the Runner's list and its select-all run", async () => {

@@ -3,6 +3,7 @@ import type { useConfirmDialog } from "../../components/ConfirmModal.tsx"
 import { useToast } from "../../components/Toast.tsx"
 import { getTargetDriver, type StepDriver } from "../../targetDriver.ts"
 import type { ConfigMeta, ScenarioItem, ScenarioStep, StepAction } from "../../types.ts"
+import { initialBuilderScenario, nextAfterDelete } from "./builderScenarios.ts"
 import { defaultActionType, newStep, newStepAction, titleCase, withDefaultActions } from "./stepDefaults.ts"
 
 export type SaveScenario = (
@@ -54,9 +55,9 @@ export function useScenarioDraft({
 
   // Auto-select the initial scenario, or the first one, on mount
   useEffect(() => {
-    if (!selectedScenarioId && scenarios.length > 0) {
-      const initial = scenarios.find((s) => s.id === initialScenarioId)
-      selectScenario((initial ?? scenarios[0]).id)
+    if (!selectedScenarioId) {
+      const initial = initialBuilderScenario(scenarios, initialScenarioId)
+      if (initial) selectScenario(initial.id)
     }
   }, [scenarios, selectedScenarioId])
 
@@ -355,9 +356,9 @@ export function useScenarioDraft({
         isDirtyRef.current = false
         await onDeleteScenario(id)
         toastSuccess(`Scenario "${id}" deleted`, "Deleted")
-        if (scenarios.length > 1) {
-          const other = scenarios.find((s) => s.id !== id)
-          if (other) selectScenario(other.id)
+        const other = nextAfterDelete(scenarios, id)
+        if (other) {
+          selectScenario(other.id)
         } else {
           setDraftScenario(null)
           setSelectedScenarioId(null)

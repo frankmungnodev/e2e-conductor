@@ -3,6 +3,7 @@ import { Badge } from "../../components/Badge.tsx"
 import { Button } from "../../components/Button.tsx"
 import { Input } from "../../components/FormControls.tsx"
 import type { ScenarioItem } from "../../types.ts"
+import { scenarioDraft } from "../drafts/draftHelpers.ts"
 
 export interface ScenarioListPanelProps {
   searchQuery: string
@@ -65,9 +66,16 @@ export function ScenarioListPanel({
                     : "bg-sidebar border-transparent hover:bg-hover hover:border-border text-fg"
                 }`}
               >
-                <span className="text-xs truncate font-medium leading-tight" title={sc.name}>
-                  {sc.name}
-                </span>
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-xs truncate font-medium leading-tight" title={sc.name}>
+                    {sc.name}
+                  </span>
+                  {scenarioDraft(sc) && (
+                    <Badge variant="warning" size="xs">
+                      Draft
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex items-center justify-between gap-2 min-w-0">
                   <span className="text-xs text-fg-muted font-mono truncate">{sc.id}</span>
                   <Badge variant="neutral" size="xs">
