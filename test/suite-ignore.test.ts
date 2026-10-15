@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process"
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, it } from "node:test"
-import { hiddenSuitePaths } from "../src/suite-ignore.ts"
+import { describeHiddenSuite, hiddenSuitePaths } from "../src/suite-ignore.ts"
 import { tempDir } from "./temp-dir.ts"
 
 /** A git repo with one scenario file in the shared suite folder and the given root .gitignore. */
@@ -98,5 +98,19 @@ describe("hiddenSuitePaths", () => {
     const dir = tempDir("suite-ignore-no-git")
     mkdirSync(join(dir, "e2e-suite"))
     assert.deepEqual(hiddenSuitePaths(dir), [])
+  })
+})
+
+describe("describeHiddenSuite", () => {
+  it("writes one line per rule, counting the paths it hides", () => {
+    const hidden = [
+      { path: "/p/e2e-suite/", source: ".gitignore", line: 2, pattern: "e2e-suite" },
+      { path: "/p/e2e-suite/scenarios/a.json", source: ".gitignore", line: 2, pattern: "e2e-suite" },
+      { path: "/p/e2e-suite/presets/b.json", source: ".git/info/exclude", line: 1, pattern: "*.json" },
+    ]
+    assert.deepEqual(describeHiddenSuite(hidden), [
+      '.gitignore:2 "e2e-suite" hides 2 paths in e2e-suite/ from git. Remove or narrow it so the suite is committed.',
+      '.git/info/exclude:1 "*.json" hides a path in e2e-suite/ from git. Remove or narrow it so the suite is committed.',
+    ])
   })
 })
