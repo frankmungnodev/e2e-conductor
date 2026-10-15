@@ -123,6 +123,23 @@ import { Select } from "./Select.tsx"
 />
 ```
 
+### `<Menu>`
+A ⋯ trigger that opens a short popover list of actions, for row and card actions that would otherwise crowd a toolbar. It closes on Escape, on a click outside and after a selection; Down opens it and moves between items, Up moves back, and Escape returns focus to the trigger. Items have the `menuitem` role, so tests find them by name.
+- **Location**: `ui/src/components/Menu.tsx`
+- **Props**: `label: string` (the trigger's accessible name, e.g. `More actions for Login`), `items: MenuItem[]` (`label`, `onSelect`, `icon?`, `danger?` for error styling on deleting actions, `disabled?`)
+
+```tsx
+import { Menu } from "./Menu.tsx"
+
+<Menu
+  label={`More actions for ${draft.name}`}
+  items={[
+    { label: "Edit in Builder", icon: <PencilLine className="w-3 h-3" />, onSelect: onEdit },
+    { label: "Discard", icon: <Trash2 className="w-3 h-3" />, onSelect: onDiscard, danger: true },
+  ]}
+/>
+```
+
 ### `<NumberInput>`
 Numeric stepper input with min/max clamping, custom step intervals, keyboard arrow incrementing, and optional prefix/suffix labels.
 - **Location**: `ui/src/components/NumberInput.tsx`
