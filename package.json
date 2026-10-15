@@ -2,8 +2,29 @@
   "name": "e2e-conductor",
   "version": "0.2.0",
   "description": "Run one JSON scenario across HTTP APIs, web apps (Playwright) and Android apps (adb)",
-  "private": true,
+  "keywords": [
+    "e2e",
+    "end-to-end",
+    "testing",
+    "playwright",
+    "android",
+    "adb",
+    "api-testing"
+  ],
+  "license": "MIT",
+  "author": "frankmungnodev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frankmungnodev/e2e-conductor.git"
+  },
+  "homepage": "https://github.com/frankmungnodev/e2e-conductor#readme",
+  "bugs": {
+    "url": "https://github.com/frankmungnodev/e2e-conductor/issues"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "bin": {
     "e2e": "./bin/e2e.mjs"
   },
@@ -11,6 +32,12 @@
     ".": "./src/index.ts",
     "./schema/*": "./schema/*"
   },
+  "files": [
+    "bin",
+    "src",
+    "schema",
+    "ui/dist"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p ui/tsconfig.json",
     "check:boundary": "node scripts/check-boundary.mjs",
@@ -22,7 +49,8 @@
     "lint": "biome lint",
     "check": "pnpm run typecheck && pnpm run check:boundary && pnpm run check:size && pnpm run check:tailwind && pnpm test",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
-    "check:tailwind": "node scripts/check-tailwind.mjs"
+    "check:tailwind": "node scripts/check-tailwind.mjs",
+    "prepublishOnly": "pnpm run check && pnpm run build:ui"
   },
   "dependencies": {
     "ajv": "^8.20.0",
