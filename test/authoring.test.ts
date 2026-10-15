@@ -16,10 +16,10 @@ function setupProject(dir: string) {
   mkdirSync(join(dir, "flows"), { recursive: true })
   mkdirSync(join(dir, "web", "admin"), { recursive: true })
 
-  // Link e2e-orchestrator in node_modules so imports resolve
+  // Link e2e-conductor in node_modules so imports resolve
   mkdirSync(join(dir, "node_modules"), { recursive: true })
   const pkgRoot = resolve(import.meta.dirname, "..")
-  symlinkSync(pkgRoot, join(dir, "node_modules", "e2e-orchestrator"), "junction")
+  symlinkSync(pkgRoot, join(dir, "node_modules", "e2e-conductor"), "junction")
 
   // SQLite configuration in .e2e/e2e.db
   const db = openDatabase(join(dir, ".e2e", "e2e.db"))
@@ -83,7 +83,7 @@ function setupProject(dir: string) {
   // Web step
   writeFileSync(
     join(dir, "web", "admin", "login.ts"),
-    `import { defineWebStep } from "e2e-orchestrator"
+    `import { defineWebStep } from "e2e-conductor"
 export default defineWebStep(async ({ page }) => {
   return { status: "logged-in" }
 })

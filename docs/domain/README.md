@@ -1,6 +1,6 @@
 # Domain Architecture
 
-This directory documents the core domain models and business rules of `e2e-orchestrator`.
+This directory documents the core domain models and business rules of `e2e-conductor`.
 
 The orchestrator decouples **test declarations** (scenarios and steps) from **target infrastructure** (hostnames, devices, daemons) and records granular execution telemetry using core pillars stored in SQLite (`.e2e/e2e.db`, managed via the `src/db/` modules, one per entity, with the schema in `src/db/connection.ts`):
 

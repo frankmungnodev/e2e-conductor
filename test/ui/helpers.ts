@@ -28,7 +28,7 @@ function seedProject(dir: string) {
   mkdirSync(join(dir, "scenarios"), { recursive: true })
   mkdirSync(join(dir, "results"), { recursive: true })
   mkdirSync(join(dir, "node_modules"), { recursive: true })
-  symlinkSync(repoRoot, join(dir, "node_modules", "e2e-orchestrator"), "junction")
+  symlinkSync(repoRoot, join(dir, "node_modules", "e2e-conductor"), "junction")
 
   const db = openDatabase(join(dir, ".e2e", "e2e.db"))
   saveEnvironment(db, "dev", { description: "Development", scenarios: "scenarios", results: "results" })

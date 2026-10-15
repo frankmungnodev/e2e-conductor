@@ -18,7 +18,7 @@ import { tempDir } from "./temp-dir.ts"
 function mockProject(): LoadedConfig {
   const dir = tempDir("server-test")
   mkdirSync(join(dir, "node_modules"), { recursive: true })
-  symlinkSync(resolve(import.meta.dirname, ".."), join(dir, "node_modules/e2e-orchestrator"), "dir")
+  symlinkSync(resolve(import.meta.dirname, ".."), join(dir, "node_modules/e2e-conductor"), "dir")
   mkdirSync(join(dir, "scenarios"), { recursive: true })
   mkdirSync(join(dir, "results"), { recursive: true })
   mkdirSync(join(dir, "flows"), { recursive: true })

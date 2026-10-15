@@ -2,8 +2,8 @@
 
 | File | Validates | `$id` |
 | --- | --- | --- |
-| `v1/scenario.schema.json` | Scenario JSON files | `urn:e2e-orchestrator:scenario:v1` |
-| `v1/flow.schema.json` | Each YAML document of a mobile flow file. No step runs flows any more; the file is a leftover | `urn:e2e-orchestrator:flow:v1` |
+| `v1/scenario.schema.json` | Scenario JSON files | `urn:e2e-conductor:scenario:v1` |
+| `v1/flow.schema.json` | Each YAML document of a mobile flow file. No step runs flows any more; the file is a leftover | `urn:e2e-conductor:flow:v1` |
 
 `e2e list` and `e2e run` validate every scenario before anything starts: the schema, then the step
 check in `src/scenario.ts`, which reads the vocabulary in `src/vocabulary.ts`. A test holds the schema's
@@ -29,5 +29,5 @@ protected no working file.
 Scenario JSON:
 
 ```json
-{ "$schema": "../node_modules/e2e-orchestrator/schema/v1/scenario.schema.json" }
+{ "$schema": "../node_modules/e2e-conductor/schema/v1/scenario.schema.json" }
 ```

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "urn:e2e-orchestrator:flow:v1",
+  "$id": "urn:e2e-conductor:flow:v1",
   "title": "E2E mobile flow",
   "description": "One YAML document of a mobile flow file: an optional header object, then `---`, then the command list. Every document in the file matches this schema.",
   "type": ["object", "array"],

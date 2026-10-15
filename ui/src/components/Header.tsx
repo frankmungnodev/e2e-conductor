@@ -40,7 +40,7 @@ export function Header({
             ⚡
           </div>
           <span className="font-semibold text-fg-bright text-xs tracking-tight">
-            e2e-orchestrator
+            e2e-conductor
           </span>
           <span className="text-xs font-mono px-1.5 py-0.2 rounded-xs bg-sidebar text-fg-muted border border-border">
             v0.2.0

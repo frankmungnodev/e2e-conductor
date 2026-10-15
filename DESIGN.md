@@ -1,6 +1,6 @@
 # Design System & UI Architecture
 
-This document defines the design tokens, component primitives, and UI conventions for `e2e-orchestrator`'s Web GUI. It serves as the primary design reference for AI agents and developers building and extending the interface.
+This document defines the design tokens, component primitives, and UI conventions for `e2e-conductor`'s Web GUI. It serves as the primary design reference for AI agents and developers building and extending the interface.
 
 The theme palette is inspired by the VS Code dark modern theme.
 

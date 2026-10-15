@@ -6,7 +6,7 @@ describe("UI harness", () => {
   it("serves the built app against a seeded project", async () => {
     const { url, page } = await startUiSession("app")
     await page.goto(url)
-    await page.getByText("e2e-orchestrator").first().waitFor()
+    await page.getByText("e2e-conductor").first().waitFor()
     assert.ok(await page.title())
   })
 })

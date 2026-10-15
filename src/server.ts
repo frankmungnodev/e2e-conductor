@@ -168,7 +168,7 @@ export function startServer(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>e2e-orchestrator UI</title>
+  <title>e2e-conductor UI</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 2.5rem; max-width: 520px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5); }
@@ -181,7 +181,7 @@ export function startServer(
 <body>
   <div class="card">
     <div class="badge">Backend API Active</div>
-    <h1>⚡ e2e-orchestrator UI Server</h1>
+    <h1>⚡ e2e-conductor UI Server</h1>
     <p>The backend server is running and ready at <code>http://${host}:${port}</code>.</p>
     <p>To serve the full graphical interface, build the UI bundle using:</p>
     <p><code>pnpm run build:ui</code></p>

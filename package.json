@@ -1,5 +1,5 @@
 {
-  "name": "e2e-orchestrator",
+  "name": "e2e-conductor",
   "version": "0.2.0",
   "description": "Run one JSON scenario across HTTP APIs, web apps (Playwright) and Android apps (adb)",
   "private": true,

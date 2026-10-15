@@ -13,7 +13,7 @@ import { tempDir } from "./temp-dir.ts"
 function project(): string {
   const dir = tempDir("init")
   mkdirSync(join(dir, "node_modules"))
-  symlinkSync(resolve(import.meta.dirname, ".."), join(dir, "node_modules/e2e-orchestrator"), "dir")
+  symlinkSync(resolve(import.meta.dirname, ".."), join(dir, "node_modules/e2e-conductor"), "dir")
   return dir
 }
 
@@ -42,7 +42,7 @@ describe("initProject", () => {
       ["smoke"],
     )
     const smoke = JSON.parse(readFileSync(join(dir, "e2e-suite/scenarios/smoke.json"), "utf8"))
-    assert.ok(readFileSync(resolve(dir, "e2e-suite/scenarios", smoke.$schema), "utf8").includes("urn:e2e-orchestrator:scenario:v1"))
+    assert.ok(readFileSync(resolve(dir, "e2e-suite/scenarios", smoke.$schema), "utf8").includes("urn:e2e-conductor:scenario:v1"))
   })
 
   it("seeds a database that exists but has no environment yet, keeping its scenarios", async () => {

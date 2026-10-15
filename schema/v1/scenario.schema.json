@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "urn:e2e-orchestrator:scenario:v1",
+  "$id": "urn:e2e-conductor:scenario:v1",
   "title": "E2E scenario",
   "description": "One user journey. Steps run in order and share values through ${ctx.name}.",
   "type": "object",

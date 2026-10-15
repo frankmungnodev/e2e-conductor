@@ -16,7 +16,7 @@ import { tempDir } from "./temp-dir.ts"
 function mockProject(): string {
   const dir = tempDir("wizard")
   mkdirSync(join(dir, "node_modules"))
-  symlinkSync(resolve(import.meta.dirname, ".."), join(dir, "node_modules/e2e-orchestrator"), "dir")
+  symlinkSync(resolve(import.meta.dirname, ".."), join(dir, "node_modules/e2e-conductor"), "dir")
   return dir
 }
 
@@ -128,7 +128,7 @@ describe("wizard config generator", () => {
     assert.equal(smokeContent.steps[2].launch, "fresh")
     assert.ok(validateScenario(smokeContent), "the starter scenario passes the schema")
     const schema = readFileSync(join(dir, "e2e-suite/scenarios", String(smokeContent.$schema)), "utf8")
-    assert.ok(schema.includes("urn:e2e-orchestrator:scenario:v1"), "$schema resolves to the installed package")
+    assert.ok(schema.includes("urn:e2e-conductor:scenario:v1"), "$schema resolves to the installed package")
 
     // Running again should skip existing files
     const res2 = scaffoldWizardFiles(dir, components)
