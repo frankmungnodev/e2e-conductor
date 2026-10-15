@@ -1,16 +1,12 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { existsSync } from "node:fs"
 import { stdin as input, stdout as output } from "node:process"
 import * as readline from "node:readline/promises"
 import type { DatabaseSync } from "node:sqlite"
 import { openDatabase } from "./db/connection.ts"
 import { getEnvironments, saveEnvironment } from "./db/environments.ts"
 import { resolveDbPath, resolveProjectDir } from "./db/paths.ts"
-import { savePlatform } from "./db/platforms.ts"
-import { getScenario, saveScenario } from "./db/scenarios.ts"
 import { color } from "./logger.ts"
 import { SUITE_SCENARIOS } from "./project-layout.ts"
-import { scenarioSchemaRef } from "./schema.ts"
 import {
   detectWorkspace,
   saveWizardComponentsToDb,
@@ -35,70 +31,37 @@ function openSeedTarget(dbPath: string): DatabaseSync | undefined {
   return undefined
 }
 
-const SMOKE = {
-  name: "Smoke",
-  steps: [{ name: "home responds", target: "api", url: "/", assert: { status: 200 } }],
-}
-
 /**
- * Write a starter SQLite database under .e2e and a smoke scenario under e2e-suite.
- * Never overwrites: a database that already has an environment, or a file that exists, is skipped.
+ * Seed the SQLite database under .e2e with a `dev` environment and nothing else. Platforms and
+ * scenarios depend on the project, so the person adds them in the UI or an agent drafts them.
+ * Never overwrites: a database that already has an environment is skipped.
+ * `chosenDbPath` (the `--db` option) is the database to seed; otherwise the project's default.
  */
-/** `chosenDbPath` (the `--db` option) is the database to seed; otherwise the project's default. */
 export function initProject(
   targetPath: string = process.cwd(),
   chosenDbPath?: string,
 ): { created: string[]; skipped: string[] } {
   const rootDir = resolveProjectDir(targetPath)
 
-  const created: string[] = []
-  const skipped: string[] = []
-
   // Seed by content, not file presence: saving a scenario in the GUI before initializing creates an
-  // empty database, and skipping it would leave the project with no environment or platform.
+  // empty database, and skipping it would leave the project with no environment.
   const dbPath = chosenDbPath ?? resolveDbPath(rootDir)
   const db = openSeedTarget(dbPath)
-  if (!db) {
-    skipped.push(dbPath)
-  } else {
-    saveEnvironment(
-      db,
-      "dev",
-      {
-        description: "Local development baseline",
-        scenarios: SUITE_SCENARIOS,
-        flows: ".e2e/flows",
-        results: ".e2e/results",
-        env: { APP_ENV: "dev" },
-      },
-      { isDefault: true, isActive: true },
-    )
-    savePlatform(db, {
-      id: "plat-api",
-      name: "api",
-      type: "api",
-      orderNum: 1,
-      url: "http://localhost:3000",
-      serviceName: "api",
-      health: "/",
-    })
-    // Never overwrite a smoke scenario the user already saved.
-    if (!getScenario(db, "smoke")) saveScenario(db, { id: "smoke", name: SMOKE.name, steps: SMOKE.steps })
-    db.close()
-    created.push(dbPath)
-  }
-
-  const smokePath = join(rootDir, SUITE_SCENARIOS, "smoke.json")
-  if (existsSync(smokePath)) {
-    skipped.push(smokePath)
-  } else {
-    mkdirSync(dirname(smokePath), { recursive: true })
-    const file = { $schema: scenarioSchemaRef(dirname(smokePath)), ...SMOKE }
-    writeFileSync(smokePath, `${JSON.stringify(file, null, 2)}\n`)
-    created.push(smokePath)
-  }
-
-  return { created, skipped }
+  if (!db) return { created: [], skipped: [dbPath] }
+  saveEnvironment(
+    db,
+    "dev",
+    {
+      description: "Local development baseline",
+      scenarios: SUITE_SCENARIOS,
+      flows: ".e2e/flows",
+      results: ".e2e/results",
+      env: { APP_ENV: "dev" },
+    },
+    { isDefault: true, isActive: true },
+  )
+  db.close()
+  return { created: [dbPath], skipped: [] }
 }
 
 /**
@@ -216,8 +179,8 @@ export async function runInteractiveInit(
     }
 
     if (components.length === 0) {
-      console.log(color.yellow("\nNo components configured. Falling back to default starter config."))
-      return initProject(rootDir)
+      console.log(color.yellow("\nNo components configured. Creating the dev environment only."))
+      return initProject(rootDir, chosenDbPath)
     }
 
     // Run Order Confirmation

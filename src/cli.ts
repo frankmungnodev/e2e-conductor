@@ -21,7 +21,7 @@ Commands:
   list    List scenarios and validate them
   export  Write scenarios and step presets from SQLite to JSON files
   import  Save scenario JSON files into SQLite, replacing changed ones
-  init    Initialize SQLite configuration under .e2e and a starter scenario under e2e-suite
+  init    Create the SQLite database under .e2e with a dev environment
   save    Check agent-written scenario files and store them as drafts (all or nothing)
   kit     Write the agent kit (e2e-suite/agent/) and its block in the root AGENTS.md and CLAUDE.md
   ui      Start the web GUI dashboard
@@ -121,7 +121,12 @@ async function main() {
     const { created, skipped } = isInteractive ? await runInteractiveInit(projectPath, dbPath) : initProject(projectPath, dbPath)
     for (const file of created) console.log(`${color.green("created")} ${file}`)
     for (const file of skipped) console.log(`${color.yellow("skipped")} ${file} ${color.dim("(exists)")}`)
-    if (created.length > 0) console.log(`\nNext: verify your setup in .e2e/e2e.db, then run: e2e-conductor check`)
+    if (created.length > 0) {
+      const next = isInteractive
+        ? "verify your setup in .e2e/e2e.db, then run: e2e-conductor check"
+        : "run e2e-conductor ui and add your app's platforms (api, web, android) to the dev environment"
+      console.log(`\nNext: ${next}`)
+    }
     warnHiddenSuite(hiddenSuitePaths(resolveProjectDir(projectPath)))
     return
   }

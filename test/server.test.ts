@@ -140,13 +140,14 @@ describe("startServer", () => {
       assert.equal(initRes.status, 200)
       const initData = (await initRes.json()) as any
       assert.equal(initData.ok, true)
-      assert.ok(initData.created.some((p: string) => p.includes("e2e.db") || p.includes("smoke.json")))
+      assert.ok(initData.created.some((p: string) => p.includes("e2e.db")))
 
       // 11. Verify dbExists is true in GET /api/config
       const postInitCfgRes = await fetch(`${url}/api/config`)
       const postInitCfg = (await postInitCfgRes.json()) as any
       assert.equal(postInitCfg.dbExists, true)
-      assert.ok(postInitCfg.targets.api)
+      assert.equal(postInitCfg.activeEnvironment, "dev")
+      assert.deepEqual(postInitCfg.targets, {})
 
       // 12. GET /api/wizard/detect
       const detectRes = await fetch(`${url}/api/wizard/detect`)

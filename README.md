@@ -21,8 +21,8 @@ npm install --save-dev e2e-conductor
 ## Quick start
 
 ```bash
-npx e2e-conductor init  # local database in .e2e/ and a starter scenario in e2e-suite/scenarios/smoke.json
-npx e2e-conductor ui    # open the web dashboard to set up environments and platforms, and build scenarios
+npx e2e-conductor init  # local database in .e2e/ with a dev environment, no platforms or scenarios yet
+npx e2e-conductor ui    # open the web dashboard to add your app's platforms and build scenarios
 npx e2e-conductor run   # run every scenario against the active environment
 ```
 
@@ -30,7 +30,7 @@ npx e2e-conductor run   # run every scenario against the active environment
 
 The command is now `e2e-conductor`, not `e2e`. A different npm package is named `e2e`, so `npx e2e` without a local install ran that package instead of this one. Replace `e2e` with `e2e-conductor` in your scripts and CI, then run `npx e2e-conductor kit` to update the agent kit and the block in `AGENTS.md` and `CLAUDE.md`.
 
-`e2e-conductor init -i` asks about your services step by step instead of writing a default setup with one `api` service at `http://localhost:3000`. `e2e-conductor check` confirms that services are up and devices are connected without running anything.
+`e2e-conductor init -i` asks about your services step by step, saves them as platforms and writes a smoke scenario for them. `e2e-conductor check` confirms that services are up and devices are connected without running anything.
 
 ## Commands
 
@@ -41,7 +41,7 @@ The command is now `e2e-conductor`, not `e2e`. A different npm package is named 
 | `e2e-conductor list` | List scenarios and validate them |
 | `e2e-conductor export` | Write scenarios and step presets from the database to JSON files in `e2e-suite/` |
 | `e2e-conductor import` | Save scenario JSON files into the database, replacing changed ones |
-| `e2e-conductor init` | Create the local database and a starter scenario |
+| `e2e-conductor init` | Create the local database with a `dev` environment |
 | `e2e-conductor save` | Check scenario files written by a coding agent and store them as drafts |
 | `e2e-conductor kit` | Write the agent kit to `e2e-suite/agent/` and its block in `AGENTS.md` and `CLAUDE.md` |
 | `e2e-conductor ui` | Start the web dashboard (default `http://127.0.0.1:4173`) |

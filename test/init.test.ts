@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { loadConfig } from "../src/config.ts"
@@ -29,20 +29,19 @@ describe("initProject", () => {
     assert.ok(config.activeEnvironment)
   })
 
-  it("writes a sqlite db under .e2e and a smoke scenario under e2e-suite that load and validate", async () => {
+  it("writes a sqlite db under .e2e with only a dev environment: no platform, no scenario", async () => {
     const dir = project()
     const { created, skipped } = initProject(dir)
-    assert.deepEqual(created, [join(dir, ".e2e/e2e.db"), join(dir, "e2e-suite/scenarios/smoke.json")])
+    assert.deepEqual(created, [join(dir, ".e2e/e2e.db")])
     assert.deepEqual(skipped, [])
+    assert.ok(!existsSync(join(dir, "e2e-suite")))
 
     const config = await loadConfig(dir)
+    assert.deepEqual(Object.keys(config.environments ?? {}), ["dev"])
+    assert.equal(config.activeEnvironment, "dev")
     assert.equal(config.scenarios, "e2e-suite/scenarios")
-    assert.deepEqual(
-      loadScenarios(config).map((scenario) => scenario.id),
-      ["smoke"],
-    )
-    const smoke = JSON.parse(readFileSync(join(dir, "e2e-suite/scenarios/smoke.json"), "utf8"))
-    assert.ok(readFileSync(resolve(dir, "e2e-suite/scenarios", smoke.$schema), "utf8").includes("urn:e2e-conductor:scenario:v1"))
+    assert.deepEqual(config.targets, {})
+    assert.throws(() => loadScenarios(config), /No scenarios/)
   })
 
   it("seeds a database that exists but has no environment yet, keeping its scenarios", async () => {
@@ -56,7 +55,7 @@ describe("initProject", () => {
     assert.ok(created.includes(join(dir, ".e2e/e2e.db")))
     assert.deepEqual(skipped, [])
     const config = await loadConfig(dir)
-    assert.ok(config.targets.api)
+    assert.equal(config.activeEnvironment, "dev")
     assert.equal(loadScenarios(config).find((scenario) => scenario.id === "smoke")?.name, "My Smoke")
   })
 
@@ -73,7 +72,7 @@ describe("initProject", () => {
     writeFileSync(join(dir, ".e2e/e2e.db"), "custom-db")
     const { created, skipped } = initProject(dir)
     assert.deepEqual(skipped, [join(dir, ".e2e/e2e.db")])
-    assert.deepEqual(created, [join(dir, "e2e-suite/scenarios/smoke.json")])
+    assert.deepEqual(created, [])
     assert.equal(readFileSync(join(dir, ".e2e/e2e.db"), "utf8"), "custom-db")
   })
 })

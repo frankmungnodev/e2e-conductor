@@ -152,6 +152,12 @@ function renderProject(facts: KitFacts): string[] {
     lines.push(`### Environment \`${environment.name}\``, "", "Targets:", "")
     for (const [name, target] of Object.entries(environment.targets)) lines.push(`- \`${name}\` (${target.driver})`)
     lines.push(`- \`${SHELL_TARGET}\` (shell: local commands)`, "")
+    if (Object.keys(environment.targets).length === 0) {
+      lines.push(
+        "No platforms yet. Before drafting steps for an API, web app or Android app, ask the person to add that platform to this environment in the e2e UI, then run `e2e-conductor kit` again.",
+        "",
+      )
+    }
     const vars = environment.envVars.map((name) => `\`${name}\``).join(", ")
     lines.push(`Env variable names: ${vars || "none"}`, "")
   }
