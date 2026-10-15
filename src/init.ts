@@ -3,7 +3,7 @@ import { stdin as input, stdout as output } from "node:process"
 import * as readline from "node:readline/promises"
 import type { DatabaseSync } from "node:sqlite"
 import { openDatabase } from "./db/connection.ts"
-import { getEnvironments, saveEnvironment } from "./db/environments.ts"
+import { getEnvironments, saveEnvironment, setAllowDrafts } from "./db/environments.ts"
 import { resolveDbPath, resolveProjectDir } from "./db/paths.ts"
 import { color } from "./logger.ts"
 import { SUITE_SCENARIOS } from "./project-layout.ts"
@@ -32,8 +32,8 @@ function openSeedTarget(dbPath: string): DatabaseSync | undefined {
 }
 
 /**
- * Seed the SQLite database under .e2e with a `dev` environment and nothing else. Platforms and
- * scenarios depend on the project, so the person adds them in the UI or an agent drafts them.
+ * Seed the SQLite database under .e2e with a `dev` environment that allows drafts, and nothing else.
+ * Platforms and scenarios depend on the project: `e2e-conductor platform add` or the UI adds them.
  * Never overwrites: a database that already has an environment is skipped.
  * `chosenDbPath` (the `--db` option) is the database to seed; otherwise the project's default.
  */
@@ -60,6 +60,8 @@ export function initProject(
     },
     { isDefault: true, isActive: true },
   )
+  // dev is the person's local machine, so agent drafts may run there from the start.
+  setAllowDrafts(db, "dev", true)
   db.close()
   return { created: [dbPath], skipped: [] }
 }

@@ -50,13 +50,14 @@ describe("e2e-conductor kit", () => {
       assert.ok(text.includes(name), `kit names ${name}`)
     }
     assert.ok(!text.includes("No platforms yet"))
+    assert.ok(text.includes("e2e-conductor platform add <name>"))
   })
 
-  it("tells agents to ask for a platform when the environment has none, as after e2e-conductor init", () => {
+  it("tells agents to add a platform first when the environment has none, as after e2e-conductor init", () => {
     const dir = tempDir("agent-kit-bare")
     withDb(resolveDbPath(dir), (db) => saveEnvironment(db, "dev", {}, { isDefault: true }))
     writeAgentKit(dir)
-    assert.ok(kit(dir).includes("No platforms yet. Before drafting steps for an API, web app or Android app, ask the person"))
+    assert.ok(kit(dir).includes("No platforms yet: add the one the scenario needs first"))
   })
 
   it("writes env variable names but no env or fixture command values", () => {

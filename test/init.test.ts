@@ -29,7 +29,7 @@ describe("initProject", () => {
     assert.ok(config.activeEnvironment)
   })
 
-  it("writes a sqlite db under .e2e with only a dev environment: no platform, no scenario", async () => {
+  it("writes a sqlite db under .e2e with only a dev environment that allows drafts: no platform, no scenario", async () => {
     const dir = project()
     const { created, skipped } = initProject(dir)
     assert.deepEqual(created, [join(dir, ".e2e/e2e.db")])
@@ -39,6 +39,7 @@ describe("initProject", () => {
     const config = await loadConfig(dir)
     assert.deepEqual(Object.keys(config.environments ?? {}), ["dev"])
     assert.equal(config.activeEnvironment, "dev")
+    assert.equal(config.environments?.dev?.allowDrafts, true, "dev allows drafts, so an agent's first drafts can run")
     assert.equal(config.scenarios, "e2e-suite/scenarios")
     assert.deepEqual(config.targets, {})
     assert.throws(() => loadScenarios(config), /No scenarios/)

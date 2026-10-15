@@ -21,8 +21,9 @@ npm install --save-dev e2e-conductor
 ## Quick start
 
 ```bash
-npx e2e-conductor init  # local database in .e2e/ with a dev environment, no platforms or scenarios yet
-npx e2e-conductor ui    # open the web dashboard to add your app's platforms and build scenarios
+npx e2e-conductor init  # local database in .e2e/ with a dev environment that allows agent drafts
+npx e2e-conductor platform add web --type web --url http://localhost:8000  # one per app your tests drive
+npx e2e-conductor ui    # open the web dashboard to edit platforms and environments, and build scenarios
 npx e2e-conductor run   # run every scenario against the active environment
 ```
 
@@ -41,7 +42,8 @@ The command is now `e2e-conductor`, not `e2e`. A different npm package is named 
 | `e2e-conductor list` | List scenarios and validate them |
 | `e2e-conductor export` | Write scenarios and step presets from the database to JSON files in `e2e-suite/` |
 | `e2e-conductor import` | Save scenario JSON files into the database, replacing changed ones |
-| `e2e-conductor init` | Create the local database with a `dev` environment |
+| `e2e-conductor init` | Create the local database with a `dev` environment that allows drafts |
+| `e2e-conductor platform add` | Add a platform (`--type api\|web\|android`, `--url` or `--app-id`) to every environment |
 | `e2e-conductor save` | Check scenario files written by a coding agent and store them as drafts |
 | `e2e-conductor kit` | Write the agent kit to `e2e-suite/agent/` and its block in `AGENTS.md` and `CLAUDE.md` |
 | `e2e-conductor ui` | Start the web dashboard (default `http://127.0.0.1:4173`) |

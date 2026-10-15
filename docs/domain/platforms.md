@@ -124,3 +124,16 @@ Implemented in `src/db/platforms.ts`:
 - **Reserved Name**: `"shell"` is reserved for the built-in subshell runner. Creating or compiling a platform named `"shell"` throws an error.
 - **Service Integrity**: Every non-mobile target must resolve to a valid service in `services`.
 - **Relational Integrity**: Deleting a platform cascades and removes all linked `env_platform` records.
+
+---
+
+## 6. Adding Platforms from the CLI (`e2e-conductor platform add`)
+
+`e2e-conductor platform add <name> --type <api|web|android>` (`src/platform-add.ts`) lets an agent add the target a scenario needs without sending the person to the UI. `api` and `web` need `--url` (an `http` or `https` base URL); `android` needs `--app-id`. Optional: `--health` (default `/`), `--start-cmd`, and `--needs` (comma-separated names of existing platforms). Like `save` and `kit`, it uses the nearest project upward from the current folder.
+
+- **Add only**: it refuses a name that is already a platform, so it never changes what the person set up. Editing a platform, and per-environment overrides, stay in the UI.
+- **Names**: letters, digits, `-` and `_`, starting with a letter or digit. `shell` is refused, since it is the built-in local-command target.
+- **Environments**: it saves through `savePlatform`, so the platform is linked to every environment with no overrides (section 4). It needs at least one environment, and asks for `e2e-conductor init` when there is none.
+- **Kit**: when `e2e-suite/agent/kit.md` exists, it rewrites the kit, so the agent sees the new target name at once.
+- The kit tells agents to find the URL in the app's own config and confirm it with the person before running the command.
+

@@ -152,15 +152,22 @@ function renderProject(facts: KitFacts): string[] {
     lines.push(`### Environment \`${environment.name}\``, "", "Targets:", "")
     for (const [name, target] of Object.entries(environment.targets)) lines.push(`- \`${name}\` (${target.driver})`)
     lines.push(`- \`${SHELL_TARGET}\` (shell: local commands)`, "")
-    if (Object.keys(environment.targets).length === 0) {
-      lines.push(
-        "No platforms yet. Before drafting steps for an API, web app or Android app, ask the person to add that platform to this environment in the e2e UI, then run `e2e-conductor kit` again.",
-        "",
-      )
-    }
+    if (Object.keys(environment.targets).length === 0) lines.push("No platforms yet: add the one the scenario needs first (below).", "")
     const vars = environment.envVars.map((name) => `\`${name}\``).join(", ")
     lines.push(`Env variable names: ${vars || "none"}`, "")
   }
+  lines.push(
+    "### Adding a missing target",
+    "",
+    "When a scenario needs an API, web app or Android app that no target covers, add a platform for it. Find its base URL (or Android package name) in the app's own config, such as `APP_URL` in `.env` or the dev server port, and confirm it with the person. Then run:",
+    "",
+    "```bash",
+    "e2e-conductor platform add <name> --type web --url http://localhost:8000",
+    "```",
+    "",
+    "`--type` is `api`, `web` or `android` (with `--app-id <package>` instead of `--url`). The platform joins every environment, and the command refreshes this kit. It never changes an existing platform: the person edits those, and per-environment URLs, in the e2e UI.",
+    "",
+  )
   lines.push("### Fixtures", "", "Name them in a scenario's `setup` to reset or seed state before the first step.", "")
   lines.push(...(facts.fixtures.length > 0 ? facts.fixtures.map((name) => `- \`${name}\``) : ["None configured."]), "")
   lines.push("### Step presets and step groups", "", "Copy their steps into a scenario's `steps`; no scenario field references them.", "")

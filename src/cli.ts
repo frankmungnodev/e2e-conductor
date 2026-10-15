@@ -8,6 +8,7 @@ import { checkExport, exportToJson } from "./export.ts"
 import { importFromJson } from "./import.ts"
 import { initProject, runInteractiveInit } from "./init.ts"
 import { color } from "./logger.ts"
+import { addPlatform, renderPlatformAdd } from "./platform-add.ts"
 import { run } from "./runner.ts"
 import { loadScenarios } from "./scenario.ts"
 import { startServer } from "./server.ts"
@@ -21,7 +22,9 @@ Commands:
   list    List scenarios and validate them
   export  Write scenarios and step presets from SQLite to JSON files
   import  Save scenario JSON files into SQLite, replacing changed ones
-  init    Create the SQLite database under .e2e with a dev environment
+  init    Create the SQLite database under .e2e with a dev environment that allows drafts
+  platform add <name>
+          Add a platform (target) to every environment: --type api|web|android, --url or --app-id
   save    Check agent-written scenario files and store them as drafts (all or nothing)
   kit     Write the agent kit (e2e-suite/agent/) and its block in the root AGENTS.md and CLAUDE.md
   ui      Start the web GUI dashboard
@@ -46,6 +49,12 @@ Options:
       --headless          Hide the browser (same as E2E_HEADLESS=1)
   -v, --verbose           Print step details (same as E2E_VERBOSE=1)
   -i, --interactive       Interactive setup wizard (for init)
+      --type <type>       With platform add: api, web or android
+      --url <url>         With platform add: the app's base URL (api and web)
+      --health <path>     With platform add: the health check path (default: /)
+      --start-cmd <cmd>   With platform add: the command that starts the app (used by --start)
+      --app-id <id>       With platform add: the Android package name
+      --needs <names>     With platform add: comma-separated platforms this one depends on
       --port <n>          Port for web UI (default: 4173)
       --host <addr>       Host address for web UI (default: 127.0.0.1)
       --no-open           Do not automatically open the browser on UI launch
@@ -74,6 +83,12 @@ async function main() {
       headless: { type: "boolean", default: false },
       verbose: { type: "boolean", short: "v", default: false },
       interactive: { type: "boolean", short: "i", default: false },
+      type: { type: "string" },
+      url: { type: "string" },
+      health: { type: "string" },
+      "start-cmd": { type: "string" },
+      "app-id": { type: "string" },
+      needs: { type: "string" },
       port: { type: "string", default: "4173" },
       host: { type: "string", default: "127.0.0.1" },
       open: { type: "boolean", default: true },
@@ -83,7 +98,7 @@ async function main() {
   })
 
   const command = positionals[0] ?? "run"
-  if (values.help || !["run", "check", "list", "export", "import", "init", "ui", "save", "kit"].includes(command)) {
+  if (values.help || !["run", "check", "list", "export", "import", "init", "ui", "save", "kit", "platform"].includes(command)) {
     console.log(HELP)
     process.exit(values.help ? 0 : 2)
   }
@@ -101,6 +116,22 @@ async function main() {
     console.log(renderSaveReport(report, cwd, values.json))
     // Not process.exit: a long --json document to a pipe could be cut off.
     process.exitCode = exitCode
+    return
+  }
+  // platform add, like save and kit, uses the nearest project upward.
+  if (command === "platform") {
+    if (positionals[1] !== "add") throw new Error("Usage: e2e-conductor platform add <name> --type <api|web|android> --url <url>")
+    const result = addPlatform({
+      cwd: process.cwd(),
+      name: positionals[2],
+      type: values.type,
+      url: values.url,
+      health: values.health,
+      startCmd: values["start-cmd"],
+      appId: values["app-id"],
+      needs: values.needs,
+    })
+    console.log(renderPlatformAdd(result))
     return
   }
   // kit, like save, uses the nearest project upward and the environments save checks drafts against.
@@ -124,7 +155,7 @@ async function main() {
     if (created.length > 0) {
       const next = isInteractive
         ? "verify your setup in .e2e/e2e.db, then run: e2e-conductor check"
-        : "run e2e-conductor ui and add your app's platforms (api, web, android) to the dev environment"
+        : "add your app's platforms with e2e-conductor platform add (or in e2e-conductor ui), then run e2e-conductor kit"
       console.log(`\nNext: ${next}`)
     }
     warnHiddenSuite(hiddenSuitePaths(resolveProjectDir(projectPath)))

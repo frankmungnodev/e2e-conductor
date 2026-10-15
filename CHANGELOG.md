@@ -4,9 +4,13 @@ All notable changes to this project are listed here. The project follows [Semant
 
 ## [Unreleased]
 
+### Added
+
+- `e2e-conductor platform add <name> --type api|web|android --url <url>` (or `--app-id` for Android) adds a platform to every environment and refreshes the agent kit. It never changes an existing platform. The agent kit tells agents to use it, after confirming the URL with the person, when a scenario needs a target the project does not have.
+
 ### Changed
 
-- `e2e-conductor init` creates only the `dev` environment. It no longer adds an `api` platform at `http://localhost:3000` or a smoke scenario in `e2e-suite/scenarios/smoke.json`, since neither matches most apps. Add your platforms in `e2e-conductor ui`. While an environment has no platforms, the agent kit tells agents to ask for one before drafting steps. Existing projects are not affected: `init` still skips a database that already has an environment. `e2e-conductor init -i` is unchanged.
+- `e2e-conductor init` creates only the `dev` environment, and marks it as allowing drafts, so an agent's first drafts can run without a trip to the UI. It no longer adds an `api` platform at `http://localhost:3000` or a smoke scenario in `e2e-suite/scenarios/smoke.json`, since neither matches most apps. Existing projects are not affected: `init` still skips a database that already has an environment. `e2e-conductor init -i` is unchanged.
 - The Drafts tab is a compact list. Each draft is one line with its status, targets and step count; click it to read its steps. A failed draft shows the failing step and message on its line. Run controls appear once, at the top, and Edit in Builder and Discard moved into a menu on each draft. With no drafts, the tab shows short steps to the first one.
 - The agent kit block in `AGENTS.md` and `CLAUDE.md` now sits between `<!-- e2e-conductor-kit:start -->` and `<!-- e2e-conductor-kit:end -->`.
 - `GET /api/drafts` adds `lastRun.failure` (step, name and message) for a draft whose last run failed, and `GET /api/run/status` adds `lastSuiteSummary`.
