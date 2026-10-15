@@ -1,6 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import { join, relative } from "node:path"
-import { KIT_END, KIT_START, type KitFacts, renderInstructionBlock, renderKit, renderVocabulary } from "./agent-kit-text.ts"
+import {
+  KIT_END,
+  KIT_START,
+  type KitFacts,
+  LEGACY_KIT_END,
+  LEGACY_KIT_START,
+  renderInstructionBlock,
+  renderKit,
+  renderVocabulary,
+} from "./agent-kit-text.ts"
 import { withDb } from "./db/connection.ts"
 import { getFixtures } from "./db/fixtures.ts"
 import { findProjectDir, resolveDbPath } from "./db/paths.ts"
@@ -81,22 +90,41 @@ function instructionFiles(project: string): { path: string; names: string[] }[] 
   return [...byPath].map(([path, names]) => ({ path, names }))
 }
 
-/** `text` with `block` replacing the marked block, or appended when there is none. */
+/**
+ * `text` with `block` replacing the marked block, or appended when there is none. A block between the
+ * 0.4.0 markers is replaced in place, or deleted when the file also has a current block.
+ */
 function withBlock(text: string, block: string, name: string): { text: string; outcome: InstructionFileOutcome["outcome"] } {
-  const starts = text.split(KIT_START).length - 1
-  const ends = text.split(KIT_END).length - 1
-  if (starts === 0 && ends === 0) {
+  const current = blockSpan(text, KIT_START, KIT_END, name)
+  const legacy = blockSpan(text, LEGACY_KIT_START, LEGACY_KIT_END, name)
+  if (!current && !legacy) {
     const separator = text.trim() === "" ? "" : text.endsWith("\n") ? "\n" : "\n\n"
     return { text: `${text.trim() === "" ? "" : text}${separator}${block}\n`, outcome: "added" }
   }
-  const from = text.indexOf(KIT_START)
-  const to = text.indexOf(KIT_END)
+  if (current && legacy && current.from < legacy.to && legacy.from < current.to) {
+    throw new Error(`${name} has a ${LEGACY_KIT_START} block and a ${KIT_START} block that overlap. Leave one, and run "e2e-conductor kit" again.`)
+  }
+  // Splice from the end of the file backwards, so the earlier span's offsets stay valid.
+  const edits = [
+    ...(current ? [{ ...current, with: block }] : []),
+    ...(legacy ? [{ ...legacy, with: current ? "" : block }] : []),
+  ].sort((a, b) => b.from - a.from)
+  const next = edits.reduce((acc, edit) => `${acc.slice(0, edit.from)}${edit.with}${acc.slice(edit.to)}`, text)
+  return { text: next, outcome: next === text ? "unchanged" : "updated" }
+}
+
+/** Where the one block between `start` and `end` sits in `text`, or undefined when there are no such markers. */
+function blockSpan(text: string, start: string, end: string, name: string): { from: number; to: number } | undefined {
+  const starts = text.split(start).length - 1
+  const ends = text.split(end).length - 1
+  if (starts === 0 && ends === 0) return undefined
+  const from = text.indexOf(start)
+  const to = text.indexOf(end)
   // Replacing between unmatched markers could delete the person's own text.
   if (starts !== 1 || ends !== 1 || to < from) {
-    throw new Error(`${name} has unmatched ${KIT_START} / ${KIT_END} markers. Leave exactly one pair, or none, and run "e2e-conductor kit" again.`)
+    throw new Error(`${name} has unmatched ${start} / ${end} markers. Leave exactly one pair, or none, and run "e2e-conductor kit" again.`)
   }
-  const next = `${text.slice(0, from)}${block}${text.slice(to + KIT_END.length)}`
-  return { text: next, outcome: next === text ? "unchanged" : "updated" }
+  return { from, to: to + end.length }
 }
 
 /** What `e2e-conductor kit` prints, with paths relative to `cwd`. */

@@ -31,8 +31,11 @@ export type KitFacts = {
   stepGroups: StepGroup[]
 }
 
-export const KIT_START = "<!-- e2e-kit:start -->"
-export const KIT_END = "<!-- e2e-kit:end -->"
+export const KIT_START = "<!-- e2e-conductor-kit:start -->"
+export const KIT_END = "<!-- e2e-conductor-kit:end -->"
+/** The markers 0.4.0 and earlier wrote. `e2e-conductor kit` replaces a block between them with the current one. */
+export const LEGACY_KIT_START = "<!-- e2e-kit:start -->"
+export const LEGACY_KIT_END = "<!-- e2e-kit:end -->"
 
 const KIT_PATH = `${SUITE_AGENT}/kit.md`
 const VOCABULARY_PATH = `${SUITE_AGENT}/vocabulary.json`
@@ -249,7 +252,7 @@ function renderVocabularyText(): string[] {
     `Every step has \`name\` and \`target\`, and may have: ${COMMON_STEP_FIELDS.filter((field) => !["name", "target"].includes(field)).map((field) => `\`${field}\``).join(", ")}. Step and action ids are optional: a draft save drops them.`,
     "",
     "Checks go in the step's `assert`: `status` (http), `exit_code` and `output_contains` (shell), and `json_match` (path to an expected value, or an operator: " +
-      `${JSON_MATCH_OPERATORS.map((operator) => `\`${operator}\``).join(", ")}). An http status of 400 or more fails unless \`assert.status\` expects it.`,
+    `${JSON_MATCH_OPERATORS.map((operator) => `\`${operator}\``).join(", ")}). An http status of 400 or more fails unless \`assert.status\` expects it.`,
     "",
     "Placeholders:",
     "",

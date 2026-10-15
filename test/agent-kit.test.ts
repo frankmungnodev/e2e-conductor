@@ -35,7 +35,11 @@ function project(): string {
 
 const read = (dir: string, path: string) => readFileSync(join(dir, path), "utf8")
 const kit = (dir: string) => read(dir, "e2e-suite/agent/kit.md")
-const blocks = (text: string) => text.split("<!-- e2e-kit:start -->").length - 1
+const NEW_START = "<!-- e2e-conductor-kit:start -->"
+const NEW_END = "<!-- e2e-conductor-kit:end -->"
+const OLD_START = "<!-- e2e-kit:start -->"
+const OLD_END = "<!-- e2e-kit:end -->"
+const blocks = (text: string) => text.split(NEW_START).length - 1
 
 describe("e2e-conductor kit", () => {
   it("lists the configured target and fixture names", () => {
@@ -70,8 +74,8 @@ describe("e2e-conductor kit", () => {
 
     assert.ok(kit(dir).includes("admin-web"))
     const text = read(dir, "AGENTS.md")
-    const start = text.indexOf("<!-- e2e-kit:start -->")
-    const end = text.indexOf("<!-- e2e-kit:end -->") + "<!-- e2e-kit:end -->".length
+    const start = text.indexOf(NEW_START)
+    const end = text.indexOf(NEW_END) + NEW_END.length
     assert.equal(text.slice(0, start), `${before}\n`)
     assert.equal(text.slice(end), `\n${after}`)
     assert.deepEqual(
@@ -96,7 +100,7 @@ describe("e2e-conductor kit", () => {
     assert.equal(writeAgentKit(dir).instructionFiles[0].outcome, "added")
     const first = read(dir, "AGENTS.md")
     assert.equal(blocks(first), 1)
-    assert.ok(first.startsWith("# Agents\n\n<!-- e2e-kit:start -->"))
+    assert.ok(first.startsWith(`# Agents\n\n${NEW_START}`))
     assert.ok(first.includes("e2e-suite/agent/kit.md"))
 
     assert.equal(writeAgentKit(dir).instructionFiles[0].outcome, "unchanged")
@@ -119,6 +123,55 @@ describe("e2e-conductor kit", () => {
     )
   })
 
+  it("replaces a 0.4.0 block between the old markers in place and leaves the notes around it unchanged (AE5)", () => {
+    const dir = project()
+    const before = "# Agents\n\nHouse rules.\n\n"
+    const after = "\n\n## Later\n\nMore rules.\n"
+    writeFileSync(join(dir, "AGENTS.md"), `${before}${OLD_START}\nOld kit text.\n${OLD_END}${after}`)
+
+    const report = writeAgentKit(dir)
+
+    const text = read(dir, "AGENTS.md")
+    assert.equal(report.instructionFiles[0].outcome, "updated")
+    assert.equal(blocks(text), 1)
+    assert.ok(!text.includes(OLD_START) && !text.includes(OLD_END) && !text.includes("Old kit text."))
+    assert.equal(text.slice(0, text.indexOf(NEW_START)), before)
+    assert.equal(text.slice(text.indexOf(NEW_END) + NEW_END.length), after)
+    assert.equal(writeAgentKit(dir).instructionFiles[0].outcome, "unchanged")
+  })
+
+  it("deletes an old block and rewrites the new block in place when a file has both (AE6)", () => {
+    const dir = project()
+    const top = "# Agents\n\n"
+    const middle = "\n\nNotes between the blocks.\n\n"
+    const bottom = "\n\nNotes at the end.\n"
+    writeFileSync(join(dir, "AGENTS.md"), `${top}${OLD_START}\nOld kit text.\n${OLD_END}${middle}${NEW_START}\nStale new block.\n${NEW_END}${bottom}`)
+
+    const report = writeAgentKit(dir)
+
+    const text = read(dir, "AGENTS.md")
+    assert.equal(report.instructionFiles[0].outcome, "updated")
+    assert.equal(blocks(text), 1)
+    assert.ok(!text.includes(OLD_START) && !text.includes("Old kit text.") && !text.includes("Stale new block."))
+    assert.equal(text.slice(0, text.indexOf(NEW_START)), `${top}${middle}`)
+    assert.equal(text.slice(text.indexOf(NEW_END) + NEW_END.length), bottom)
+    assert.ok(text.includes("e2e-suite/agent/kit.md"))
+    assert.equal(writeAgentKit(dir).instructionFiles[0].outcome, "unchanged")
+  })
+
+  it("repairs an old block through a CLAUDE.md symlinked to AGENTS.md and keeps the symlink", () => {
+    const dir = project()
+    writeFileSync(join(dir, "AGENTS.md"), `# Agents\n\n${OLD_START}\nOld.\n${OLD_END}\n`)
+    symlinkSync("AGENTS.md", join(dir, "CLAUDE.md"))
+
+    writeAgentKit(dir)
+
+    const text = read(dir, "AGENTS.md")
+    assert.equal(blocks(text), 1)
+    assert.ok(!text.includes(OLD_START))
+    assert.ok(lstatSync(join(dir, "CLAUDE.md")).isSymbolicLink())
+  })
+
   it("writes the block into both files when AGENTS.md and CLAUDE.md are separate", () => {
     const dir = project()
     writeFileSync(join(dir, "AGENTS.md"), "# Agents\n")
@@ -129,8 +182,10 @@ describe("e2e-conductor kit", () => {
   })
 
   for (const [label, text] of [
-    ["only a start marker", "# Agents\n\n<!-- e2e-kit:start -->\nMy own notes.\n"],
-    ["the end marker before the start marker", "# Agents\n\n<!-- e2e-kit:end -->\nMy own notes.\n<!-- e2e-kit:start -->\n"],
+    ["only a start marker", `# Agents\n\n${NEW_START}\nMy own notes.\n`],
+    ["the end marker before the start marker", `# Agents\n\n${NEW_END}\nMy own notes.\n${NEW_START}\n`],
+    ["only an old start marker", `# Agents\n\n${OLD_START}\nMy own notes.\n`],
+    ["two old blocks", `${OLD_START}\nA\n${OLD_END}\nNotes.\n${OLD_START}\nB\n${OLD_END}\n`],
   ]) {
     it(`fails on an AGENTS.md with ${label} and writes nothing`, () => {
       const dir = project()
