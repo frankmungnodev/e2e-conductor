@@ -4,6 +4,8 @@ All notable changes to this project are listed here. The project follows [Semant
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-15
+
 ### Added
 
 - `e2e-conductor uninstall` removes what e2e-conductor wrote into a project: `.e2e/`, `e2e-suite/` (kept with `--keep-suite`) and the kit block in `AGENTS.md` and `CLAUDE.md`, leaving the rest of those files unchanged. Without `--yes` it only lists what it would remove. It prints the command that removes the package, and does not run it.
@@ -51,5 +53,7 @@ First release on npm.
 - Agent-written scenarios: `e2e kit` writes the agent kit, `e2e save` stores agent files as drafts, and the Drafts tab reviews, runs and keeps them.
 - `e2e export` and `e2e import` move scenarios between SQLite and JSON files in `e2e-suite/`; `export --check` catches drift.
 
+[Unreleased]: https://github.com/frankmungnodev/e2e-conductor/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/frankmungnodev/e2e-conductor/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/frankmungnodev/e2e-conductor/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/frankmungnodev/e2e-conductor/releases/tag/v0.3.0
