@@ -13,7 +13,7 @@ import { loadScenarios } from "./scenario.ts"
 import { startServer } from "./server.ts"
 import { describeHiddenSuite, type HiddenPath, hiddenSuitePaths } from "./suite-ignore.ts"
 
-const HELP = `Usage: e2e <command> [options]
+const HELP = `Usage: e2e-conductor <command> [options]
 
 Commands:
   run     Run scenarios (default)
@@ -121,7 +121,7 @@ async function main() {
     const { created, skipped } = isInteractive ? await runInteractiveInit(projectPath, dbPath) : initProject(projectPath, dbPath)
     for (const file of created) console.log(`${color.green("created")} ${file}`)
     for (const file of skipped) console.log(`${color.yellow("skipped")} ${file} ${color.dim("(exists)")}`)
-    if (created.length > 0) console.log(`\nNext: verify your setup in .e2e/e2e.db, then run: e2e check`)
+    if (created.length > 0) console.log(`\nNext: verify your setup in .e2e/e2e.db, then run: e2e-conductor check`)
     warnHiddenSuite(hiddenSuitePaths(resolveProjectDir(projectPath)))
     return
   }
@@ -170,7 +170,7 @@ async function main() {
     }
     if (drift > 0) {
       console.log(color.dim(`${missing.length} missing, ${changed.length} changed, ${stale.length} stale`))
-      console.log(`Run "e2e export" to write missing and changed files${stale.length > 0 ? ", and delete stale files by hand" : ""}.`)
+      console.log(`Run "e2e-conductor export" to write missing and changed files${stale.length > 0 ? ", and delete stale files by hand" : ""}.`)
     }
     process.exit(1)
   }

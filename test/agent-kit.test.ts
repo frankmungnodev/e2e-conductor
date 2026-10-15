@@ -37,7 +37,7 @@ const read = (dir: string, path: string) => readFileSync(join(dir, path), "utf8"
 const kit = (dir: string) => read(dir, "e2e-suite/agent/kit.md")
 const blocks = (text: string) => text.split("<!-- e2e-kit:start -->").length - 1
 
-describe("e2e kit", () => {
+describe("e2e-conductor kit", () => {
   it("lists the configured target and fixture names", () => {
     const dir = project()
     writeAgentKit(dir)
@@ -159,7 +159,7 @@ describe("e2e kit", () => {
     assert.ok(!fields.includes("status") && !fields.includes("exit_code"))
   })
 
-  it("gives examples that pass the strict check e2e save runs, on the environment that allows drafts", () => {
+  it("gives examples that pass the strict check e2e-conductor save runs, on the environment that allows drafts", () => {
     const dir = project()
     withDb(resolveDbPath(dir), (db) => {
       saveEnvironment(db, "staging", { env: {} })

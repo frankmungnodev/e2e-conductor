@@ -18,12 +18,12 @@ The orchestrator decouples **test declarations** (scenarios and steps) from **ta
 
 A project keeps its files in two folders at its root, split by who owns them (`src/project-layout.ts`):
 
-- **`e2e-suite/` (tracked in git)**: what the team shares and reviews in pull requests. `scenarios/<id>.json` and `presets/<id>.json` (written by an export), `agent/` (written by `e2e kit`), and `fixtures/` for fixture scripts, by convention only: nothing scaffolds it.
+- **`e2e-suite/` (tracked in git)**: what the team shares and reviews in pull requests. `scenarios/<id>.json` and `presets/<id>.json` (written by an export), `agent/` (written by `e2e-conductor kit`), and `fixtures/` for fixture scripts, by convention only: nothing scaffolds it.
 - **`.e2e/` (ignored by git)**: what belongs to one machine. The database `e2e.db`, run results, agent draft files in `drafts/<group>/`, env files and snapshots that fixtures write, and the legacy `flows/` and `modules/` folders. Opening a database in a folder named `.e2e` writes `.e2e/.gitignore` with `*` when the file is missing (`openDatabase` in `src/db/connection.ts`), so git ignores the folder and that file without any rule in the project's own `.gitignore`. A `.gitignore` the person already has there is kept. A `--db` file outside a `.e2e` folder gets no `.gitignore`.
 
-A project is the nearest folder upward that holds either folder (`findProjectDir` in `src/db/paths.ts`), so a fresh clone with only `e2e-suite/` is found before any database exists. Commands that need the database, such as `e2e save` and `e2e kit`, then exit with a hint to run `e2e init` or `e2e ui`, since environments and platforms are not in git. Older locations (`.e2e/scenarios/`, `.e2e/agent/`, a `presets/` folder at the project root) are not read.
+A project is the nearest folder upward that holds either folder (`findProjectDir` in `src/db/paths.ts`), so a fresh clone with only `e2e-suite/` is found before any database exists. Commands that need the database, such as `e2e-conductor save` and `e2e-conductor kit`, then exit with a hint to run `e2e-conductor init` or `e2e-conductor ui`, since environments and platforms are not in git. Older locations (`.e2e/scenarios/`, `.e2e/agent/`, a `presets/` folder at the project root) are not read.
 
-When a git ignore rule hides `e2e-suite/`, one of its folders (`scenarios/`, `presets/`, `agent/`, `fixtures/`) or a file directly in one, `e2e init`, `e2e export` and `e2e kit` warn once per rule, and `e2e export --check` fails (`scenarios.md`, section 4). Dotfiles and nested folders are not checked, so a rule that keeps `.DS_Store` or a fixture's `node_modules` out of git does not count, and a negated rule (`!e2e-suite/**`) hides nothing. Secrets belong in `.e2e/` env files, never in `e2e-suite/fixtures/` scripts, which are committed.
+When a git ignore rule hides `e2e-suite/`, one of its folders (`scenarios/`, `presets/`, `agent/`, `fixtures/`) or a file directly in one, `e2e-conductor init`, `e2e-conductor export` and `e2e-conductor kit` warn once per rule, and `e2e-conductor export --check` fails (`scenarios.md`, section 4). Dotfiles and nested folders are not checked, so a rule that keeps `.DS_Store` or a fixture's `node_modules` out of git does not count, and a negated rule (`!e2e-suite/**`) hides nothing. Secrets belong in `.e2e/` env files, never in `e2e-suite/fixtures/` scripts, which are committed.
 
 ---
 
@@ -47,7 +47,7 @@ Run history and test outcomes are persisted both in SQLite tables (`runs`, `step
 
 ## Execution Lifecycle
 
-When running a scenario (`e2e run` or `POST /api/run`):
+When running a scenario (`e2e-conductor run` or `POST /api/run`):
 
 1. **Config Resolution** (`loadConfig` in `src/config.ts`): Resolves active environment, applies variable precedence, and compiles active platforms into executable `targets` and `services`.
 2. **Preflight** (`src/preflight.ts`): Validates that required services are responsive and Android devices are connected. Starts offline services if configured.

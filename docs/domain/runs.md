@@ -102,7 +102,7 @@ Execution progress follows a deterministic state machine:
 ### Scenario Selection and Draft Runs
 A run is either ordinary or a draft run, never both (`loadScenarios` in `src/scenario.ts`, gate in `src/draft-run.ts`).
 
-- **Ordinary run** (run all, a `-s` / `scenarios` substring filter, `e2e run`, `e2e list`): drafts and draft revisions are dropped first, then the filter applies, then validation. An invalid draft never fails an ordinary run. When a filter matches only drafts, the run stops before preflight with `"<text>" matches only drafts (<ids>). Drafts run from the UI's Drafts tab.`, and `e2e run` exits 1.
+- **Ordinary run** (run all, a `-s` / `scenarios` substring filter, `e2e-conductor run`, `e2e-conductor list`): drafts and draft revisions are dropped first, then the filter applies, then validation. An invalid draft never fails an ordinary run. When a filter matches only drafts, the run stops before preflight with `"<text>" matches only drafts (<ids>). Drafts run from the UI's Drafts tab.`, and `e2e-conductor run` exits 1.
 - **Draft run** (`RunOptions.drafts`, `POST /api/run` with `drafts`): loads exactly those ids, never by substring, and ignores `scenarios`. `run()` refuses it before opening anything unless every id is a draft or revision and the environment the run loaded has the draft mark (`allowDrafts`, `environments.md` section 5). The refusal names the environments that allow drafts, or says none does and that the mark is set in the UI's Config view. `E2E_ENV` and `--env` do not get around it: the check reads the environment actually loaded.
 - **Over HTTP**, `POST /api/run` with `drafts` runs the same checks before it sets the active run or answers: the requested `environment` loads, every id is a draft, and the mark is set. A failure answers 409 with the message, and no run starts. An ordinary run whose `environment` fails to load still falls back to the active environment.
 - **The CLI** has no way to start a draft run or to set the mark.
@@ -143,7 +143,7 @@ A failed or fixed scenario-iteration's evidence can be read on one clock (`build
 
 **Known limits:** a device clock that drifts from the host clock shifts its lines by the drift. Emulators take the host's clock; a physical device is only as close as its network time.
 
-A run started with **Screenshot Every Step** (`e2e run --screenshots`, or `POST /api/run` with `stepScreenshots: true`) saves the screen after each web and Android step as `step-<n>.png` (`<n>` is the 1-based step position) in the scenario-iteration's artifacts folder. The option is off by default; without it a run saves only the failure evidence it always did.
+A run started with **Screenshot Every Step** (`e2e-conductor run --screenshots`, or `POST /api/run` with `stepScreenshots: true`) saves the screen after each web and Android step as `step-<n>.png` (`<n>` is the 1-based step position) in the scenario-iteration's artifacts folder. The option is off by default; without it a run saves only the failure evidence it always did.
 - **When**: after the step's last automatic attempt, passed or failed, and before the re-check and any pause, so a failed step shows the screen it failed on. A manual retry during a pause (section 4) retakes it, so the image always shows the step's final attempt.
 - **Which steps**: only targets whose driver has a screen (`captureScreen` on `WebDriver` and `MobileDriver`). HTTP and shell steps get no image. Web images capture the viewport; the failure screenshot stays full-page.
 - **Best-effort**: an Android capture times out after 10 s. A failed capture is logged as a detail line and never changes the step's status, duration or failure label. Capture time is not counted in the step's `duration_ms`.
@@ -181,7 +181,7 @@ When a failure is labeled `Environment down`, the run stops. No further steps or
 If the user cancels while the re-check runs, cancellation wins: the run is `CANCELLED` and no label is stored.
 
 ### Recovered steps and `--strict`
-A recovered step passes and its run passes. The summary's `recovered` count, the CLI result line and the GUI show it. With `e2e run --strict`, any recovered step fails the run with `reason = "recovered steps (strict)"`. The environment-down and fixed-during-run reasons take precedence over the strict reason. The GUI has no strict option yet.
+A recovered step passes and its run passes. The summary's `recovered` count, the CLI result line and the GUI show it. With `e2e-conductor run --strict`, any recovered step fails the run with `reason = "recovered steps (strict)"`. The environment-down and fixed-during-run reasons take precedence over the strict reason. The GUI has no strict option yet.
 
 ### Run outcome
 
@@ -263,7 +263,7 @@ When a scenario-iteration starts, before its setup fixtures, `runScenario` (`src
 | `FAILED` | A step or setup fixture failed and was not fixed. |
 | `PASSED` | Everything else. |
 
-Scenario-iterations an environment-down stop never reached record nothing. A process killed mid-scenario leaves `RUNNING`. Every connection waits up to 5 seconds for another connection's write transaction (an `e2e save`, for example) before a write fails, so these writes land after it commits. Writes are best effort: a failed write never fails a step, a scenario or the run, and never changes the exit code, `summary.json` or run events.
+Scenario-iterations an environment-down stop never reached record nothing. A process killed mid-scenario leaves `RUNNING`. Every connection waits up to 5 seconds for another connection's write transaction (an `e2e-conductor save`, for example) before a write fails, so these writes land after it commits. Writes are best effort: a failed write never fails a step, a scenario or the run, and never changes the exit code, `summary.json` or run events.
 
 A fix saved during a pause changes the scenario in memory, not the iteration's row: the iteration keeps the fingerprint it started with, and the next iteration records the fixed content. Runs from before these tables existed have no rows.
 
@@ -311,7 +311,7 @@ In the Web GUI:
     - One card per prompt group (`GET /api/drafts`): the prompt, the agent that saved it, and how many drafts it holds and how many passed. Each draft row shows its state badge (`Draft`, `Bug Found`), its pass badge (`Passed`, `Not Yet Passed`, or `Fixed, Run Again` when its last run passed only after a fix while paused), `Revision of <kept name>` on a revision, and its readback: steps as plain sentences, the targets and fixtures it uses, and any shell commands and full URLs verbatim.
     - **Run Batch** runs every draft in the group as one draft run (`drafts` plus the chosen environment), with an optional `Pause on Failure`, and switches to the Runner. The environment select lists only environments with the draft mark, defaulting to the active one when it is marked. With none marked, the card says so, links to Config, Environments, and offers no Run Batch. A refusal (409) shows the server's message and stays on the Drafts tab.
     - `Keep` shows only on a draft whose current content passed; `Keep All Passing` keeps every such draft in the group and names any revision it skipped. `Mark Bug Found` shows on a draft that ran and has not passed. `Discard` and `Discard Group` ask for confirmation first. `Edit in Builder` opens the draft in the Scenario Builder, where it stays a draft.
-    - With no drafts, an empty state says how an agent saves them (`e2e kit`, then `e2e save`).
+    - With no drafts, an empty state says how an agent saves them (`e2e-conductor kit`, then `e2e-conductor save`).
 - **Runner View and drafts**: the scenario list, the default selection and Select All cover kept scenarios only, so an ordinary run from the Runner never includes a draft. A draft run's steps and pause still show, because the step tree and pause banner read every scenario.
 - **Reports & Artifacts View (`ArtifactsView.tsx`)**:
   - **Run History Sidebar**: Displays run timestamp, environment, duration, and status badge.

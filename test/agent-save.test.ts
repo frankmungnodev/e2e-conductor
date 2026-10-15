@@ -15,7 +15,7 @@ import { scenarioVersion } from "../src/scenario-version.ts"
 import { PROBLEM_CODES } from "../src/vocabulary.ts"
 import { tempDir } from "./temp-dir.ts"
 
-const CLI = resolve(import.meta.dirname, "..", "bin", "e2e.mjs")
+const CLI = resolve(import.meta.dirname, "..", "bin", "e2e-conductor.mjs")
 
 /** A project with an `api` target, a default `dev` environment, and the draft mark on `allowDrafts`. */
 function project({ allowDrafts = ["dev"] }: { allowDrafts?: string[] } = {}): string {
@@ -30,7 +30,7 @@ function project({ allowDrafts = ["dev"] }: { allowDrafts?: string[] } = {}): st
 
 const health = (name: string, url = "/health") => ({ name, steps: [{ name: "Health", target: "api", url }] })
 
-/** Writes `files` into `.e2e/drafts/<group>/`, the folder `e2e save` reads with no file arguments. */
+/** Writes `files` into `.e2e/drafts/<group>/`, the folder `e2e-conductor save` reads with no file arguments. */
 function writeDrafts(dir: string, group: string, files: Record<string, unknown>): string {
   const folder = join(dir, ".e2e", "drafts", group)
   mkdirSync(folder, { recursive: true })
@@ -73,7 +73,7 @@ function keep(dir: string, scenario: Scenario) {
   withDb(resolveDbPath(dir), (db) => saveScenario(db, scenario))
 }
 
-describe("e2e save", () => {
+describe("e2e-conductor save", () => {
   it("AE1: stores nothing when one of 30 files uses an unknown target, naming the file, the step and the targets", () => {
     const dir = project()
     const files: Record<string, unknown> = {}
@@ -292,7 +292,7 @@ describe("e2e save", () => {
     const { exitCode, report } = save(dir)
 
     assert.equal(exitCode, 3)
-    assert.match(report.error ?? "", /No database at .*e2e init/)
+    assert.match(report.error ?? "", /No database at .*e2e-conductor init/)
   })
 
   it("in a fresh clone with only e2e-suite, finds the project from a subfolder and exits 3 with the setup hint", () => {
@@ -303,7 +303,7 @@ describe("e2e save", () => {
     const { exitCode, report } = save(join(dir, "app", "src"))
 
     assert.equal(exitCode, 3)
-    assert.match(report.error ?? "", /No database at .*e2e init/)
+    assert.match(report.error ?? "", /No database at .*e2e-conductor init/)
     assert.equal(report.project, dir)
   })
 

@@ -283,7 +283,7 @@ describe("runner draft safety", () => {
 
   it("exits 1 from the CLI when -s matches only drafts", () => {
     const dir = draftProject([shell("kept")], [shell("login")])
-    const cli = resolve(import.meta.dirname, "..", "bin", "e2e.mjs")
+    const cli = resolve(import.meta.dirname, "..", "bin", "e2e-conductor.mjs")
     const result = spawnSync(process.execPath, [cli, "run", "-d", dir, "-s", "login"], { encoding: "utf8" })
 
     assert.equal(result.status, 1)

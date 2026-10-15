@@ -5,7 +5,7 @@
 | `v1/scenario.schema.json` | Scenario JSON files | `urn:e2e-conductor:scenario:v1` |
 | `v1/flow.schema.json` | Each YAML document of a mobile flow file. No step runs flows any more; the file is a leftover | `urn:e2e-conductor:flow:v1` |
 
-`e2e list` and `e2e run` validate every scenario before anything starts: the schema, then the step
+`e2e-conductor list` and `e2e-conductor run` validate every scenario before anything starts: the schema, then the step
 check in `src/scenario.ts`, which reads the vocabulary in `src/vocabulary.ts`. A test holds the schema's
 step and action fields to that vocabulary.
 

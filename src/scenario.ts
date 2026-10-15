@@ -172,7 +172,7 @@ export function getOrSeedScenarios(config: LoadedConfig, { throwOnDbError = fals
 }
 
 /**
- * Loads and validates the scenarios a run or `e2e list` uses. Without `drafts`, drafts are dropped before
+ * Loads and validates the scenarios a run or `e2e-conductor list` uses. Without `drafts`, drafts are dropped before
  * the substring `filters` and before validation, so an ordinary run never sees one. With `drafts`, it
  * loads exactly those ids and ignores `filters`; the caller checks they are drafts (`draftRunRefusal`).
  */

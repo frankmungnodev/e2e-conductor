@@ -150,7 +150,7 @@ export async function loadConfig(configDirOrDbPath?: string, envName?: string, c
       : resolveDbPath(configDir)
 
   if (!existsSync(dbPath)) {
-    throw new Error(`Database not found: ${dbPath}. Run "e2e init" or "e2e ui" to initialize your test configuration.`)
+    throw new Error(`Database not found: ${dbPath}. Run "e2e-conductor init" or "e2e-conductor ui" to initialize your test configuration.`)
   }
 
   const db = openDatabase(dbPath)

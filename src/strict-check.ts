@@ -43,7 +43,7 @@ export function environmentsToCheck(db: DatabaseSync, names: string[]): { enviro
   return { environments: [environment], notices: [notice] }
 }
 
-/** The environments `e2e save` checks drafts against: the ones that allow drafts, else the default one. */
+/** The environments `e2e-conductor save` checks drafts against: the ones that allow drafts, else the default one. */
 export function draftEnvironmentsToCheck(db: DatabaseSync): { environments: CheckedEnvironment[]; notices: Problem[] } {
   const allowed = Object.entries(getEnvironments(db))
     .filter(([, environment]) => environment.allowDrafts)
@@ -52,7 +52,7 @@ export function draftEnvironmentsToCheck(db: DatabaseSync): { environments: Chec
 }
 
 /**
- * The strict check `e2e save` runs: the base `checkSteps` with targets from `environments`, then
+ * The strict check `e2e-conductor save` runs: the base `checkSteps` with targets from `environments`, then
  * - `unknown-target` for a target one of the environments lacks,
  * - `ctx-not-produced` / `ctx-produced-later` for a `${ctx.*}` that no `vars` entry or earlier `extract` sets,
  * - `unknown-env-var` for a `${env.*}` name an environment does not configure (process env names do not count),

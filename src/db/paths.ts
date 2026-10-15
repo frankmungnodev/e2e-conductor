@@ -48,7 +48,7 @@ export function resolveCliPaths(
 }
 
 /**
- * The nearest folder, from `start` upward, that holds a `.e2e` or `e2e-suite` folder: the project `e2e save`
+ * The nearest folder, from `start` upward, that holds a `.e2e` or `e2e-suite` folder: the project `e2e-conductor save`
  * works in, so an agent can run it from anywhere in the repo, including a fresh clone that has no `.e2e` yet.
  * Undefined when no folder up to the root has either.
  */

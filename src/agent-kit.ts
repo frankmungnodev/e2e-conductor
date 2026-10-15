@@ -13,7 +13,7 @@ import { draftEnvironmentsToCheck } from "./strict-check.ts"
 /** The root instruction files that get the kit block, when they exist. The kit never creates them. */
 const INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md"]
 
-/** What `e2e kit` did to one root instruction file. */
+/** What `e2e-conductor kit` did to one root instruction file. */
 export type InstructionFileOutcome = {
   /** Every name at the project root that resolves to this file, e.g. a `CLAUDE.md` symlinked to `AGENTS.md`. */
   names: string[]
@@ -31,18 +31,18 @@ export type KitReport = {
 }
 
 /**
- * Writes the agent kit for the nearest project from `cwd` upward, as `e2e save` finds it:
+ * Writes the agent kit for the nearest project from `cwd` upward, as `e2e-conductor save` finds it:
  * `e2e-suite/agent/kit.md`, `e2e-suite/agent/vocabulary.json`, and the marked block in the root `AGENTS.md`
  * and `CLAUDE.md` that exist. Only the block between the markers is rewritten; the files are written in
  * place, so a symlinked `CLAUDE.md` stays a symlink and its target gets one block.
  */
 export function writeAgentKit(cwd: string): KitReport {
   const project = findProjectDir(cwd)
-  if (!project) throw new Error(`No .e2e or e2e-suite folder in ${cwd} or any folder above it. Run "e2e init" in the project first.`)
+  if (!project) throw new Error(`No .e2e or e2e-suite folder in ${cwd} or any folder above it. Run "e2e-conductor init" in the project first.`)
   const dbPath = resolveDbPath(project)
-  if (!existsSync(dbPath)) throw new Error(`No database at ${dbPath}. Run "e2e init" or "e2e ui" in ${project} first.`)
+  if (!existsSync(dbPath)) throw new Error(`No database at ${dbPath}. Run "e2e-conductor init" or "e2e-conductor ui" in ${project} first.`)
 
-  // The same environments `e2e save` checks against: the ones that allow drafts, else the default one.
+  // The same environments `e2e-conductor save` checks against: the ones that allow drafts, else the default one.
   const facts = withDb(dbPath, (db): KitFacts => {
     const { environments, notices } = draftEnvironmentsToCheck(db)
     return { environments, notices, fixtures: Object.keys(getFixtures(db)), presets: getStepPresets(db), stepGroups: getStepGroups(db) }
@@ -93,13 +93,13 @@ function withBlock(text: string, block: string, name: string): { text: string; o
   const to = text.indexOf(KIT_END)
   // Replacing between unmatched markers could delete the person's own text.
   if (starts !== 1 || ends !== 1 || to < from) {
-    throw new Error(`${name} has unmatched ${KIT_START} / ${KIT_END} markers. Leave exactly one pair, or none, and run "e2e kit" again.`)
+    throw new Error(`${name} has unmatched ${KIT_START} / ${KIT_END} markers. Leave exactly one pair, or none, and run "e2e-conductor kit" again.`)
   }
   const next = `${text.slice(0, from)}${block}${text.slice(to + KIT_END.length)}`
   return { text: next, outcome: next === text ? "unchanged" : "updated" }
 }
 
-/** What `e2e kit` prints, with paths relative to `cwd`. */
+/** What `e2e-conductor kit` prints, with paths relative to `cwd`. */
 export function renderKitReport(report: KitReport, cwd: string): string {
   const at = (path: string) => relative(cwd, path) || "."
   const lines = [
@@ -109,11 +109,11 @@ export function renderKitReport(report: KitReport, cwd: string): string {
   ]
   for (const { names, outcome } of report.instructionFiles) {
     const tint = outcome === "unchanged" ? color.dim : color.green
-    lines.push(`${tint(outcome.padEnd(9))} ${names.map((name) => at(join(report.project, name))).join(" = ")} ${color.dim("(e2e kit block)")}`)
+    lines.push(`${tint(outcome.padEnd(9))} ${names.map((name) => at(join(report.project, name))).join(" = ")} ${color.dim("(e2e-conductor kit block)")}`)
   }
   if (report.instructionFiles.length === 0) {
     lines.push(
-      color.yellow(`No AGENTS.md or CLAUDE.md in ${at(report.project)}, so none was written. Create one and run "e2e kit" again to point agents at the kit.`),
+      color.yellow(`No AGENTS.md or CLAUDE.md in ${at(report.project)}, so none was written. Create one and run "e2e-conductor kit" again to point agents at the kit.`),
     )
   }
   return lines.join("\n")

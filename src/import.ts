@@ -14,7 +14,7 @@ export type ImportResult = {
   updated: string[]
   unchanged: string[]
   invalid: { file: string; problems: string[] }[]
-  /** Files whose id is a draft or draft revision: only `e2e save` and Keep change those. */
+  /** Files whose id is a draft or draft revision: only `e2e-conductor save` and Keep change those. */
   skipped: { file: string; reason: string }[]
 }
 
@@ -27,7 +27,7 @@ export type ImportResult = {
  */
 export function importFromJson(config: LoadedConfig): ImportResult {
   const dbPath = config.dbPath
-  if (!existsSync(dbPath)) throw new Error(`No database at ${dbPath}. Run "e2e init" first.`)
+  if (!existsSync(dbPath)) throw new Error(`No database at ${dbPath}. Run "e2e-conductor init" first.`)
   // Run the one-time import first, so it never re-adds a file this import skipped as invalid.
   getOrSeedScenarios(config)
 
@@ -59,7 +59,7 @@ export function importFromJson(config: LoadedConfig): ImportResult {
         continue
       }
       if (getDraft(db, scenario.id)) {
-        result.skipped.push({ file: path, reason: `"${scenario.id}" is a draft; only "e2e save", Keep or Discard change it` })
+        result.skipped.push({ file: path, reason: `"${scenario.id}" is a draft; only "e2e-conductor save", Keep or Discard change it` })
         continue
       }
       const existing = getScenario(db, scenario.id)

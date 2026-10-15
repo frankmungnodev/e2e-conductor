@@ -50,7 +50,7 @@ export function DraftsView({
           <EmptyState
             icon={<Inbox className="w-6 h-6" />}
             title="No Drafts"
-            description="Run `e2e kit` in your project, then ask your coding agent to write scenarios and save them with `e2e save`. They show up here, grouped by the prompt you gave it."
+            description="Run `e2e-conductor kit` in your project, then ask your coding agent to write scenarios and save them with `e2e-conductor save`. They show up here, grouped by the prompt you gave it."
             bordered
           />
         ) : (

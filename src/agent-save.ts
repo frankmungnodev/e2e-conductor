@@ -39,7 +39,7 @@ export type SaveResult = {
   revisionOf?: string
 }
 
-/** The one document `e2e save --json` prints. On failure `results` is empty. */
+/** The one document `e2e-conductor save --json` prints. On failure `results` is empty. */
 export type SaveReport = {
   ok: boolean
   mode: "save" | "check"
@@ -104,7 +104,7 @@ export function saveAgentDrafts(request: SaveRequest): { exitCode: SaveExitCode;
 function save(request: SaveRequest, report: SaveReport): SaveExitCode {
   const project = findProjectDir(request.cwd)
   if (!project) {
-    throw new SaveError(`No .e2e or e2e-suite folder in ${request.cwd} or any folder above it. Run "e2e init" in the project first.`, 3)
+    throw new SaveError(`No .e2e or e2e-suite folder in ${request.cwd} or any folder above it. Run "e2e-conductor init" in the project first.`, 3)
   }
   report.project = project
   const dbPath = resolveDbPath(project)
@@ -117,7 +117,7 @@ function save(request: SaveRequest, report: SaveReport): SaveExitCode {
       2,
     )
   }
-  if (!existsSync(dbPath)) throw new SaveError(`No database at ${dbPath}. Run "e2e init" or "e2e ui" in ${project} first.`, 3)
+  if (!existsSync(dbPath)) throw new SaveError(`No database at ${dbPath}. Run "e2e-conductor init" or "e2e-conductor ui" in ${project} first.`, 3)
 
   const db = openDatabaseOrFail(dbPath)
   try {
@@ -234,7 +234,7 @@ function readScenario(path: string, file: string): { scenario: Scenario } | { pr
   }
   const id = basename(path, ".json")
   if (id.endsWith(REVISION_SUFFIX)) {
-    return { problems: [reservedId(file, id, `"${id}" ends in "${REVISION_SUFFIX}", which marks a revision e2e save makes`)] }
+    return { problems: [reservedId(file, id, `"${id}" ends in "${REVISION_SUFFIX}", which marks a revision e2e-conductor save makes`)] }
   }
   return { scenario: { ...(raw as Omit<Scenario, "id">), id } as Scenario }
 }

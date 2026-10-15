@@ -32,7 +32,7 @@ describe("Drafts view", () => {
     const { url, page } = await startUiSession("drafts-empty")
     await page.goto(`${url}/?tab=drafts`)
     await page.getByText("No Drafts", { exact: true }).waitFor()
-    await page.getByText(/save them with `e2e save`/).waitFor()
+    await page.getByText(/save them with `e2e-conductor save`/).waitFor()
   })
 
   it("reviews, runs, keeps, marks, re-runs and discards a prompt group", async () => {
