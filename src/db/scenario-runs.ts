@@ -131,3 +131,23 @@ export function lastScenarioRun(db: DatabaseSync, scenarioId: string): { runId: 
   const status = OUTCOME_ORDER.find((candidate) => rows.some((row) => row.status === candidate))
   return status && { runId: rows[0].run_id, status }
 }
+
+/** Why a run failed the scenario: the final failed step attempt. `step` (1-based) and `name` are absent once that step is gone. */
+export type ScenarioFailure = { step?: number; name?: string; message: string }
+
+/** The scenario's last failed step attempt in `runId`, or undefined when no step failed there. */
+export function scenarioRunFailure(db: DatabaseSync, scenarioId: string, runId: string): ScenarioFailure | undefined {
+  const row = db
+    .prepare(`
+      SELECT sr.error_message, ss.order_num, ss.name FROM step_runs sr
+      LEFT JOIN scenario_steps ss ON ss.id = sr.step_id AND ss.scenario_id = sr.scenario_id
+      WHERE sr.run_id = ? AND sr.scenario_id = ? AND sr.status = 'FAILED'
+      ORDER BY sr.created_at DESC, sr.rowid DESC LIMIT 1
+    `)
+    .get(runId, scenarioId) as { error_message: string | null; order_num: number | null; name: string | null } | undefined
+  if (!row) return undefined
+  return {
+    ...(row.order_num != null ? { step: row.order_num, name: row.name ?? undefined } : {}),
+    message: row.error_message ?? "Failed",
+  }
+}

@@ -4,7 +4,7 @@ import type { DatabaseSync } from "node:sqlite"
 import { describe, it } from "node:test"
 import { loadConfig } from "../src/config.ts"
 import { openDatabase } from "../src/db/connection.ts"
-import { getDraft, revisionId, saveRevision } from "../src/db/drafts.ts"
+import { getDraft, revisionId, saveDraft, saveRevision } from "../src/db/drafts.ts"
 import { saveRun } from "../src/db/runs.ts"
 import { saveScenarioRun } from "../src/db/scenario-runs.ts"
 import { getScenario, type Scenario, saveScenario } from "../src/db/scenarios.ts"
@@ -82,6 +82,65 @@ describe("GET /api/drafts", () => {
       assert.deepEqual([byId.failing.passed, byId.failing.lastRun.status], [false, "FAILED"])
       assert.deepEqual(byId.failing.readback.steps[0].sentences, ["Runs the shell command: false"])
       assert.deepEqual(byId.failing.readback.targets, ["shell"])
+    })
+  })
+})
+
+describe("GET /api/drafts failure reasons", () => {
+  const runDrafts = async (url: string, ids: string[]) => {
+    assert.equal((await send(url, "POST", "/api/run", { drafts: ids })).status, 200)
+    const deadline = Date.now() + 10000
+    while (((await (await send(url, "GET", "/api/run/status")).json()) as any).isRunning) {
+      if (Date.now() > deadline) throw new Error("run did not finish")
+      await new Promise((resolveWait) => setTimeout(resolveWait, 20))
+    }
+  }
+  const draftsById = async (url: string) => {
+    const body = (await (await send(url, "GET", "/api/drafts")).json()) as any
+    return Object.fromEntries(body.groups.flatMap((group: any) => group.drafts).map((draft: any) => [draft.id, draft]))
+  }
+  const twoSteps = (id: string, second: string, retry?: { times: number; delay_ms: number }): Scenario => ({
+    id,
+    name: id,
+    steps: [
+      { name: "Warm up", target: "shell", command: "true" },
+      { name: "Check exit", target: "shell", command: second, ...(retry ? { retry } : {}) },
+    ],
+  })
+
+  it("names the failing step and its message, and leaves passing and never-run drafts without one (AE1)", async () => {
+    const dir = draftProject([], [twoSteps("broken", "exit 1"), shell("passing"), shell("unrun")], ["dev"])
+    await withServer(dir, async (url) => {
+      await runDrafts(url, ["broken", "passing"])
+      const byId = await draftsById(url)
+      assert.equal(byId.broken.lastRun.status, "FAILED")
+      assert.equal(byId.broken.lastRun.failure.step, 2)
+      assert.equal(byId.broken.lastRun.failure.name, "Check exit")
+      assert.match(byId.broken.lastRun.failure.message, /exit code/)
+      assert.equal(byId.passing.lastRun.failure, undefined)
+      assert.equal(byId.unrun.lastRun, null)
+    })
+  })
+
+  it("reports the final attempt of a retried step", async () => {
+    const dir = draftProject([], [twoSteps("flaky", "exit 4", { times: 1, delay_ms: 0 })], ["dev"])
+    await withServer(dir, async (url) => {
+      await runDrafts(url, ["flaky"])
+      const { flaky } = await draftsById(url)
+      assert.equal(flaky.lastRun.failure.step, 2)
+      assert.match(flaky.lastRun.failure.message, /4/)
+    })
+  })
+
+  it("keeps the message without a step once a re-save replaced the failed step", async () => {
+    const dir = draftProject([], [twoSteps("broken", "exit 1")], ["dev"])
+    await withServer(dir, async (url) => {
+      await runDrafts(url, ["broken"])
+      withDb(dir, (db) => saveDraft(db, twoSteps("broken", "exit 2"), "batch"))
+      const { broken } = await draftsById(url)
+      assert.match(broken.lastRun.failure.message, /exit code/)
+      assert.equal(broken.lastRun.failure.step, undefined)
+      assert.equal(broken.lastRun.failure.name, undefined)
     })
   })
 })

@@ -11,7 +11,7 @@ import {
   keepDraft,
   markBugFound,
 } from "../../db/drafts.ts"
-import { lastScenarioRun, passedOnContent } from "../../db/scenario-runs.ts"
+import { lastScenarioRun, passedOnContent, scenarioRunFailure } from "../../db/scenario-runs.ts"
 import { getScenario } from "../../db/scenarios.ts"
 import { readback } from "../../readback.ts"
 import { scenarioVersion } from "../../scenario-version.ts"
@@ -32,6 +32,8 @@ const notADraft = (id: string) => `"${id}" is not a draft`
 function draftView(state: ServerState, db: DatabaseSync, draft: Draft) {
   const scenario = getScenario(db, draft.id)
   if (!scenario) return undefined
+  const lastRun = lastScenarioRun(db, draft.id)
+  const failure = lastRun?.status === "FAILED" ? scenarioRunFailure(db, draft.id, lastRun.runId) : undefined
   return {
     id: draft.id,
     name: scenario.name ?? draft.id,
@@ -39,7 +41,7 @@ function draftView(state: ServerState, db: DatabaseSync, draft: Draft) {
     state: draft.state,
     revisionOf: draft.revisionOf,
     passed: passedOnContent(db, draft.id, scenarioVersion(scenario).fingerprint),
-    lastRun: lastScenarioRun(db, draft.id) ?? null,
+    lastRun: lastRun ? { ...lastRun, ...(failure ? { failure } : {}) } : null,
     readback: readback(state.config, scenario),
   }
 }

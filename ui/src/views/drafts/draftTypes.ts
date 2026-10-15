@@ -24,7 +24,8 @@ export type DraftItem = {
   state: DraftState
   revisionOf?: string
   passed: boolean
-  lastRun: { runId: string; status: DraftRunStatus } | null
+  /** `failure` is the final failed step attempt when that run failed; `step` and `name` are absent once the step is gone. */
+  lastRun: { runId: string; status: DraftRunStatus; failure?: { step?: number; name?: string; message: string } } | null
   readback: Readback
 }
 
